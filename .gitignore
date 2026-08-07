@@ -23,6 +23,8 @@
 
 # Emulator binaries / extracted AppImages
 *.appimage
+*.dmg
+*.app/
 squashfs-root/
 
 # Generated captures / runtime files

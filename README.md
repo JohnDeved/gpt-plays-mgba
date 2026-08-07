@@ -30,6 +30,14 @@ The older `scripts/mgba_control.lua` / `client/mgba_client.py` text protocol is 
 
 See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the interface-improvement plan.
 
+## Launch on macOS
+
+Use a native macOS development build. The checked-out workspace can use the runtime at `../runtime/mGBA.app` automatically:
+
+    scripts/launch_mgba_macos.sh /path/to/game.gba
+
+Set `MGBA_BIN=/path/to/mGBA` when the emulator is installed elsewhere. The script starts the Lua bridge on `127.0.0.1:8765`.
+
 ## Launch in the sandbox
 
 The sandbox has no real X server, so mGBA is run on Xvfb. The AppImage can be extracted first because FUSE is unavailable.

@@ -2,6 +2,8 @@ local PORT = 8765
 local PROTOCOL = "mgba-rpc/0.2"
 local MAX_RANGE_BYTES = 1024 * 1024
 local MAX_EVENT_QUEUE = 4096
+local RUNTIME_DIR = os.getenv("MGBA_RUNTIME_DIR") or "/tmp"
+local READY_FILE = os.getenv("MGBA_RPC_READY_FILE") or (RUNTIME_DIR.."/mgba_rpc_ready.txt")
 
 local server = nil
 local clients = {}
@@ -617,7 +619,7 @@ local function dispatch(req)
     return {wait=wait_public(w)}
   end
   if op=="screenshot" then
-    local path=p.path or "/mnt/data/mgba-shot.png"
+    local path=p.path or (RUNTIME_DIR.."/mgba-shot.png")
     emu:screenshot(path)
     return {path=path}
   end
@@ -661,7 +663,7 @@ local function dispatch(req)
       result.events=poll_watch_events(p.after_event,p.event_limit)
     end
     if p.screenshot then
-      local path=type(p.screenshot)=="string" and p.screenshot or string.format("/mnt/data/mgba-frame-%d.png",frame())
+      local path=type(p.screenshot)=="string" and p.screenshot or string.format("%s/mgba-frame-%d.png",RUNTIME_DIR,frame())
       emu:screenshot(path); result.screenshot=path
     end
     if activeAction then result.action=action_public(activeAction) end
@@ -733,5 +735,5 @@ if server then
   if ok then server:add("received",accept_client) end
 end
 
-local f=io.open("/mnt/data/mgba_rpc_ready.txt","w")
+local f=io.open(READY_FILE,"w")
 if f then f:write(PROTOCOL.." port="..tostring(PORT).."\n"); f:close() end
