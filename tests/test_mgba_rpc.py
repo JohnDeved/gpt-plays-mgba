@@ -29,6 +29,13 @@ class FakeMGBA(MGBA):
                     }
                 ]
             }
+        if op == "text.inspect":
+            return {
+                "buffer": {"address": 1, "length": 2, "encoding": "hex", "data": "bbff"},
+                "printers": [],
+            }
+        if op == "tasks.inspect":
+            return {"address": 0x03005E10, "stride": 0x28, "slots": 16, "tasks": []}
         if op == "memory.snapshot":
             return {"snapshot": {"name": params["name"], "ranges": params["ranges"]}}
         if op == "memory.diff":
@@ -121,6 +128,20 @@ class MGBAClientTests(unittest.TestCase):
                 },
             ),
         )
+
+    def test_text_inspection_decodes_the_buffer_payload(self):
+        gba = FakeMGBA()
+        result = gba.inspect_text()
+        self.assertEqual(result["buffer"]["data"], b"\xbb\xff")
+        self.assertEqual(gba.calls[-1][0], "text.inspect")
+
+    def test_task_inspection_maps_to_rpc_operation(self):
+        gba = FakeMGBA()
+
+        result = gba.inspect_tasks()
+
+        self.assertEqual(result["stride"], 0x28)
+        self.assertEqual(gba.calls[-1][0], "tasks.inspect")
 
 
 if __name__ == "__main__":

@@ -5,6 +5,20 @@ local MAX_EVENT_QUEUE = 4096
 local RUNTIME_DIR = os.getenv("MGBA_RUNTIME_DIR") or "/tmp"
 local READY_FILE = os.getenv("MGBA_RPC_READY_FILE") or (RUNTIME_DIR.."/mgba_rpc_ready.txt")
 
+-- Optional text-printer inspection defaults for the verified Run & Bun profile.
+-- Clients can override these for another Gen III ROM/profile.
+local DEFAULT_TEXT_BUFFER_ADDRESS = 0x02021FC4
+local DEFAULT_TEXT_BUFFER_LENGTH = 0x3E8
+local DEFAULT_TEXT_PRINTERS_ADDRESS = 0x0202018C
+local DEFAULT_TEXT_PRINTER_STRIDE = 0x24
+local DEFAULT_TEXT_PRINTER_SLOTS = 16
+-- Verified Gen III task scheduler layout for the Run & Bun v1.07 ROM.
+-- A Task is: function (u32), active (u8), prev (u8), next (u8),
+-- priority (u8), data[16] (u16), for a 0x28-byte stride.
+local DEFAULT_TASKS_ADDRESS = 0x03005E10
+local DEFAULT_TASK_STRIDE = 0x28
+local DEFAULT_TASK_SLOTS = 16
+
 local server = nil
 local clients = {}
 local buffers = {}
@@ -273,6 +287,77 @@ local function read_range_public(r, include_data)
   return out,bytes
 end
 
+local function text_printer_public(address)
+  return {
+    address=address,
+    current_char=emu:read32(address + 0x00),
+    window_id=emu:read8(address + 0x04),
+    font_id=emu:read8(address + 0x05),
+    x=emu:read8(address + 0x06),
+    y=emu:read8(address + 0x07),
+    current_x=emu:read8(address + 0x08),
+    current_y=emu:read8(address + 0x09),
+    letter_spacing=emu:read8(address + 0x0A),
+    line_spacing=emu:read8(address + 0x0B),
+    callback=emu:read32(address + 0x10),
+    active=emu:read8(address + 0x1B),
+    state=emu:read8(address + 0x1C),
+    text_speed=emu:read8(address + 0x1D),
+    delay_counter=emu:read8(address + 0x1E),
+    scroll_distance=emu:read8(address + 0x1F),
+    min_letter_spacing=emu:read8(address + 0x20),
+    japanese=emu:read8(address + 0x21),
+  }
+end
+
+local function inspect_text(p)
+  local buffer_address=integer_param(p.address or DEFAULT_TEXT_BUFFER_ADDRESS,"address",0,nil)
+  local buffer_length=integer_param(p.length or DEFAULT_TEXT_BUFFER_LENGTH,"length",1,MAX_RANGE_BYTES)
+  local printers_address=integer_param(p.printers_address or DEFAULT_TEXT_PRINTERS_ADDRESS,"printers_address",0,nil)
+  local printer_stride=integer_param(p.printer_stride or DEFAULT_TEXT_PRINTER_STRIDE,"printer_stride",1,nil)
+  local printer_slots=integer_param(p.printer_slots or DEFAULT_TEXT_PRINTER_SLOTS,"printer_slots",1,64)
+  local _,hex=read_range_data(buffer_address,buffer_length)
+  local printers={}
+  for i=0,printer_slots-1 do
+    printers[#printers+1]=text_printer_public(printers_address+i*printer_stride)
+  end
+  return {
+    buffer={address=buffer_address,length=buffer_length,encoding="hex",data=hex},
+    printers_address=printers_address,
+    printer_stride=printer_stride,
+    printers=printers,
+  }
+end
+
+local function task_public(address, index)
+  local data={}
+  for i=0,15 do data[#data+1]=emu:read16(address + 0x08 + i*2) end
+  return {
+    index=index,
+    address=address,
+    function_address=emu:read32(address + 0x00),
+    active=emu:read8(address + 0x04),
+    previous=emu:read8(address + 0x05),
+    next=emu:read8(address + 0x06),
+    priority=emu:read8(address + 0x07),
+    data=data,
+  }
+end
+
+local function inspect_tasks(p)
+  local address=integer_param(p.address or DEFAULT_TASKS_ADDRESS,"address",0,nil)
+  local stride=integer_param(p.stride or DEFAULT_TASK_STRIDE,"stride",1,nil)
+  local slots=integer_param(p.slots or DEFAULT_TASK_SLOTS,"slots",1,32)
+  local tasks={}
+  for i=0,slots-1 do tasks[#tasks+1]=task_public(address+i*stride,i) end
+  return {
+    address=address,
+    stride=stride,
+    slots=slots,
+    tasks=tasks,
+  }
+end
+
 local function sorted_watch_names()
   local names={}
   for name,_ in pairs(watches) do names[#names+1]=name end
@@ -445,7 +530,7 @@ end
 local function capabilities()
   return {
     protocol=PROTOCOL,
-    ops={"ping","info","observe","input.press","input.sequence","input.clear","action.status","memory.read","memory.read_batch","memory.read_range","memory.read_range_batch","memory.write","memory.snapshot","memory.diff","watch.add","watch.remove","watch.list","watch.read","events.poll","wait.until","wait.status","wait.cancel","screenshot","state.save","state.load","reset"},
+    ops={"ping","info","observe","text.inspect","tasks.inspect","input.press","input.sequence","input.clear","action.status","memory.read","memory.read_batch","memory.read_range","memory.read_range_batch","memory.write","memory.snapshot","memory.diff","watch.add","watch.remove","watch.list","watch.read","events.poll","wait.until","wait.status","wait.cancel","screenshot","state.save","state.load","reset"},
     keys={"A","B","SELECT","START","RIGHT","LEFT","UP","DOWN","R","L"},
     memory_widths={8,16,32},
     max_range_bytes=MAX_RANGE_BYTES,
@@ -453,6 +538,8 @@ local function capabilities()
     frame_based_waits=true,
     memory_snapshots=true,
     memory_watches=true,
+    text_printer_inspection=true,
+    task_inspection=true,
     screenshot=true,
     savestate=true,
   }
@@ -463,6 +550,8 @@ local function dispatch(req)
   local p=req.params or {}
   if op=="ping" then return {pong=true, protocol=PROTOCOL} end
   if op=="info" then return {title=emu:getGameTitle() or "", code=emu:getGameCode() or "", frame=frame(), capabilities=capabilities()} end
+  if op=="text.inspect" then return inspect_text(p) end
+  if op=="tasks.inspect" then return inspect_tasks(p) end
   if op=="reset" then
     emu:reset(); clear_all_keys(); actionQueue={}
     if activeAction then activeAction.state="cancelled"; activeAction.finished_frame=frame(); activeAction=nil end
@@ -661,6 +750,12 @@ local function dispatch(req)
     end
     if p.events then
       result.events=poll_watch_events(p.after_event,p.event_limit)
+    end
+    if p.text then
+      result.text=inspect_text(type(p.text)=="table" and p.text or {})
+    end
+    if p.tasks then
+      result.tasks=inspect_tasks(type(p.tasks)=="table" and p.tasks or {})
     end
     if p.screenshot then
       local path=type(p.screenshot)=="string" and p.screenshot or string.format("%s/mgba-frame-%d.png",RUNTIME_DIR,frame())

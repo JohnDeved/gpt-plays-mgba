@@ -114,6 +114,44 @@ class MGBA:
             for item in result["ranges"]
         ]
 
+    def inspect_text(
+        self,
+        address: int = 0x02021FC4,
+        length: int = 0x3E8,
+        *,
+        printers_address: int = 0x0202018C,
+        printer_stride: int = 0x24,
+        printer_slots: int = 16,
+    ):
+        """Read a Gen III text buffer and its text-printer runtime state."""
+        result = self.call(
+            "text.inspect",
+            address=address,
+            length=length,
+            printers_address=printers_address,
+            printer_stride=printer_stride,
+            printer_slots=printer_slots,
+        )
+        result["buffer"] = {
+            **result["buffer"],
+            "data": bytes.fromhex(result["buffer"]["data"]),
+        }
+        return result
+
+    def inspect_tasks(
+        self,
+        address: int = 0x03005E10,
+        stride: int = 0x28,
+        slots: int = 16,
+    ):
+        """Read the Gen III task scheduler entries used by UI and field code."""
+        return self.call(
+            "tasks.inspect",
+            address=address,
+            stride=stride,
+            slots=slots,
+        )
+
     def write(self, address: int, value: int, width: int = 8):
         return self.call("memory.write", address=address, value=value, width=width)
 
@@ -210,6 +248,8 @@ class MGBA:
         ranges=None,
         watches: bool = False,
         events_after: int | None = None,
+        text: bool | dict = False,
+        tasks: bool | dict = False,
     ):
         params = {}
         if reads is not None:
@@ -221,9 +261,20 @@ class MGBA:
         if events_after is not None:
             params["events"] = True
             params["after_event"] = events_after
+        if text:
+            params["text"] = text if isinstance(text, dict) else True
+        if tasks:
+            params["tasks"] = tasks if isinstance(tasks, dict) else True
         if screenshot:
             params["screenshot"] = str(screenshot) if isinstance(screenshot, (str, Path)) else True
-        return self.call("observe", **params)
+        result = self.call("observe", **params)
+        if result.get("text", {}).get("buffer", {}).get("data") is not None:
+            buffer = result["text"]["buffer"]
+            result["text"]["buffer"] = {
+                **buffer,
+                "data": bytes.fromhex(buffer["data"]),
+            }
+        return result
 
     def screenshot(self, path):
         return Path(self.call("screenshot", path=str(path))["path"])
