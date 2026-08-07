@@ -516,34 +516,53 @@ class RunBunAdapter:
     def advance_dialogue(self, max_pages: int = 32, timeout: float = 10.0) -> list[str]:
         """Advance visible dialogue pages using RAM state as the stop signal."""
         pages: list[str] = []
-        for _ in range(max_pages):
-            deadline = time.monotonic() + timeout
-            while True:
-                state = self.observe()
-                if state["mode"] != "dialogue":
-                    return pages
-                if state["ui"].get("field_message_box_mode") == 3:
+        pending_signature = None
+        deadline = time.monotonic() + timeout
+        while len(pages) < max_pages:
+            state = self.observe()
+            if state["mode"] != "dialogue":
+                return pages
+            if state["ui"].get("field_message_box_mode") == 3:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("auto-scroll dialogue did not close")
+                time.sleep(0.01)
+                continue
+            text = state.get("text") or {}
+            current = text.get("current")
+            if not current:
+                return pages
+            signature = (
+                current.get("start"),
+                current.get("end"),
+                current.get("cursor"),
+                current.get("text"),
+            )
+            # A press can leave the old page visible for several frames. Do
+            # not send another A until the printer has moved to a new page or
+            # the message box has closed.
+            if pending_signature is not None:
+                if signature == pending_signature:
                     if time.monotonic() >= deadline:
-                        raise TimeoutError("auto-scroll dialogue did not close")
+                        raise TimeoutError("dialogue page did not advance")
                     time.sleep(0.01)
                     continue
-                text = state.get("text") or {}
-                current = text.get("current")
-                if not current:
-                    return pages
-                if state["ui"].get("field_message_box_mode") == 2 and not text.get("active"):
-                    pages.append(current["text"])
-                    self.gba.press("A")
-                    continue
-                # State 0 is actively printing. The remaining states below
-                # represent a prompt/paused printer where A/B is meaningful.
-                if current.get("state") in (1, 2, 3, 5, 6):
-                    break
+                pending_signature = None
+                deadline = time.monotonic() + timeout
+
+            ready = (
+                state["ui"].get("field_message_box_mode") == 2
+                and not text.get("active")
+            ) or current.get("state") in (1, 2, 3, 5, 6)
+            if not ready:
                 if time.monotonic() >= deadline:
                     raise TimeoutError("dialogue printer did not reach an input prompt")
                 time.sleep(0.01)
+                continue
+
             pages.append(current["text"])
+            pending_signature = signature
             self.gba.press("A")
+            deadline = time.monotonic() + timeout
         return pages
 
     def walk(self, direction: str, tiles: int, frames: int = 12) -> list[dict[str, Any]]:
