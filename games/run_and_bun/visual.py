@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from PIL import Image, ImageChops, ImageStat
 import hashlib
+
+try:
+    from PIL import Image, ImageChops, ImageStat
+except ImportError:  # Pillow is optional for the RAM-first adapter.
+    Image = ImageChops = ImageStat = None
 
 
 @dataclass(frozen=True)
@@ -21,7 +25,16 @@ class VisualState:
     dialogue_ready: bool
 
 
+def _require_pillow() -> None:
+    if Image is None:
+        raise RuntimeError(
+            "Pillow is required for framebuffer inspection; "
+            "RAM/task/text observations do not require it"
+        )
+
+
 def inspect_png(path: str | Path) -> VisualState:
+    _require_pillow()
     path = str(path)
     im = Image.open(path).convert("RGB")
     raw = im.tobytes()
@@ -115,6 +128,7 @@ def image_difference(a: str | Path, b: str | Path, *, ignore_right: int = 18, te
     If a bottom textbox is present, compare only that UI region so normal overworld
     sprite animations do not prevent a dialogue page from being considered stable.
     """
+    _require_pillow()
     ia = Image.open(a).convert("RGB")
     ib = Image.open(b).convert("RGB")
     if ia.size != ib.size:
