@@ -15,14 +15,15 @@ At the latest source sync:
 
 - player: **GPT**
 - May's first Route 103 rival battle: **won**
-- Pokédex: received
-- Running Shoes: received
-- current area: **Route 102**
-- Youngster Calvin: **defeated**
-- Bug Catcher Rick: **defeated**
+- Pokédex / Running Shoes: received
+- Wally catching tutorial / Petalburg Gym intro: complete
+- Route 102 trainer wins include Calvin, Rick and Tiana
+- current area: **Petalburg City**, after a Route 104 scouting/capture detour
 - party:
-  - **Turtwig Lv11** — Bite / Growl / Absorb / Confide
-  - **Starly Lv11** — Tackle / Growl / Quick Attack / Aerial Ace
+  - **Turtwig Lv12** — Bite / Growl / Absorb / Confide
+  - **Starly Lv12** — Tackle / Growl / Quick Attack / Aerial Ace
+  - **Venipede Lv5** — Rollout / Poison Sting
+- next objective: heal the three-mon party, then re-enter Route 104 on the progression path to **Petalburg Woods**
 
 Machine-readable progress lives in `data/session_progress.json`.
 
@@ -35,7 +36,7 @@ mGBA
             └─ games/run_and_bun/
                  ├─ state.py       ROM-specific RAM/state decoder + actions
                  ├─ visual.py      framebuffer UI-state classifier
-                 ├─ battle_driver.py adaptive battle state machine
+                 ├─ battle_driver.py acknowledged battle state machine
                  └─ symbols.json   verified v1.07 addresses/layout notes
 ```
 
@@ -43,21 +44,9 @@ Navigation experiments remain under `tools/`. Runtime artifacts such as ROMs, sa
 
 ## RPC v0.3
 
-The Lua bridge provides:
+The Lua bridge provides NDJSON request IDs, frame-synchronized input, memory reads/writes/ranges, snapshots/diffs, watches, frame waits, exact-frame savestate experiments, mGBA-native screenshots, save/load states and reset.
 
-- NDJSON request IDs and capability negotiation
-- frame-synchronized queued input
-- 8/16/32-bit reads and writes
-- range reads
-- snapshots and diffs
-- named memory watches
-- emulator-frame conditional waits
-- exact-frame savestate experiments
-- mGBA-native screenshots
-- savestate save/load
-- reset
-
-The bridge is deliberately game-agnostic. Strategy and ROM-specific interpretation stay in Python.
+The bridge stays game-agnostic. Strategy and ROM-specific interpretation stay in Python.
 
 ## Run & Bun state adapter
 
@@ -65,78 +54,67 @@ The bridge is deliberately game-agnostic. Strategy and ROM-specific interpretati
 
 - dynamic SaveBlock1 / SaveBlock2 / Pokémon storage pointers
 - player name, gender, map ID and exact coordinates
-- persistent Gen III encrypted party structures with checksum verification
+- persistent encrypted party structures with checksum validation
 - status conditions
-- live battle battlers, stats, HP, types, abilities, moves and PP
-- battle stat stages including accuracy/evasion
-- battle action and move cursors
-- generic menu cursor used by Yes/No and Start-menu selection
+- live battle stats, HP, types, abilities, moves, PP and stat stages
+- battle action/move cursors and the generic menu cursor
 - semantic Start-menu selection
 - coordinate-conditioned one-tile movement (`step_tile`)
 - dialogue readiness and sustained free-overworld detection
+- verified map IDs through Petalburg City / Route 104
+- verified species/moves encountered so far, including Starly and Venipede
 
-All addresses in `symbols.json` are explicitly scoped to Run & Bun **v1.07**.
+All raw addresses in `symbols.json` are scoped to Run & Bun **v1.07**.
 
 ## Battle driver
 
-`games/run_and_bun/battle_driver.py` was built from actual failed and successful fights rather than from a planned abstraction alone.
-
-It currently supports:
+`games/run_and_bun/battle_driver.py` is built from actual fights and failures. It supports:
 
 - trainer dialogue -> battle transition
 - command/move-menu synchronization
 - PP-acknowledged move submission
-- distinction between **selection accepted** and **move executed**
+- separation of **selection accepted** vs **move executed**
 - enemy move inference from opponent PP deltas
-- HP, PP, EXP and species transition logging
-- KO replacement vs tactical-switch classification using EXP gain
-- party switching with RAM acknowledgement
+- HP/PP/EXP/species transition logging
+- KO replacement vs tactical switching using EXP gain
+- voluntary party switches
+- **forced replacement after the active Pokémon faints**
+- active-battler-aware faint handling (never assumes party slot 0 is active)
 - safe post-battle return to overworld
-
-This machinery was used to beat Calvin and Rick and to diagnose the original May loss.
 
 ## Visual state machine
 
-`visual.py` is intentionally not OCR-first. It recognizes stable UI classes from framebuffer regions and palette structure, while RAM supplies exact game facts.
+`visual.py` is intentionally not OCR-first. RAM supplies exact facts; framebuffer regions identify UI mode.
 
-Currently recognized states include:
+Recognized states include battle HUD/text/command/move menus, Bag, Start menu (including the dimmed transition), Party, Poké Mart and ordinary dialogue.
 
-- battle HUD
-- battle message box
-- battle command menu
-- move menu
-- Bag
-- Start menu
-- **dimmed Start-menu transition**
-- party screen
-- Poké Mart screens
-- standard overworld dialogue
-
-The rule is simple: decoded coordinates alone never prove that the player is free to move, because coordinates remain valid while menus and scripts are active.
+A Route 104 bug led to an important precision fix: Party-screen detection now keys off the exact dominant Party UI panel colors instead of a broad olive range, because dense grass can share similar hues.
 
 ## Navigation
 
-The navigation model combines:
+Navigation combines:
 
-1. static Emerald map/collision data as a proposal graph;
-2. live Run & Bun coordinates as the authority;
-3. directed edges for ledges and asymmetric movement;
-4. battle/menu/script detection as interrupts.
+1. static Emerald map data as a proposal graph;
+2. live Run & Bun coordinates as authority;
+3. directed edges for ledges/asymmetric movement;
+4. menu/script/battle transitions as interrupts;
+5. objective-specific forbidden transitions (for example, town building warps when the goal is to leave town);
+6. savestate-backed offline probing for ambiguous route geometry.
 
-`step_tile(direction)` uses short input pulses and stops immediately when decoded coordinates/map change. This avoids the old bug where one tap merely turned the avatar or a long hold accidentally walked multiple tiles.
+`step_tile(direction)` sends short pulses and stops as soon as decoded coordinates/map change, avoiding turn-only taps and multi-tile overshoot.
 
-## Gameplay discoveries that affect the interface
+## Gameplay discoveries that changed the interface
 
-- Run & Bun's Bag has multiple pockets; seeing an empty pocket does **not** mean the inventory is empty.
-- The hack provides an **Endless Candy** key item, useful for controlled level preparation without wild grinding.
-- A reusable **Repellent** key item exists for encounter management.
+- Run & Bun's Bag has multiple pockets; an empty visible pocket does not mean inventory is empty.
+- **Endless Candy** exists for controlled level preparation.
+- **Repellent** exists, but it is not treated as a guaranteed encounter-off switch.
 - First-time catches pass through Pokédex registration and nickname UI before party count changes.
-- Trainer AI can switch healthy Pokémon, so enemy team order is state-dependent.
-- Some battle animations temporarily hide HUD regions; battle exit must be sustained/confirmed rather than inferred from one frame.
+- Trainer AI can switch healthy Pokémon, so team order is state-dependent.
+- Battle transitions and animations can temporarily hide HUDs; battle exit must be sustained/confirmed.
+- Field poison fades and dense grass can resemble UI palettes; transient/terrain frames must not be mistaken for menus.
+- Route 104 has ledge-separated subregions; offline directed-edge probing is useful before committing a poisoned live party to exploration.
 
 ## Sandbox launch
-
-The sandbox has no real X server, so mGBA runs under Xvfb. The AppImage is extracted because FUSE is unavailable.
 
 ```bash
 chmod +x mGBA-build-latest-appimage-x64.appimage
@@ -147,8 +125,6 @@ DISPLAY=:99 ./squashfs-root/AppRun \
   --script scripts/mgba_rpc.lua \
   /path/to/game.gba
 ```
-
-Python:
 
 ```python
 from client.mgba_rpc import MGBA
@@ -164,4 +140,4 @@ with MGBA() as gba:
 
 Prefer **one structured observation -> one reasoned decision -> one acknowledged action**.
 
-Whenever gameplay exposes a recurring weakness, improve the interface instead of repeatedly working around it.
+Whenever gameplay exposes a recurring weakness, improve the interface and sync the proven change to GitHub at the next stable checkpoint instead of repeatedly working around it.
