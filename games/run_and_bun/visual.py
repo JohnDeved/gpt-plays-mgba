@@ -15,6 +15,7 @@ class VisualState:
     battle_teal_ratio: float
     battle_hud: bool
     battle_textbox: bool
+    battle_intro_textbox: bool
     battle_menu_like: bool
     battle_command_menu: bool
     bag_menu: bool
@@ -68,6 +69,7 @@ def inspect_png(path: str | Path) -> VisualState:
     player_hud = player_hud_white > 0.25
     battle_hud = (enemy_hud and player_hud) or (battle_teal_ratio > 0.25 and (enemy_hud or player_hud))
     battle_textbox = battle_hud and battle_teal_ratio > 0.25
+    battle_intro_textbox = (not battle_hud) and battle_teal_ratio > 0.55 and prompt_red >= 15
     battle_menu_like = battle_hud and battle_white_ratio > 0.50 and battle_teal_ratio < 0.10
 
     left = im.crop((2, max(0, im.height - 44), min(122, im.width), max(1, im.height - 1)))
@@ -95,38 +97,23 @@ def inspect_png(path: str | Path) -> VisualState:
 
     start_pane = im.crop((168, 15, min(238, im.width), min(156, im.height)))
     start_total = start_pane.width * start_pane.height
-    start_gray_bright = sum(
-        1 for r, g, b in start_pane.getdata()
-        if max(r, g, b) - min(r, g, b) < 25 and r > 160
-    )
-    start_gray_dim = sum(
-        1 for r, g, b in start_pane.getdata()
-        if max(r, g, b) - min(r, g, b) < 25 and 60 <= r <= 140
-    )
+    start_gray_bright = sum(1 for r, g, b in start_pane.getdata() if max(r, g, b) - min(r, g, b) < 25 and r > 160)
+    start_gray_dim = sum(1 for r, g, b in start_pane.getdata() if max(r, g, b) - min(r, g, b) < 25 and 60 <= r <= 140)
     start_gray_ratio = start_gray_bright / start_total if start_total else 0.0
     start_dim_ratio = start_gray_dim / start_total if start_total else 0.0
     left_ref = im.crop((10, 15, min(100, im.width), min(156, im.height)))
     left_total = left_ref.width * left_ref.height
-    left_dim = sum(
-        1 for r, g, b in left_ref.getdata()
-        if max(r, g, b) - min(r, g, b) < 25 and 60 <= r <= 140
-    )
+    left_dim = sum(1 for r, g, b in left_ref.getdata() if max(r, g, b) - min(r, g, b) < 25 and 60 <= r <= 140)
     left_dim_ratio = left_dim / left_total if left_total else 0.0
     start_menu = (
         (not battle_hud)
         and (not bag_menu)
-        and (
-            start_gray_ratio > 0.55
-            or (start_dim_ratio > 0.55 and start_dim_ratio - left_dim_ratio > 0.35)
-        )
+        and (start_gray_ratio > 0.55 or (start_dim_ratio > 0.55 and start_dim_ratio - left_dim_ratio > 0.35))
     )
 
     all_pixels = list(im.getdata())
-    party_palette_ratio = sum(
-        1 for px in all_pixels if px in {(206, 214, 123), (181, 181, 90)}
-    ) / max(1, len(all_pixels))
+    party_palette_ratio = sum(1 for px in all_pixels if px in {(206, 214, 123), (181, 181, 90)}) / max(1, len(all_pixels))
     party_menu = (not bag_menu) and party_palette_ratio > 0.30
-
     shop_peach_ratio = sum(1 for r,g,b in all_pixels if r > 245 and 195 <= g <= 240 and 145 <= b <= 180) / max(1, len(all_pixels))
     shop_menu = (not bag_menu) and (not party_menu) and shop_peach_ratio > 0.25
     full_screen_menu = bag_menu or start_menu or party_menu or shop_menu
@@ -139,6 +126,7 @@ def inspect_png(path: str | Path) -> VisualState:
         battle_teal_ratio=battle_teal_ratio,
         battle_hud=battle_hud,
         battle_textbox=battle_textbox,
+        battle_intro_textbox=battle_intro_textbox,
         battle_menu_like=battle_menu_like,
         battle_command_menu=battle_command_menu,
         bag_menu=bag_menu,
@@ -152,7 +140,6 @@ def inspect_png(path: str | Path) -> VisualState:
 
 
 def image_difference(a: str | Path, b: str | Path, *, ignore_right: int = 18, textbox_only: bool | None = None) -> float:
-    """Mean per-channel absolute difference with dialogue-aware cropping."""
     ia = Image.open(a).convert("RGB")
     ib = Image.open(b).convert("RGB")
     if ia.size != ib.size:
