@@ -25,26 +25,26 @@ TYPE_NAMES = {
     0: "Normal", 1: "Fighting", 2: "Flying", 3: "Poison", 4: "Ground",
     5: "Rock", 6: "Bug", 7: "Ghost", 8: "Steel", 9: "Mystery",
     10: "Fire", 11: "Water", 12: "Grass", 13: "Electric", 14: "Psychic",
-    15: "Ice", 16: "Dragon", 17: "Dark",
+    15: "Ice", 16: "Dragon", 17: "Dark", 18: "Fairy",
 }
 
 # Only IDs verified in this exact ROM/session are named here.
 VERIFIED_MOVE_NAMES = {
     0: None, 1: "Pound", 10: "Scratch", 11: "Vise Grip", 17: "Wing Attack",
-    28: "Sand-Attack", 33: "Tackle", 35: "Wrap", 44: "Bite", 45: "Growl",
+    28: "Sand-Attack", 33: "Tackle", 35: "Wrap", 40: "Poison Sting", 44: "Bite", 45: "Growl",
     52: "Ember", 71: "Absorb", 98: "Quick Attack", 150: "Splash",
-    207: "Swagger", 209: "Spark", 332: "Aerial Ace", 450: "Bug Bite",
+    205: "Rollout", 207: "Swagger", 209: "Spark", 332: "Aerial Ace", 450: "Bug Bite",
     590: "Confide",
 }
 VERIFIED_SPECIES_NAMES = {
-    204: "Pineco", 255: "Torchic", 261: "Poochyena", 387: "Turtwig",
-    396: "Starly", 406: "Budew", 427: "Buneary", 506: "Lillipup",
-    659: "Bunnelby", 661: "Fletchling", 736: "Grubbin", 761: "Bounsweet",
+    54: "Psyduck", 204: "Pineco", 255: "Torchic", 261: "Poochyena", 327: "Spinda", 387: "Turtwig",
+    396: "Starly", 543: "Venipede", 406: "Budew", 427: "Buneary", 506: "Lillipup",
+    659: "Bunnelby", 661: "Fletchling", 672: "Skiddo", 684: "Swirlix", 736: "Grubbin", 761: "Bounsweet",
     821: "Rookidee", 829: "Gossifleur", 850: "Sizzlipede", 987: "Zigzagoon",
 }
 KNOWN_MAPS = {
     (25, 40): "InsideOfTruck", (0, 9): "LittlerootTown", (0, 10): "OldaleTown",
-    (0, 16): "Route101", (0, 17): "Route102", (0, 18): "Route103",
+    (0, 0): "PetalburgCity", (0, 16): "Route101", (0, 17): "Route102", (0, 18): "Route103", (0, 19): "Route104",
     (1, 0): "LittlerootTown_PlayerHouse_1F", (1, 1): "LittlerootTown_PlayerHouse_2F",
     (1, 2): "LittlerootTown_RivalHouse_1F", (1, 3): "LittlerootTown_RivalHouse_2F",
     (1, 4): "LittlerootTown_ProfessorBirchsLab",
