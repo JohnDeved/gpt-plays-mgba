@@ -87,16 +87,12 @@ def inspect_png(path: str | Path) -> VisualState:
     right_teal, right_white = _ratios(right)
     battle_command_menu = battle_hud and left_teal > 0.55 and right_white > 0.55 and right_teal < 0.05
 
-    # The Gen III Bag is a full-screen UI. Coordinates remain populated while it
-    # is open, so it must be detected before anything declares free overworld.
     bag_pane = im.crop((108, 25, min(239, im.width), min(155, im.height)))
     bag_total = bag_pane.width * bag_pane.height
     bag_pale = sum(1 for r, g, b in bag_pane.getdata() if r > 245 and g > 245 and 185 <= b <= 220)
     bag_pale_ratio = bag_pale / bag_total if bag_total else 0.0
     bag_menu = (not battle_hud) and bag_pale_ratio > 0.55
 
-    # Start-menu transitions briefly dim the right-hand pane. Recognize both the
-    # bright and dimmed variants so navigation never moves while a menu is active.
     start_pane = im.crop((168, 15, min(238, im.width), min(156, im.height)))
     start_total = start_pane.width * start_pane.height
     start_gray_bright = sum(
@@ -115,9 +111,14 @@ def inspect_png(path: str | Path) -> VisualState:
         and (start_gray_ratio > 0.55 or start_dim_ratio > 0.55)
     )
 
+    # Exact panel colors are deliberate: a broad olive range false-positived
+    # dense Route 104 grass as the party screen.
     all_pixels = list(im.getdata())
-    party_olive_ratio = sum(1 for r,g,b in all_pixels if 170 <= r <= 220 and 170 <= g <= 220 and 70 <= b <= 140) / max(1, len(all_pixels))
-    party_menu = (not bag_menu) and party_olive_ratio > 0.30
+    party_palette_ratio = sum(
+        1 for px in all_pixels if px in {(206, 214, 123), (181, 181, 90)}
+    ) / max(1, len(all_pixels))
+    party_menu = (not bag_menu) and party_palette_ratio > 0.30
+
     shop_peach_ratio = sum(1 for r,g,b in all_pixels if r > 245 and 195 <= g <= 240 and 145 <= b <= 180) / max(1, len(all_pixels))
     shop_menu = (not bag_menu) and (not party_menu) and shop_peach_ratio > 0.25
     full_screen_menu = bag_menu or start_menu or party_menu or shop_menu
