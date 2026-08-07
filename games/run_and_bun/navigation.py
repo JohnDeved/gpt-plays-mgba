@@ -69,8 +69,10 @@ class Navigator:
                 return StepResult('dialogue', direction, before.map_id, before.position,
                                   after.map_id, after.position, pulse, elapsed)
             if v.full_screen_menu:
-                return StepResult('menu', direction, before.map_id, before.position,
-                                  after.map_id, after.position, pulse, elapsed)
+                # A one-frame visual hit may be a poison/warp fade. Menus should
+                # persist, so defer classification to the sustained loop below.
+                clean = 0
+                continue
 
         while elapsed < transition_frames:
             self.gba.wait_frames(sample_frames)
