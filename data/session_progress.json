@@ -1,41 +1,75 @@
 {
-  "timestamp": "2026-08-07T19:28:00+02:00",
+  "timestamp": "2026-08-07T21:45:00+02:00",
   "player": {"name": "GPT", "gender": "male"},
   "starter": "Turtwig",
   "clock_set": "17:43",
   "current_state": {
     "map_group": 0,
-    "map_num": 10,
-    "map": "Oldale Town",
-    "x": 6,
-    "y": 17,
-    "battle_active": false
+    "map_num": 17,
+    "map": "Route102",
+    "x": 16,
+    "y": 13,
+    "battle_active": false,
+    "ui": "Start menu open at sync time"
   },
   "party": [
     {
       "species": "Turtwig",
       "species_id": 387,
-      "level": 7,
-      "hp": 26,
-      "max_hp": 26,
-      "moves": ["Bite", "Growl", "Absorb"],
-      "pp": [25, 10, 25],
-      "experience": 247,
-      "friendship": 81,
+      "level": 11,
+      "hp": 32,
+      "max_hp": 36,
+      "moves": ["Bite", "Growl", "Absorb", "Confide"],
+      "pp": [12, 10, 18, 10],
+      "experience": 924,
+      "friendship": 104,
+      "status": 0,
+      "checksum_valid": true
+    },
+    {
+      "species": "Starly",
+      "species_id": 396,
+      "level": 11,
+      "hp": 30,
+      "max_hp": 30,
+      "moves": ["Tackle", "Growl", "Quick Attack", "Aerial Ace"],
+      "pp": [34, 7, 29, 16],
+      "experience": 968,
+      "friendship": 104,
+      "status": 0,
       "checksum_valid": true
     }
   ],
-  "milestones": [
-    "RPC upgraded to v0.3",
-    "Run & Bun save pointers decoded",
-    "player/map coordinates decoded",
-    "persistent Gen III party decryption implemented and checksum validated",
-    "battle battler/move state decoded",
-    "framebuffer-based dialogue and battle visual-state detection implemented",
-    "coordinate-conditioned one-tile stepping implemented",
-    "static Emerald map data + live directed-edge verification navigation prototype validated",
-    "reached Oldale Town and Route 103",
-    "first May rival battle attempted"
+  "story_milestones": [
+    "May Route 103 rival battle defeated after training Turtwig to level 8",
+    "Pokedex received from Professor Birch",
+    "Running Shoes received from Mom",
+    "Oldale Mart reached and shopping flow decoded",
+    "Route 102 reached",
+    "Youngster Calvin defeated",
+    "Bug Catcher Rick defeated",
+    "Starly caught on Route 102 and raised with Endless Candy"
   ],
-  "uncertainty": "Current return to Oldale after the first May battle attempt strongly suggests a blackout, but progression flag was not yet explicitly verified."
+  "interface_milestones": [
+    "RPC v0.3 frame-synchronized control",
+    "Run & Bun SaveBlock/player/party/battle structures decoded",
+    "status conditions and battle stat stages decoded",
+    "opponent move choice inferred from PP deltas",
+    "move selection acceptance separated from move execution",
+    "multi-Pokemon battle switching implemented and validated",
+    "EXP gain used to distinguish KO replacement from tactical opponent switch",
+    "coordinate-conditioned single-tile stepping validated",
+    "static map plus live directed-edge navigation validated in both directions",
+    "Bag, Start, Party, Shop and battle UI visual states recognized",
+    "dimmed Start-menu transition recognized as an active menu",
+    "semantic Start-menu cursor control implemented",
+    "catch pipeline validated through Pokedex registration and nickname screens"
+  ],
+  "gameplay_discoveries": [
+    "Endless Candy key item can raise party levels without wild grinding",
+    "Repellent key item exists for encounter control",
+    "Run & Bun Bag uses multiple pockets; an apparently empty visible pocket does not mean no items",
+    "trainer AI may switch healthy Pokemon, so opponent order is state-dependent"
+  ],
+  "next_objective": "Continue west on Route 102 toward Petalburg while hardening semantic menu, inventory, navigation, and adaptive battle control."
 }
