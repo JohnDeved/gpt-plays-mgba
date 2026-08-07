@@ -9,6 +9,7 @@
     "gSaveBlock1Ptr": {"address": "0x03005D9C"},
     "gSaveBlock2Ptr": {"address": "0x03005DA0"},
     "gPokemonStoragePtr": {"address": "0x03005DA4"},
+    "gBackupMapLayout": {"address": "0x03005DD0", "layout": "s32 width; s32 height; u16 *map", "route104_example_map_ptr": "0x020318DC"},
     "gBattleMons": {"address": "0x020233FC", "stride": 92},
     "gBattleActionCursor": {"address": "0x02023A1C"},
     "gBattleMoveCursor": {"address": "0x02023A20"},
@@ -17,34 +18,28 @@
     "gPlayerParty": {"address": "0x02023A98", "pokemon_struct_size": 100},
     "title_menu_cursor": {"address": "0x02023006", "values": {"0": "New Game", "1": "Option"}}
   },
-  "saveblock1_offsets": {
-    "player_x": 0,
-    "player_y": 2,
-    "map_group": 4,
-    "map_num": 5,
-    "warp_id": 6
+  "map_grid": {
+    "map_offset": 7,
+    "entry_format": {"metatile_id_bits": "0-9", "collision_bits": "10-11", "elevation_bits": "12-15"},
+    "coordinate_rule": "SaveBlock1 pos is layout-space; add MAP_OFFSET only when indexing the padded live map buffer",
+    "route104_live_dimensions": {"padded_width": 55, "padded_height": 94, "layout_width": 40, "layout_height": 80}
   },
+  "saveblock1_offsets": {"player_x": 0, "player_y": 2, "map_group": 4, "map_num": 5, "warp_id": 6},
   "verified_map_ids": {
-    "0,0": "PetalburgCity",
-    "0,9": "LittlerootTown",
-    "0,10": "OldaleTown",
-    "0,16": "Route101",
-    "0,17": "Route102",
-    "0,18": "Route103",
-    "0,19": "Route104"
+    "0,0": "PetalburgCity", "0,9": "LittlerootTown", "0,10": "OldaleTown",
+    "0,16": "Route101", "0,17": "Route102", "0,18": "Route103", "0,19": "Route104",
+    "8,4": "PetalburgCity_PokemonCenter_1F"
   },
   "battle_layout_notes": {
-    "ability_id": "u16 at battler+0x20",
-    "type_bytes": "three bytes at battler+0x22",
-    "pp": "four bytes at battler+0x25",
-    "hp": "u16 at battler+0x2A",
-    "level": "u8 at battler+0x2C",
-    "max_hp": "u16 at battler+0x2E",
-    "stat_stages": "8 bytes at battler+0x18; neutral stage is 6"
+    "ability_id": "u16 at battler+0x20", "type_bytes": "three bytes at battler+0x22",
+    "pp": "four bytes at battler+0x25", "hp": "u16 at battler+0x2A", "level": "u8 at battler+0x2C",
+    "max_hp": "u16 at battler+0x2E", "stat_stages": "8 bytes at battler+0x18; neutral stage is 6",
+    "party_order": "mutable during battle; active Pokemon moves to slot 0, so switching should target identity/species rather than stale slot",
+    "trapping": "Bind can reject a voluntary switch; battle driver must surface switch_failed"
   },
   "verified_recent_content": {
-    "species": {"387": "Turtwig", "396": "Starly", "543": "Venipede", "672": "Skiddo", "684": "Swirlix"},
-    "moves": {"40": "Poison Sting", "44": "Bite", "71": "Absorb", "205": "Rollout", "332": "Aerial Ace", "590": "Confide"},
+    "species": {"98": "Krabby", "193": "Yanma", "387": "Turtwig", "396": "Starly", "543": "Venipede", "852": "Clobbopus"},
+    "moves": {"20": "Bind", "23": "Stomp", "40": "Poison Sting", "44": "Bite", "49": "Sonic Boom", "71": "Absorb", "197": "Detect", "205": "Rollout", "249": "Rock Smash", "332": "Aerial Ace", "341": "Mud Shot", "453": "Aqua Jet", "512": "Acrobatics", "590": "Confide"},
     "type_18": "Fairy"
   },
   "confidence": "Verified against Pokemon Run & Bun v1.07 live emulator state; do not assume addresses apply to other versions."
