@@ -1,34 +1,62 @@
 # gpt-plays-mgba
 
-A control and observation layer for driving a development build of [mGBA](https://mgba.io/) from Lua over a localhost socket.
+A control, observation, and game-state layer for playing Pokémon Run & Bun through a development build of mGBA.
 
-The project has two parallel goals: **complete Pokémon Run & Bun** and **continuously improve the interface used to observe and control the emulator**.
+The project has two parallel goals:
 
-The current setup is designed for the ChatGPT Linux sandbox and has been tested with mGBA development build `0.11-9122-afd6f14ea` and Pokémon Run & Bun v1.07.
+1. Complete Pokémon Run & Bun using normal emulator inputs.
+2. Continuously improve the interface so later gameplay needs fewer fragile screenshot/button round trips.
 
-## Current interface: RPC v0.1
+The current sandbox-tested environment uses mGBA development build `0.11-9122-afd6f14ea` and Pokémon Run & Bun v1.07.
 
-The recommended bridge is `scripts/mgba_rpc.lua`, with the Python client in `client/mgba_rpc.py`.
+## Current interface: RPC v0.3
 
-It currently provides:
+The canonical emulator bridge is `scripts/mgba_rpc.lua`, with the Python client in `client/mgba_rpc.py`.
 
-- NDJSON RPC with request IDs and a capability handshake
-- Frame-synchronized button presses and queued multi-step input sequences
-- Action completion/status tracking
-- 8-, 16-, and 32-bit bus memory reads/writes
-- Batched memory reads and structured observations
-- mGBA-native framebuffer screenshots through Lua
-- Savestate save/load
-- Reset and input clearing
-- ROM title/code and frame metadata
+RPC v0.3 provides:
 
-The older `scripts/mgba_control.lua` / `client/mgba_client.py` text protocol is retained as a simple legacy/reference implementation.
+- NDJSON request IDs and capability negotiation
+- frame-synchronized queued input sequences
+- 8/16/32-bit memory reads and writes
+- bulk `read_range`
+- memory snapshots and diffs
+- named memory watches
+- emulator-frame conditional waits
+- atomic savestate experiments with exact-frame captures
+- mGBA-native screenshots
+- savestate save/load and reset
 
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the interface-improvement plan.
+## Run & Bun adapter
 
-## Launch in the sandbox
+ROM-specific code lives under `games/run_and_bun/`.
 
-The sandbox has no real X server, so mGBA is run on Xvfb. The AppImage can be extracted first because FUSE is unavailable.
+It currently decodes and controls:
+
+- dynamic SaveBlock1 / SaveBlock2 / Pokémon storage pointers
+- player name, gender, map and coordinates
+- persistent Gen III encrypted party data with checksum validation
+- battle battler stats, HP, types, moves, PP, action cursor and move cursor
+- generic Yes/No selection
+- dialogue readiness from framebuffer state
+- battle HUD / command-menu / move-menu visual state
+
+Verified addresses are stored in `games/run_and_bun/symbols.json` and are explicitly scoped to Run & Bun v1.07.
+
+## Navigation experiments
+
+`tools/nav_probe.py` is the early savestate-assisted collision explorer.
+
+`tools/nav_route101_live.py` demonstrates the newer navigation model: static Emerald map/collision data proposes a route, while live decoded coordinates verify each directed edge. ROM-specific obstacles, one-way ledges, NPCs and wild battles override the static model.
+
+## Current playthrough snapshot
+
+Machine-readable current progress is stored in `data/session_progress.json`.
+
+Runtime artifacts such as ROMs, saves, screenshots and savestates are intentionally kept out of Git. They live in the separate Google Drive workspace.
+
+## Sandbox launch
+
+The sandbox has no real X server, so mGBA runs under Xvfb. The AppImage is extracted because FUSE is unavailable.
 
 ```bash
 chmod +x mGBA-build-latest-appimage-x64.appimage
@@ -40,64 +68,17 @@ DISPLAY=:99 ./squashfs-root/AppRun \
   /path/to/game.gba
 ```
 
-Then from Python:
+Then:
 
 ```python
 from client.mgba_rpc import MGBA
 
 with MGBA() as gba:
     print(gba.info())
-
-    # Frame-synchronized input.
-    gba.press("START")
-    gba.sequence([
-        {"keys": ["DOWN"], "frames": 2},
-        {"wait": 4},
-        {"keys": ["A"], "frames": 2},
-    ])
-
-    # One structured observation can include many reads and a screenshot.
-    state = gba.observe(
-        reads=[
-            {"name": "ewram0", "address": 0x02000000, "width": 32},
-            {"name": "iwram0", "address": 0x03000000, "width": 32},
-        ],
-        screenshot="/mnt/data/game.png",
-    )
-    print(state)
+    gba.press("A")
+    print(gba.read_range(0x02000000, 32).hex())
 ```
 
-## RPC shape
+## Design rule
 
-Requests and responses are newline-delimited JSON.
-
-```json
-{"id":1,"op":"observe","params":{"reads":[{"name":"ewram0","address":33554432,"width":32}]}}
-```
-
-A response carries the matching request ID, success/error status, and emulator frame:
-
-```json
-{"id":1,"ok":true,"frame":12345,"result":{"title":"POKEMON EMER","code":"BPEE","frame":12345,"keys":0,"reads":[...]}}
-```
-
-Supported operations in v0.1 include:
-
-- `ping`
-- `info`
-- `observe`
-- `input.press`
-- `input.sequence`
-- `input.clear`
-- `action.status`
-- `memory.read`
-- `memory.read_batch`
-- `memory.write`
-- `screenshot`
-- `state.save`
-- `state.load`
-- `reset`
-
-## Repository policy
-
-ROMs, save files, savestates, extracted AppImages, generated screenshots, and other runtime artifacts are intentionally not tracked here. They live in separate working Drive/runtime storage.
+Prefer one structured observation followed by one reasoned action. Whenever gameplay exposes a weakness in the interface, improve the interface rather than repeatedly working around it.
