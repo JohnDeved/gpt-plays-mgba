@@ -1,5 +1,7 @@
 local PORT = 8765
-local PROTOCOL = "mgba-rpc/0.1"
+local PROTOCOL = "mgba-rpc/0.2"
+local MAX_RANGE_BYTES = 1024 * 1024
+local MAX_EVENT_QUEUE = 4096
 
 local server = nil
 local clients = {}
@@ -10,6 +12,12 @@ local actions = {}
 local actionQueue = {}
 local activeAction = nil
 local activeKeys = {}
+local snapshots = {}
+local watches = {}
+local watchEvents = {}
+local nextEventId = 1
+local waits = {}
+local nextWaitId = 1
 
 local KEYS = {
   A = C.GBA_KEY.A, B = C.GBA_KEY.B,
@@ -205,13 +213,244 @@ local function write_width(width, address, value)
   error("width must be 8, 16, or 32")
 end
 
+local function integer_param(value, label, minimum, maximum)
+  local n=tonumber(value)
+  if n==nil or n%1~=0 then error(label.." must be an integer") end
+  if minimum and n<minimum then error(label.." must be >= "..tostring(minimum)) end
+  if maximum and n>maximum then error(label.." must be <= "..tostring(maximum)) end
+  return n
+end
+
+local function normalize_range(spec, index)
+  if type(spec)~="table" then error("range must be an object") end
+  local address=integer_param(spec.address,"address",0,nil)
+  local length=integer_param(spec.length,"length",1,MAX_RANGE_BYTES)
+  local name=spec.name or ("range"..tostring(index or 1))
+  if type(name)~="string" or name=="" then error("range name must be a non-empty string") end
+  return {name=name,address=address,length=length}
+end
+
+local function normalize_ranges(specs)
+  if type(specs)~="table" then error("ranges must be an array") end
+  if #specs==0 then error("ranges must not be empty") end
+  local out={}
+  local seen={}
+  for i,spec in ipairs(specs) do
+    local r=normalize_range(spec,i)
+    if seen[r.name] then error("duplicate range name: "..r.name) end
+    seen[r.name]=true
+    out[#out+1]=r
+  end
+  return out
+end
+
+local function bytes_to_hex(bytes, first, last)
+  local out={}
+  first=first or 1
+  last=last or #bytes
+  for i=first,last do out[#out+1]=string.format("%02x",bytes[i]) end
+  return table.concat(out)
+end
+
+local function read_range_data(address, length)
+  local bytes={}
+  local raw=emu:readRange(address,length)
+  if type(raw)=="string" and #raw==length then
+    for i=1,length do bytes[i]=string.byte(raw,i) end
+  else
+    -- Keep a conservative fallback for older development builds.
+    for i=0,length-1 do bytes[i+1]=emu:read8(address+i) end
+  end
+  return bytes,bytes_to_hex(bytes)
+end
+
+local function read_range_public(r, include_data)
+  local bytes,hex=read_range_data(r.address,r.length)
+  local out={name=r.name,address=r.address,length=r.length,encoding="hex"}
+  if include_data then out.data=hex end
+  return out,bytes
+end
+
+local function sorted_watch_names()
+  local names={}
+  for name,_ in pairs(watches) do names[#names+1]=name end
+  table.sort(names)
+  return names
+end
+
+local function read_watch_value(w)
+  if w.width then return read_width(w.width,w.address) end
+  local _,hex=read_range_data(w.address,w.length)
+  return hex
+end
+
+local function watch_public(w, include_value)
+  local out={name=w.name,address=w.address,last_changed_frame=w.last_changed_frame}
+  if w.width then out.width=w.width else out.length=w.length; out.encoding="hex" end
+  if include_value then out.value=w.last end
+  return out
+end
+
+local function queue_watch_event(w, before, after)
+  local event={id=nextEventId,frame=frame(),watch=w.name,before=before,after=after}
+  nextEventId=nextEventId+1
+  watchEvents[#watchEvents+1]=event
+  while #watchEvents>MAX_EVENT_QUEUE do table.remove(watchEvents,1) end
+end
+
+local function update_watches()
+  for _,name in ipairs(sorted_watch_names()) do
+    local w=watches[name]
+    local ok,current=pcall(read_watch_value,w)
+    if ok then
+      if w.last~=nil and current~=w.last then
+        local before=w.last
+        w.last_changed_frame=frame()
+        queue_watch_event(w,before,current)
+      end
+      w.last=current
+      w.error=nil
+    else
+      w.error=tostring(current)
+    end
+  end
+end
+
+local function capture_ranges(ranges)
+  local data={}
+  for _,r in ipairs(ranges) do
+    local bytes=read_range_data(r.address,r.length)
+    data[r.name]=bytes
+  end
+  return data
+end
+
+local function snapshot_public(s, include_data)
+  local out={name=s.name,frame=s.frame,ranges={}}
+  for _,r in ipairs(s.ranges) do
+    local item={name=r.name,address=r.address,length=r.length,encoding="hex"}
+    if include_data then item.data=bytes_to_hex(s.data[r.name]) end
+    out.ranges[#out.ranges+1]=item
+  end
+  return out
+end
+
+local function diff_bytes(before, after, r)
+  if #before~=#after then error("snapshot range length changed: "..r.name) end
+  local changes={}
+  local start=nil
+  local function flush(last)
+    if not start then return end
+    changes[#changes+1]={
+      offset=start-1,
+      address=r.address+start-1,
+      length=last-start+1,
+      before=bytes_to_hex(before,start,last),
+      after=bytes_to_hex(after,start,last),
+      encoding="hex",
+    }
+    start=nil
+  end
+  for i=1,#before do
+    if before[i]~=after[i] then
+      if not start then start=i end
+    else
+      flush(i-1)
+    end
+  end
+  flush(#before)
+  return changes
+end
+
+local function wait_condition_satisfied(w)
+  local c=w.condition
+  local kind=c.type or c.kind
+  if kind=="frame" then
+    return frame()>=integer_param(c.at_frame or c.frame,"at_frame",0,nil)
+  end
+  if kind=="memory_equals" or kind=="memory_not_equals" then
+    local address=integer_param(c.address,"address",0,nil)
+    local width=tonumber(c.width or 8)
+    local value=integer_param(c.value,"value",0,nil)
+    local equal=read_width(width,address)==value
+    return kind=="memory_equals" and equal or not equal
+  end
+  if kind=="memory_changed" then
+    local address=integer_param(c.address,"address",0,nil)
+    local width=tonumber(c.width or 8)
+    return read_width(width,address)~=w.baseline
+  end
+  if kind=="watch_changed" then
+    local watch=watches[c.name]
+    if not watch then error("unknown watch: "..tostring(c.name)) end
+    return (watch.last_changed_frame or -1)>w.started_frame
+  end
+  if kind=="watch_equals" then
+    local watch=watches[c.name]
+    if not watch then error("unknown watch: "..tostring(c.name)) end
+    return read_watch_value(watch)==c.value
+  end
+  if kind=="keys_equals" then return emu:getKeys()==integer_param(c.value,"value",0,nil) end
+  if kind=="all" or kind=="any" then
+    if type(c.conditions)~="table" or #c.conditions==0 then error("conditions must be a non-empty array") end
+    local matches=0
+    for _,child in ipairs(c.conditions) do
+      local nested={condition=child,started_frame=w.started_frame,baseline=w.baseline}
+      if wait_condition_satisfied(nested) then matches=matches+1 end
+    end
+    return kind=="all" and matches==#c.conditions or matches>0
+  end
+  error("unknown wait condition: "..tostring(kind))
+end
+
+local function wait_public(w)
+  return {
+    id=w.id,state=w.state,condition=w.condition,started_frame=w.started_frame,
+    deadline_frame=w.deadline_frame,finished_frame=w.finished_frame,error=w.error,
+  }
+end
+
+local function update_waits()
+  for _,w in pairs(waits) do
+    if w.state=="waiting" then
+      local ok,satisfied=pcall(wait_condition_satisfied,w)
+      if not ok then
+        w.state="error"; w.error=tostring(satisfied); w.finished_frame=frame()
+      elseif satisfied then
+        w.state="done"; w.finished_frame=frame()
+      elseif frame()>=w.deadline_frame then
+        w.state="timed_out"; w.finished_frame=frame()
+      end
+    end
+  end
+end
+
+local function poll_watch_events(after, limit)
+  after=tonumber(after or 0) or 0
+  limit=integer_param(limit or 256,"limit",1,MAX_EVENT_QUEUE)
+  local out={}
+  for _,event in ipairs(watchEvents) do
+    if event.id>after then
+      out[#out+1]=event
+      if #out>=limit then break end
+    end
+  end
+  local cursor=after
+  if #watchEvents>0 then cursor=watchEvents[#watchEvents].id end
+  return {events=out,cursor=cursor}
+end
+
 local function capabilities()
   return {
     protocol=PROTOCOL,
-    ops={"ping","info","observe","input.press","input.sequence","input.clear","action.status","memory.read","memory.read_batch","memory.write","screenshot","state.save","state.load","reset"},
+    ops={"ping","info","observe","input.press","input.sequence","input.clear","action.status","memory.read","memory.read_batch","memory.read_range","memory.read_range_batch","memory.write","memory.snapshot","memory.diff","watch.add","watch.remove","watch.list","watch.read","events.poll","wait.until","wait.status","wait.cancel","screenshot","state.save","state.load","reset"},
     keys={"A","B","SELECT","START","RIGHT","LEFT","UP","DOWN","R","L"},
     memory_widths={8,16,32},
+    max_range_bytes=MAX_RANGE_BYTES,
     frame_synchronized_input=true,
+    frame_based_waits=true,
+    memory_snapshots=true,
+    memory_watches=true,
     screenshot=true,
     savestate=true,
   }
@@ -222,7 +461,14 @@ local function dispatch(req)
   local p=req.params or {}
   if op=="ping" then return {pong=true, protocol=PROTOCOL} end
   if op=="info" then return {title=emu:getGameTitle() or "", code=emu:getGameCode() or "", frame=frame(), capabilities=capabilities()} end
-  if op=="reset" then emu:reset(); clear_all_keys(); return {reset=true} end
+  if op=="reset" then
+    emu:reset(); clear_all_keys(); actionQueue={}
+    if activeAction then activeAction.state="cancelled"; activeAction.finished_frame=frame(); activeAction=nil end
+    for _,w in pairs(waits) do
+      if w.state=="waiting" then w.state="cancelled"; w.finished_frame=frame() end
+    end
+    return {reset=true}
+  end
   if op=="input.clear" then clear_all_keys(); return {keys=emu:getKeys()} end
   if op=="input.press" then
     local key=p.key; local frames=math.floor(tonumber(p.frames or 2) or 2)
@@ -252,11 +498,123 @@ local function dispatch(req)
     end
     return {reads=vals}
   end
+  if op=="memory.read_range" then
+    local r=normalize_range(p,1)
+    local out=read_range_public(r,true)
+    return out
+  end
+  if op=="memory.read_range_batch" then
+    local ranges=normalize_ranges(p.ranges)
+    local vals={}
+    for _,r in ipairs(ranges) do vals[#vals+1]=read_range_public(r,true) end
+    return {ranges=vals}
+  end
   if op=="memory.write" then
     local address=assert(tonumber(p.address),"address required")
     local width=tonumber(p.width or 8); local value=assert(tonumber(p.value),"value required")
     write_width(width,address,value)
     return {address=address,width=width,value=read_width(width,address)}
+  end
+  if op=="memory.snapshot" then
+    local name=p.name
+    if type(name)~="string" or name=="" then error("snapshot name must be a non-empty string") end
+    local ranges=normalize_ranges(p.ranges)
+    local snapshot={name=name,frame=frame(),ranges=ranges,data=capture_ranges(ranges)}
+    snapshots[name]=snapshot
+    return {snapshot=snapshot_public(snapshot,p.include_data==true)}
+  end
+  if op=="memory.diff" then
+    local name=p.name
+    local snapshot=snapshots[name]
+    if not snapshot then error("unknown snapshot: "..tostring(name)) end
+    local result={name=name,snapshot_frame=snapshot.frame,frame=frame(),ranges={}}
+    local total=0
+    for _,r in ipairs(snapshot.ranges) do
+      local before=snapshot.data[r.name]
+      local after=read_range_data(r.address,r.length)
+      local changes=diff_bytes(before,after,r)
+      local changed=0
+      for _,change in ipairs(changes) do changed=changed+change.length end
+      total=total+changed
+      result.ranges[#result.ranges+1]={name=r.name,address=r.address,length=r.length,changed_bytes=changed,changes=changes}
+    end
+    result.changed_bytes=total
+    return {diff=result}
+  end
+  if op=="watch.add" then
+    local name=p.name
+    if type(name)~="string" or name=="" then error("watch name must be a non-empty string") end
+    local w={name=name,address=integer_param(p.address,"address",0,nil),last_changed_frame=nil,error=nil}
+    if p.length~=nil then
+      w.length=integer_param(p.length,"length",1,MAX_RANGE_BYTES)
+    else
+      w.width=tonumber(p.width or 8)
+    end
+    local ok,current=pcall(read_watch_value,w)
+    if not ok then error(tostring(current)) end
+    w.last=current
+    watches[name]=w
+    return {watch=watch_public(w,true)}
+  end
+  if op=="watch.remove" then
+    local name=p.name
+    local removed=watches[name]~=nil
+    watches[name]=nil
+    return {name=name,removed=removed}
+  end
+  if op=="watch.list" or op=="watch.read" then
+    local out={}
+    if op=="watch.read" and p.names then
+      if type(p.names)~="table" then error("names must be an array") end
+      for _,name in ipairs(p.names) do
+        local w=watches[name]
+        if not w then error("unknown watch: "..tostring(name)) end
+        local ok,current=pcall(read_watch_value,w)
+        if not ok then error(tostring(current)) end
+        w.last=current
+        out[#out+1]=watch_public(w,true)
+      end
+    else
+      for _,name in ipairs(sorted_watch_names()) do
+        local w=watches[name]
+        if op=="watch.read" then
+          local ok,current=pcall(read_watch_value,w)
+          if not ok then error(tostring(current)) end
+          w.last=current
+        end
+        out[#out+1]=watch_public(w,op=="watch.read")
+      end
+    end
+    return {watches=out}
+  end
+  if op=="events.poll" then return poll_watch_events(p.after,p.limit) end
+  if op=="wait.until" then
+    if type(p.condition)~="table" then error("condition must be an object") end
+    local timeout=integer_param(p.timeout_frames or 300,"timeout_frames",1,nil)
+    local w={id=nextWaitId,state="waiting",condition=p.condition,started_frame=frame(),deadline_frame=frame()+timeout}
+    nextWaitId=nextWaitId+1
+    local kind=p.condition.type or p.condition.kind
+    if kind=="memory_changed" then
+      local address=integer_param(p.condition.address,"address",0,nil)
+      local width=tonumber(p.condition.width or 8)
+      w.baseline=read_width(width,address)
+    end
+    waits[w.id]=w
+    local ok,satisfied=pcall(wait_condition_satisfied,w)
+    if not ok then waits[w.id]=nil; error(tostring(satisfied)) end
+    if satisfied then w.state="done"; w.finished_frame=frame() end
+    return {wait=wait_public(w)}
+  end
+  if op=="wait.status" then
+    local w=waits[tonumber(p.id)]
+    if not w then error("unknown wait") end
+    return {wait=wait_public(w)}
+  end
+  if op=="wait.cancel" then
+    local w=waits[tonumber(p.id)]
+    if not w then error("unknown wait") end
+    if w.state=="waiting" then w.state="cancelled"; w.finished_frame=frame() end
+    return {wait=wait_public(w)}
   end
   if op=="screenshot" then
     local path=p.path or "/mnt/data/mgba-shot.png"
@@ -284,6 +642,23 @@ local function dispatch(req)
         local width=tonumber(r.width or 8)
         result.reads[idx]={address=address,width=width,value=read_width(width,address),name=r.name}
       end
+    end
+    if p.ranges then
+      result.ranges={}
+      for _,r in ipairs(normalize_ranges(p.ranges)) do result.ranges[#result.ranges+1]=read_range_public(r,true) end
+    end
+    if p.watches then
+      result.watches={}
+      for _,name in ipairs(sorted_watch_names()) do
+        local w=watches[name]
+        local ok,current=pcall(read_watch_value,w)
+        if not ok then error(tostring(current)) end
+        w.last=current
+        result.watches[#result.watches+1]=watch_public(w,true)
+      end
+    end
+    if p.events then
+      result.events=poll_watch_events(p.after_event,p.event_limit)
     end
     if p.screenshot then
       local path=type(p.screenshot)=="string" and p.screenshot or string.format("/mnt/data/mgba-frame-%d.png",frame())
@@ -348,6 +723,8 @@ callbacks:add("frame",function()
     end
     if activeAction then activeAction.remaining=activeAction.remaining-1 end
   end
+  update_watches()
+  update_waits()
 end)
 
 server=socket.bind("127.0.0.1",PORT)

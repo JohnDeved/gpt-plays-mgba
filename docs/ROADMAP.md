@@ -5,7 +5,7 @@ The project has two parallel goals:
 1. Complete Pokémon Run & Bun through normal game inputs.
 2. Continuously improve the emulator interface so each future decision requires less fragile low-level work.
 
-## Current milestone: RPC v0.1
+## Completed milestone: RPC v0.1
 
 Implemented and tested against mGBA development build `0.11-9122-afd6f14ea` and Pokémon Run & Bun v1.07:
 
@@ -23,13 +23,24 @@ Implemented and tested against mGBA development build `0.11-9122-afd6f14ea` and 
 
 The savestate path was validated by saving a checkpoint, changing an EWRAM byte, loading the checkpoint, and confirming the byte returned to its original value.
 
-## Next: observation and event engine
+## Current milestone: RPC v0.2 observation and event engine
 
-- Named memory watches
-- `read_range` and large batched reads
-- Memory snapshots and diffs
-- Conditional waits (`wait until address changes`, `wait until keys/menu/battle state matches`)
-- Push events from Lua rather than polling action state
+Implemented:
+
+- Compact `memory.read_range` and `memory.read_range_batch` operations
+- Named memory snapshots and grouped byte-level diffs
+- Named scalar and byte-range watches
+- Frame-polled watch change events with cursors
+- Asynchronous frame-based conditional waits with deterministic emulator-frame deadlines
+- Python helpers for all of the above
+
+The first reverse-engineering loop is now expressible as: snapshot a region, perform one controlled action, diff it, then install watches for addresses that repeatedly correlate with the transition.
+
+## Next: observation and event engine hardening
+
+- Push events from Lua rather than polling `events.poll` (requires an async-capable Python reader)
+- Snapshot retention limits and explicit snapshot removal
+- More compact diff encoding for very large changed regions
 - Session IDs and protocol error codes
 - Action cancellation and queue inspection
 - Deterministic timeout semantics based on emulator frames

@@ -6,7 +6,7 @@ The project has two parallel goals: **complete Pokémon Run & Bun** and **contin
 
 The current setup is designed for the ChatGPT Linux sandbox and has been tested with mGBA development build `0.11-9122-afd6f14ea` and Pokémon Run & Bun v1.07.
 
-## Current interface: RPC v0.1
+## Current interface: RPC v0.2
 
 The recommended bridge is `scripts/mgba_rpc.lua`, with the Python client in `client/mgba_rpc.py`.
 
@@ -17,6 +17,10 @@ It currently provides:
 - Action completion/status tracking
 - 8-, 16-, and 32-bit bus memory reads/writes
 - Batched memory reads and structured observations
+- Compact byte-range reads and batched byte-range reads
+- Named memory snapshots with grouped byte-level diffs
+- Named scalar/range watches with frame-recorded change events
+- Frame-based conditional waits for memory, watches, keys, and emulator frames
 - mGBA-native framebuffer screenshots through Lua
 - Savestate save/load
 - Reset and input clearing
@@ -81,7 +85,21 @@ A response carries the matching request ID, success/error status, and emulator f
 {"id":1,"ok":true,"frame":12345,"result":{"title":"POKEMON EMER","code":"BPEE","frame":12345,"keys":0,"reads":[...]}}
 ```
 
-Supported operations in v0.1 include:
+The bridge returns byte ranges as lowercase hex so large reads stay compact on the socket. The Python client decodes them to `bytes` automatically:
+
+```python
+before = gba.snapshot("before_step", [
+    {"name": "ewram", "address": 0x02000000, "length": 0x400},
+])
+gba.press("DOWN")
+diff = gba.diff("before_step")
+
+gba.add_watch("player_x", 0x02000000, width=16)
+gba.wait_until({"type": "watch_changed", "name": "player_x"})
+print(gba.poll_events())
+```
+
+Supported operations in v0.2 include:
 
 - `ping`
 - `info`
@@ -92,7 +110,19 @@ Supported operations in v0.1 include:
 - `action.status`
 - `memory.read`
 - `memory.read_batch`
+- `memory.read_range`
+- `memory.read_range_batch`
 - `memory.write`
+- `memory.snapshot`
+- `memory.diff`
+- `watch.add`
+- `watch.remove`
+- `watch.list`
+- `watch.read`
+- `events.poll`
+- `wait.until`
+- `wait.status`
+- `wait.cancel`
 - `screenshot`
 - `state.save`
 - `state.load`
