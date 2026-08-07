@@ -3,62 +3,18 @@
   "player": {"name": "GPT", "gender": "male"},
   "rom": {"hack": "Pokemon Run & Bun", "version": "1.07", "title": "POKEMON EMER", "code": "BPEE"},
   "current_state": {
-    "name": "GPT",
-    "gender": "male",
-    "x": 5,
-    "y": 10,
-    "map_group": 0,
-    "map_num": 0,
-    "warp_id": 255,
-    "map_name": "PetalburgCity",
-    "battle_active": false
+    "map_group": 8,
+    "map_num": 4,
+    "map_name": "PetalburgCity_PokemonCenter_1F",
+    "x": 7,
+    "y": 4,
+    "battle_active": false,
+    "checkpoint": "petalburg_healed_venipede.ss0"
   },
   "party": [
-    {
-      "slot": 0,
-      "species": "Turtwig",
-      "species_id": 387,
-      "nickname": "Turtwig",
-      "level": 12,
-      "hp": 28,
-      "max_hp": 38,
-      "status": "poison",
-      "moves": ["Bite", "Growl", "Absorb", "Confide"],
-      "pp": [24, 10, 25, 10],
-      "experience": 973,
-      "friendship": 109,
-      "checksum_valid": true
-    },
-    {
-      "slot": 1,
-      "species": "Starly",
-      "species_id": 396,
-      "nickname": "Starly",
-      "level": 12,
-      "hp": 31,
-      "max_hp": 31,
-      "status": null,
-      "moves": ["Tackle", "Growl", "Quick Attack", "Aerial Ace"],
-      "pp": [35, 10, 30, 20],
-      "experience": 973,
-      "friendship": 111,
-      "checksum_valid": true
-    },
-    {
-      "slot": 2,
-      "species": "Venipede",
-      "species_id": 543,
-      "nickname": "Venipede",
-      "level": 5,
-      "hp": 5,
-      "max_hp": 19,
-      "status": null,
-      "moves": ["Rollout", "Poison Sting", null, null],
-      "pp": [20, 35, 0, 0],
-      "experience": 135,
-      "friendship": 70,
-      "checksum_valid": true
-    }
+    {"slot": 0, "species": "Turtwig", "species_id": 387, "level": 12, "hp": 38, "max_hp": 38, "status": null, "moves": ["Bite", "Growl", "Absorb", "Confide"], "pp": [25, 10, 25, 10], "experience": 973, "checksum_valid": true},
+    {"slot": 1, "species": "Starly", "species_id": 396, "level": 12, "hp": 31, "max_hp": 31, "status": null, "moves": ["Tackle", "Growl", "Quick Attack", "Aerial Ace"], "pp": [35, 10, 30, 20], "experience": 973, "checksum_valid": true},
+    {"slot": 2, "species": "Venipede", "species_id": 543, "level": 5, "hp": 19, "max_hp": 19, "status": null, "moves": ["Rollout", "Poison Sting", null, null], "pp": [20, 35, 0, 0], "experience": 135, "checksum_valid": true}
   ],
   "story": {
     "may_route103": "won",
@@ -67,13 +23,7 @@
     "wally_tutorial": "completed",
     "petalburg_gym_intro": "completed"
   },
-  "trainer_wins": [
-    "May (Route 103)",
-    "Youngster Calvin (Route 102)",
-    "Bug Catcher Rick (Route 102)",
-    "Route 102 Skiddo/Psyduck trainer",
-    "Tiana (Route 102)"
-  ],
+  "trainer_wins": ["May (Route 103)", "Youngster Calvin (Route 102)", "Bug Catcher Rick (Route 102)", "Route 102 Skiddo/Psyduck trainer", "Tiana (Route 102)"],
   "captures": ["Starly", "Venipede"],
   "interface_milestones": [
     "RPC v0.3 frame-synchronized emulator control",
@@ -85,8 +35,8 @@
     "first-time catch pipeline through Pokedex and nickname UI",
     "objective-specific navigation with forbidden warps",
     "savestate-backed/offline directed-edge route probing",
-    "Petalburg and Route 104 map IDs verified"
+    "Petalburg and Route 104 map IDs verified",
+    "Petalburg Pokemon Center reached and three-Pokemon party fully healed"
   ],
-  "recovery_checkpoint": "petalburg_after_venipede_return.ss0",
-  "next_objective": "Heal the three-Pokemon party in Petalburg, then re-enter Route 104 on the progression path toward Petalburg Woods."
+  "next_objective": "Exit Petalburg west, re-enter Route 104 on the progression path, and reach Petalburg Woods."
 }
