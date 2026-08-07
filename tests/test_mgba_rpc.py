@@ -10,6 +10,8 @@ class FakeMGBA(MGBA):
 
     def call(self, op: str, **params):
         self.calls.append((op, params))
+        if op == "info":
+            return {"frame": 100}
         if op == "memory.read_range":
             return {
                 "address": params["address"],
@@ -60,6 +62,16 @@ class FakeMGBA(MGBA):
             return {"wait": self.wait_states.pop(0)}
         if op == "wait.cancel":
             return {"wait": {"id": params["id"], "state": "cancelled"}}
+        if op == "experiment.run":
+            return {"experiment": {"id": 9, "state": "queued"}}
+        if op == "experiment.status":
+            return {
+                "experiment": {
+                    "id": params["id"],
+                    "state": "done",
+                    "captures": [],
+                }
+            }
         if op == "observe":
             return {"frame": 12, "ranges": params.get("ranges", [])}
         raise AssertionError(f"unexpected operation: {op}")
@@ -142,6 +154,45 @@ class MGBAClientTests(unittest.TestCase):
 
         self.assertEqual(result["stride"], 0x28)
         self.assertEqual(gba.calls[-1][0], "tasks.inspect")
+
+    def test_wait_frames_uses_bridge_frame_condition(self):
+        gba = FakeMGBA()
+
+        result = gba.wait_frames(12, wait=False)
+
+        self.assertEqual(result["state"], "waiting")
+        self.assertEqual(
+            gba.calls[-1],
+            (
+                "wait.until",
+                {
+                    "condition": {"type": "frame", "at_frame": 112},
+                    "timeout_frames": 72,
+                },
+            ),
+        )
+
+    def test_atomic_experiment_round_trip(self):
+        gba = FakeMGBA()
+
+        result = gba.experiment(
+            "/tmp/checkpoint.ss",
+            [{"keys": ["RIGHT"], "frames": 4}],
+            [{"name": "coords", "address": 1, "length": 8}],
+        )
+
+        self.assertEqual(result["state"], "done")
+        self.assertEqual(
+            gba.calls[0],
+            (
+                "experiment.run",
+                {
+                    "state_path": "/tmp/checkpoint.ss",
+                    "steps": [{"keys": ["RIGHT"], "frames": 4}],
+                    "captures": [{"name": "coords", "address": 1, "length": 8}],
+                },
+            ),
+        )
 
 
 if __name__ == "__main__":

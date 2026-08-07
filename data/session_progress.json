@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-08-07T19:28:00+02:00",
+  "player": {"name": "GPT", "gender": "male"},
+  "starter": "Turtwig",
+  "clock_set": "17:43",
+  "current_state": {
+    "map_group": 0,
+    "map_num": 10,
+    "map": "Oldale Town",
+    "x": 6,
+    "y": 17,
+    "battle_active": false
+  },
+  "party": [
+    {
+      "species": "Turtwig",
+      "species_id": 387,
+      "level": 7,
+      "hp": 26,
+      "max_hp": 26,
+      "moves": ["Bite", "Growl", "Absorb"],
+      "pp": [25, 10, 25],
+      "experience": 247,
+      "friendship": 81,
+      "checksum_valid": true
+    }
+  ],
+  "milestones": [
+    "RPC upgraded to v0.3",
+    "Run & Bun save pointers decoded",
+    "player/map coordinates decoded",
+    "persistent Gen III party decryption implemented and checksum validated",
+    "battle battler/move state decoded",
+    "framebuffer-based dialogue and battle visual-state detection implemented",
+    "coordinate-conditioned one-tile stepping implemented",
+    "static Emerald map data + live directed-edge verification navigation prototype validated",
+    "reached Oldale Town and Route 103",
+    "first May rival battle attempted"
+  ],
+  "uncertainty": "Current return to Oldale after the first May battle attempt strongly suggests a blackout, but progression flag was not yet explicitly verified."
+}

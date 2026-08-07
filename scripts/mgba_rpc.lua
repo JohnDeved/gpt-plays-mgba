@@ -1,5 +1,5 @@
 local PORT = 8765
-local PROTOCOL = "mgba-rpc/0.2"
+local PROTOCOL = "mgba-rpc/0.3"
 local MAX_RANGE_BYTES = 1024 * 1024
 local MAX_EVENT_QUEUE = 4096
 local RUNTIME_DIR = os.getenv("MGBA_RUNTIME_DIR") or "/tmp"
@@ -412,6 +412,43 @@ local function capture_ranges(ranges)
   return data
 end
 
+-- An experiment loads a savestate at the frame boundary, applies queued input,
+-- then captures RAM before control returns to the host. This avoids a
+-- host-side load/input/read race during ROM probing.
+local function normalize_captures(captures)
+  if captures == nil then return {} end
+  if type(captures) ~= "table" then error("captures must be an array") end
+  local out={}
+  for i,c in ipairs(captures) do
+    if type(c) ~= "table" then error("capture must be an object") end
+    local address=integer_param(c.address,"capture address",0,nil)
+    local length=integer_param(c.length,"capture length",0,MAX_RANGE_BYTES)
+    local name=c.name or ("capture"..tostring(i))
+    if type(name) ~= "string" or name=="" then error("capture name must be a non-empty string") end
+    out[#out+1]={name=name,address=address,length=length}
+  end
+  return out
+end
+
+local function capture_experiment_ranges(captures)
+  local out={}
+  for _,c in ipairs(captures or {}) do
+    local _,hex=read_range_data(c.address,c.length)
+    out[#out+1]={name=c.name,address=c.address,length=c.length,encoding="hex",data=hex}
+  end
+  return out
+end
+
+local function experiment_public(a, include_captures)
+  local out=action_public(a)
+  out.kind="experiment"
+  out.load_state_path=a.load_state_path
+  out.capture_frame=a.capture_frame
+  if a.error then out.error=a.error end
+  if include_captures and a.captured then out.captures=a.captured end
+  return out
+end
+
 local function snapshot_public(s, include_data)
   local out={name=s.name,frame=s.frame,ranges={}}
   for _,r in ipairs(s.ranges) do
@@ -530,7 +567,7 @@ end
 local function capabilities()
   return {
     protocol=PROTOCOL,
-    ops={"ping","info","observe","text.inspect","tasks.inspect","input.press","input.sequence","input.clear","action.status","memory.read","memory.read_batch","memory.read_range","memory.read_range_batch","memory.write","memory.snapshot","memory.diff","watch.add","watch.remove","watch.list","watch.read","events.poll","wait.until","wait.status","wait.cancel","screenshot","state.save","state.load","reset"},
+    ops={"ping","info","observe","text.inspect","tasks.inspect","input.press","input.sequence","input.clear","action.status","experiment.run","experiment.status","memory.read","memory.read_batch","memory.read_range","memory.read_range_batch","memory.write","memory.snapshot","memory.diff","watch.add","watch.remove","watch.list","watch.read","events.poll","wait.until","wait.status","wait.cancel","screenshot","state.save","state.load","reset"},
     keys={"A","B","SELECT","START","RIGHT","LEFT","UP","DOWN","R","L"},
     memory_widths={8,16,32},
     max_range_bytes=MAX_RANGE_BYTES,
@@ -538,6 +575,7 @@ local function capabilities()
     frame_based_waits=true,
     memory_snapshots=true,
     memory_watches=true,
+    atomic_experiments=true,
     text_printer_inspection=true,
     task_inspection=true,
     screenshot=true,
@@ -574,6 +612,19 @@ local function dispatch(req)
     local a=actions[tonumber(p.id)]
     if not a then error("unknown action") end
     return {action=action_public(a)}
+  end
+  if op=="experiment.run" then
+    local path=assert(p.state_path,"state_path required")
+    local a=enqueue_action(p.steps)
+    a.kind="experiment"
+    a.load_state_path=path
+    a.captures=normalize_captures(p.captures)
+    return {experiment=experiment_public(a,false)}
+  end
+  if op=="experiment.status" then
+    local a=actions[assert(tonumber(p.id),"experiment id required")]
+    if not a or a.kind~="experiment" then error("unknown experiment") end
+    return {experiment=experiment_public(a,a.state=="done")}
   end
   if op=="memory.read" then
     local address=assert(tonumber(p.address),"address required")
@@ -806,14 +857,36 @@ end
 
 callbacks:add("frame",function()
   if not activeAction and #actionQueue>0 then
-    activeAction=table.remove(actionQueue,1); activeAction.state="running"; activeAction.started_frame=frame(); activeAction.step=0; activeAction.remaining=0
+    activeAction=table.remove(actionQueue,1)
+    if activeAction.load_state_path then
+      local ok=emu:loadStateFile(activeAction.load_state_path)
+      if not ok then
+        activeAction.state="error"
+        activeAction.error="failed to load state"
+        activeAction.finished_frame=frame()
+        activeAction=nil
+      end
+    end
+    if activeAction then
+      activeAction.state="running"
+      activeAction.started_frame=frame()
+      activeAction.step=0
+      activeAction.remaining=0
+    end
   end
   if activeAction then
     if activeAction.remaining<=0 then
       activeAction.step=activeAction.step+1
       local st=activeAction.steps[activeAction.step]
       if not st then
-        clear_all_keys(); activeAction.state="done"; activeAction.finished_frame=frame(); activeAction=nil
+        clear_all_keys()
+        if activeAction.captures then
+          activeAction.capture_frame=frame()
+          activeAction.captured=capture_experiment_ranges(activeAction.captures)
+        end
+        activeAction.state="done"
+        activeAction.finished_frame=frame()
+        activeAction=nil
       else
         set_step_keys(st.keys); activeAction.remaining=st.frames
       end

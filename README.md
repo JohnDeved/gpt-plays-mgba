@@ -1,141 +1,97 @@
 # gpt-plays-mgba
 
-A control and observation layer for driving a development build of [mGBA](https://mgba.io/) from Lua over a localhost socket.
+A control and observation layer for playing Pokémon Run & Bun through a development build of [mGBA](https://mgba.io/). The project has two parallel goals: complete the game and continuously improve the emulator interface so gameplay relies on structured game knowledge instead of repeated screenshots.
 
-The project has two parallel goals: **complete Pokémon Run & Bun** and **continuously improve the interface used to observe and control the emulator**.
+The checked-out macOS runtime has been tested with mGBA development build `0.11-9122-afd6f14ea` and Pokémon Run & Bun v1.07.
 
-The current setup is designed for the ChatGPT Linux sandbox and has been tested with mGBA development build `0.11-9122-afd6f14ea` and Pokémon Run & Bun v1.07.
+## RPC v0.3 bridge
 
-## Current interface: RPC v0.2
+The canonical bridge is `scripts/mgba_rpc.lua`, with the Python client in `client/mgba_rpc.py`. It provides:
 
-The recommended bridge is `scripts/mgba_rpc.lua`, with the Python client in `client/mgba_rpc.py`.
+- NDJSON RPC with request IDs and capability negotiation
+- Frame-synchronized button presses and queued input sequences
+- 8-, 16-, and 32-bit reads/writes, batch reads, and compact byte ranges
+- Named memory snapshots and grouped byte-level diffs
+- Scalar/range watches, frame-recorded change events, and conditional waits
+- Text-buffer and Gen III text-printer inspection
+- Gen III task-scheduler inspection
+- Atomic savestate experiments: load a state, apply input, and capture RAM at the exact completion frame
+- mGBA-native screenshots, savestate save/load, reset, and input clearing
 
-It currently provides:
-
-- NDJSON RPC with request IDs and a capability handshake
-- Frame-synchronized button presses and queued multi-step input sequences
-- Action completion/status tracking
-- 8-, 16-, and 32-bit bus memory reads/writes
-- Batched memory reads and structured observations
-- Compact byte-range reads and batched byte-range reads
-- Named memory snapshots with grouped byte-level diffs
-- Named scalar/range watches with frame-recorded change events
-- Frame-based conditional waits for memory, watches, keys, and emulator frames
-- mGBA-native framebuffer screenshots through Lua
-- Savestate save/load
-- Reset and input clearing
-- ROM title/code and frame metadata
-
-The older `scripts/mgba_control.lua` / `client/mgba_client.py` text protocol is retained as a simple legacy/reference implementation.
-
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the interface-improvement plan.
-
-## Launch on macOS
-
-Use a native macOS development build. The checked-out workspace can use the runtime at `../runtime/mGBA.app` automatically:
-
-    scripts/launch_mgba_macos.sh /path/to/game.gba
-
-Set `MGBA_BIN=/path/to/mGBA` when the emulator is installed elsewhere. The script starts the Lua bridge on `127.0.0.1:8765`.
-
-## Launch in the sandbox
-
-The sandbox has no real X server, so mGBA is run on Xvfb. The AppImage can be extracted first because FUSE is unavailable.
-
-```bash
-chmod +x mGBA-build-latest-appimage-x64.appimage
-./mGBA-build-latest-appimage-x64.appimage --appimage-extract
-
-Xvfb :99 -screen 0 1024x768x24 &
-DISPLAY=:99 ./squashfs-root/AppRun \
-  --script scripts/mgba_rpc.lua \
-  /path/to/game.gba
-```
-
-Then from Python:
+Byte ranges are returned as lowercase hex on the socket and decoded to `bytes` by the Python client. A typical observation can combine semantic telemetry with raw evidence:
 
 ```python
 from client.mgba_rpc import MGBA
 
 with MGBA() as gba:
-    print(gba.info())
-
-    # Frame-synchronized input.
-    gba.press("START")
-    gba.sequence([
-        {"keys": ["DOWN"], "frames": 2},
-        {"wait": 4},
-        {"keys": ["A"], "frames": 2},
-    ])
-
-    # One structured observation can include many reads and a screenshot.
     state = gba.observe(
-        reads=[
-            {"name": "ewram0", "address": 0x02000000, "width": 32},
-            {"name": "iwram0", "address": 0x03000000, "width": 32},
-        ],
-        screenshot="/mnt/data/game.png",
+        reads=[{"name": "map_group", "address": 0x02031DBC, "width": 8}],
+        ranges=[{"name": "player", "address": 0x02031DB8, "length": 8}],
+        text=True,
+        tasks=True,
+        watches=True,
     )
     print(state)
 ```
 
-## RPC shape
-
-Requests and responses are newline-delimited JSON.
-
-```json
-{"id":1,"op":"observe","params":{"reads":[{"name":"ewram0","address":33554432,"width":32}]}}
-```
-
-A response carries the matching request ID, success/error status, and emulator frame:
-
-```json
-{"id":1,"ok":true,"frame":12345,"result":{"title":"POKEMON EMER","code":"BPEE","frame":12345,"keys":0,"reads":[...]}}
-```
-
-The bridge returns byte ranges as lowercase hex so large reads stay compact on the socket. The Python client decodes them to `bytes` automatically:
+Atomic experiments are useful for collision probing and reverse engineering:
 
 ```python
-before = gba.snapshot("before_step", [
-    {"name": "ewram", "address": 0x02000000, "length": 0x400},
-])
-gba.press("DOWN")
-diff = gba.diff("before_step")
-
-gba.add_watch("player_x", 0x02000000, width=16)
-gba.wait_until({"type": "watch_changed", "name": "player_x"})
-print(gba.poll_events())
+result = gba.experiment(
+    "/path/to/checkpoint.ss",
+    steps=[{"keys": ["RIGHT"], "frames": 8}],
+    captures=[
+        {"name": "save_block1", "address": 0x02031DB8, "length": 0x40},
+        {"name": "tasks", "address": 0x03005E10, "length": 0x100},
+    ],
+)
 ```
 
-Supported operations in v0.2 include:
+The bridge-side experiment removes host timing races: the savestate load, input frames, and final captures happen inside the emulator frame callback.
 
-- `ping`
-- `info`
-- `observe`
-- `input.press`
-- `input.sequence`
-- `input.clear`
-- `action.status`
-- `memory.read`
-- `memory.read_batch`
-- `memory.read_range`
-- `memory.read_range_batch`
-- `memory.write`
-- `memory.snapshot`
-- `memory.diff`
-- `watch.add`
-- `watch.remove`
-- `watch.list`
-- `watch.read`
-- `events.poll`
-- `wait.until`
-- `wait.status`
-- `wait.cancel`
-- `screenshot`
-- `state.save`
-- `state.load`
-- `reset`
+Supported v0.3 operations include `observe`, `text.inspect`, `tasks.inspect`, `input.press`, `input.sequence`, `action.status`, `experiment.run`, `experiment.status`, `memory.read`, `memory.read_batch`, `memory.read_range`, `memory.read_range_batch`, `memory.write`, `memory.snapshot`, `memory.diff`, `watch.add`, `watch.remove`, `watch.list`, `watch.read`, `events.poll`, `wait.until`, `wait.status`, `wait.cancel`, `screenshot`, `state.save`, `state.load`, `ping`, `info`, and `reset`.
 
-## Repository policy
+The older `scripts/mgba_control.lua` / `client/mgba_client.py` text protocol is retained as a legacy reference.
 
-ROMs, save files, savestates, extracted AppImages, generated screenshots, and other runtime artifacts are intentionally not tracked here. They live in separate working Drive/runtime storage.
+## Run & Bun adapters
+
+`games/runbun.py` is the semantic bridge adapter used during the current playthrough. It combines verified pointers, text decoding, text-printer state, task telemetry, field-message modes, party decryption, and battle heuristics.
+
+`games/run_and_bun/` contains the remote branch's broader dataclass adapter and ROM profile:
+
+- `symbols.json` records Run & Bun v1.07 addresses and their scope.
+- `state.py` decodes player/map state, party data, battle state, menus, and movement.
+- `visual.py` provides framebuffer-derived HUD/state classifiers as a diagnostic fallback.
+
+The preferred observation order is semantic RAM/task/text telemetry, then raw ranges or watches, with screenshots reserved for visual verification.
+
+## Navigation and progress
+
+`tools/nav_probe.py` is the savestate-assisted collision explorer. `tools/nav_route101_live.py` demonstrates live coordinate verification around a proposed route, with ROM-specific obstacles, ledges, NPCs, and battles treated as overrides.
+
+The current handoff is recorded in `data/session_progress.json`; synchronization metadata is in `data/sync_manifest_2026-08-07.json`. Runtime ROMs, saves, screenshots, and savestates remain outside Git in the separate runtime workspace.
+
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) for the interface-improvement plan.
+
+## Launch on macOS
+
+Use the checked-out launcher with the native runtime:
+
+```bash
+scripts/launch_mgba_macos.sh "/path/to/game.gba"
+```
+
+The launcher uses `../runtime/mGBA.app` automatically. Set `MGBA_BIN=/path/to/mGBA` when the emulator is installed elsewhere. It starts the bridge on `127.0.0.1:8765`.
+
+For the sandbox, run the extracted AppImage under Xvfb:
+
+```bash
+chmod +x mGBA-build-latest-appimage-x64.appimage
+./mGBA-build-latest-appimage-x64.appimage --appimage-extract
+Xvfb :99 -screen 0 1024x768x24 &
+DISPLAY=:99 ./squashfs-root/AppRun --script scripts/mgba_rpc.lua /path/to/game.gba
+```
+
+## Design rule
+
+Prefer one structured observation followed by one reasoned action. Whenever gameplay exposes a weakness in the interface, improve the interface rather than repeatedly working around it.

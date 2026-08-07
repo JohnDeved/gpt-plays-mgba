@@ -104,13 +104,19 @@ class MGBA:
         if name is not None:
             params["name"] = name
         result = self.call("memory.read_range", **params)
-        return bytes.fromhex(result["data"])
+        payload = result.get("data", result.get("hex"))
+        if payload is None:
+            raise MGBAError(f"range response has no byte payload: {result}")
+        return bytes.fromhex(payload)
 
     def read_range_batch(self, ranges):
         """Read named byte ranges and decode the bridge's compact hex payloads."""
         result = self.call("memory.read_range_batch", ranges=list(ranges))
         return [
-            {**item, "data": bytes.fromhex(item["data"])}
+            {
+                **item,
+                "data": bytes.fromhex(item.get("data", item.get("hex", ""))),
+            }
             for item in result["ranges"]
         ]
 
@@ -208,6 +214,94 @@ class MGBA:
 
     def cancel_wait(self, wait_id: int):
         return self.call("wait.cancel", id=wait_id)["wait"]
+
+    def wait_frames(
+        self,
+        frames: int,
+        *,
+        timeout_frames: int | None = None,
+        wait: bool = True,
+    ):
+        """Synchronize with a number of emulator frames without host sleeps."""
+        if isinstance(frames, bool) or int(frames) != frames or frames < 0:
+            raise ValueError("frames must be a non-negative integer")
+        frames = int(frames)
+        target = int(self.info()["frame"]) + frames
+        pending = self.call(
+            "wait.until",
+            condition={"type": "frame", "at_frame": target},
+            timeout_frames=timeout_frames or max(frames + 60, 1),
+        )["wait"]
+        if not wait:
+            return pending
+        return self._finish_wait(
+            pending,
+            timeout=max(3.0, frames / 30.0),
+            timeout_frames=timeout_frames or max(frames + 60, 1),
+            condition={"type": "frame", "at_frame": target},
+        )
+
+    def _finish_wait(self, wait, *, timeout, timeout_frames, condition):
+        deadline = time.monotonic() + timeout
+        while wait["state"] == "waiting":
+            if time.monotonic() >= deadline:
+                self.cancel_wait(wait["id"])
+                raise TimeoutError(
+                    f"wait {wait['id']} exceeded host timeout while waiting for {condition!r}"
+                )
+            time.sleep(0.01)
+            wait = self.wait_status(wait["id"])
+        if wait["state"] in {"timed_out", "timeout"}:
+            raise TimeoutError(
+                f"wait {wait['id']} timed out after {timeout_frames} emulator frames"
+            )
+        if wait["state"] == "error":
+            raise MGBAError(wait.get("error", f"wait {wait['id']} failed"))
+        return wait
+
+    def experiment(
+        self,
+        state_path,
+        steps,
+        captures,
+        *,
+        wait: bool = True,
+        timeout: float = 10.0,
+    ):
+        """Run frame-synchronized input from a savestate and capture RAM atomically."""
+        experiment = self.call(
+            "experiment.run",
+            state_path=str(state_path),
+            steps=list(steps),
+            captures=list(captures),
+        )["experiment"]
+        return (
+            self.wait_experiment(experiment["id"], timeout=timeout)
+            if wait
+            else experiment
+        )
+
+    def experiment_status(self, experiment_id: int):
+        return self.call("experiment.status", id=experiment_id)["experiment"]
+
+    def wait_experiment(
+        self,
+        experiment_id: int,
+        timeout: float = 10.0,
+        poll: float = 0.01,
+    ):
+        deadline = time.monotonic() + timeout
+        while True:
+            experiment = self.experiment_status(experiment_id)
+            if experiment["state"] == "done":
+                return experiment
+            if experiment["state"] == "error":
+                raise MGBAError(
+                    experiment.get("error", f"experiment {experiment_id} failed")
+                )
+            if time.monotonic() >= deadline:
+                raise TimeoutError(f"experiment {experiment_id} did not finish")
+            time.sleep(poll)
 
     def wait_until(
         self,

@@ -1,0 +1,28 @@
+{
+  "synced_at": "2026-08-07T19:28:00+02:00",
+  "github": {
+    "repository": "JohnDeved/gpt-plays-mgba",
+    "commits": {
+      "lua_rpc_v0_3": "a02b67cbf7796fd390d4dae645c35e3af7bf0b4b",
+      "python_rpc_v0_3": "df64dcf060b4c45850fdd9796e270b17c62c5756",
+      "runbun_state": "f8e0a37cfeefad1654837dc9303dbd8fee91968c",
+      "runbun_visual": "7c49083363fd3e9ec33c22156ebbfee8c5a91f0d",
+      "runbun_package": "0abe2cd9ccdf7ecca4d16be2bfc53b7a8a1fd9cf",
+      "symbols": "593ae2e1d011822f94679a1484907a236c47e1a3",
+      "progress": "8aa9a7ec6ca17e1f8745550ab0b514f21b2db55b",
+      "nav_probe": "ff8ce423b958a1148f585afea24d4ad232e1b777",
+      "nav_route101_live": "de6d847ce47aaa3c20cb900e23df2d3e06952053",
+      "readme": "ee5b17f53f8386a7e4b7fbef9104e2e402c0800e"
+    }
+  },
+  "drive": {
+    "root_team_folder_id": "0AObaSKf4x2scUk9PVA",
+    "workspace_folder_id": "1toUtZm022emmSt6oZ-qU-LYBad8REHCh",
+    "scripts_folder_id": "1jLQMDOalQGnFMSegt_TDQZRUwFzJqDV-",
+    "data_folder_id": "1oBufarnVmV0lc43Wjr3pmofpszv0VMFu",
+    "checkpoints_folder_id": "1CzftmnmUTaKHU6fKlJPfjfTIbMpx7lwp",
+    "runtime_bundle_file_id": "1jAswsjWt_2DAmhi-YZDH06USzdR5X2LY",
+    "current_checkpoint_file_id": "1d5y5bUHN5FcFzkbfwLPU5mhFum_GPcl4",
+    "may_battle_checkpoint_file_id": "184JBoxBFptV1pPMhpV1Sp0IFd8PARSOY"
+  }
+}
