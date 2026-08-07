@@ -3,18 +3,18 @@
   "player": {"name": "GPT", "gender": "male"},
   "rom": {"hack": "Pokemon Run & Bun", "version": "1.07", "title": "POKEMON EMER", "code": "BPEE"},
   "current_state": {
-    "map_group": 8,
-    "map_num": 4,
-    "map_name": "PetalburgCity_PokemonCenter_1F",
-    "x": 7,
-    "y": 4,
+    "map_group": 0,
+    "map_num": 19,
+    "map_name": "Route104",
+    "x": 28,
+    "y": 71,
     "battle_active": false,
-    "checkpoint": "petalburg_healed_venipede.ss0"
+    "checkpoint": "r104_mikey_win.ss0"
   },
   "party": [
-    {"slot": 0, "species": "Turtwig", "species_id": 387, "level": 12, "hp": 38, "max_hp": 38, "status": null, "moves": ["Bite", "Growl", "Absorb", "Confide"], "pp": [25, 10, 25, 10], "experience": 973, "checksum_valid": true},
-    {"slot": 1, "species": "Starly", "species_id": 396, "level": 12, "hp": 31, "max_hp": 31, "status": null, "moves": ["Tackle", "Growl", "Quick Attack", "Aerial Ace"], "pp": [35, 10, 30, 20], "experience": 973, "checksum_valid": true},
-    {"slot": 2, "species": "Venipede", "species_id": 543, "level": 5, "hp": 19, "max_hp": 19, "status": null, "moves": ["Rollout", "Poison Sting", null, null], "pp": [20, 35, 0, 0], "experience": 135, "checksum_valid": true}
+    {"species": "Turtwig", "species_id": 387, "level": 12, "hp": 8, "max_hp": 38, "moves": ["Bite", "Growl", "Absorb", "Confide"]},
+    {"species": "Starly", "species_id": 396, "level": 12, "hp": 0, "max_hp": 31, "moves": ["Tackle", "Growl", "Quick Attack", "Aerial Ace"]},
+    {"species": "Venipede", "species_id": 543, "level": 5, "hp": 0, "max_hp": 19, "moves": ["Rollout", "Poison Sting"]}
   ],
   "story": {
     "may_route103": "won",
@@ -23,20 +23,20 @@
     "wally_tutorial": "completed",
     "petalburg_gym_intro": "completed"
   },
-  "trainer_wins": ["May (Route 103)", "Youngster Calvin (Route 102)", "Bug Catcher Rick (Route 102)", "Route 102 Skiddo/Psyduck trainer", "Tiana (Route 102)"],
+  "trainer_wins": [
+    "May (Route 103)", "Youngster Calvin (Route 102)", "Bug Catcher Rick (Route 102)",
+    "Route 102 Skiddo/Psyduck trainer", "Tiana (Route 102)", "Triathlete Mikey (Route 104)"
+  ],
   "captures": ["Starly", "Venipede"],
   "interface_milestones": [
-    "RPC v0.3 frame-synchronized emulator control",
-    "persistent party decryption + checksum validation",
-    "battle stat-stage/status/PP acknowledgement",
-    "semantic Start-menu selection and dimmed-transition guard",
-    "exact-color Party-screen classifier to avoid grass false positives",
-    "forced faint replacement and active-battler-aware battle driver",
-    "first-time catch pipeline through Pokedex and nickname UI",
-    "objective-specific navigation with forbidden warps",
-    "savestate-backed/offline directed-edge route probing",
-    "Petalburg and Route 104 map IDs verified",
-    "Petalburg Pokemon Center reached and three-Pokemon party fully healed"
+    "HUD-less battle intro textbox recognized",
+    "battle switches target species identity instead of stale mutable party slots",
+    "forced replacement targets current species identity",
+    "trapping/switch failure observed from Bind",
+    "Run & Bun live gBackupMapLayout located at 0x03005DD0",
+    "live EWRAM map grid decoded into metatile/collision/elevation",
+    "collision-only shortest-path proposals now come from the running hack instead of vanilla map.bin",
+    "planned edges remain emulator-validated for NPCs, scripts, ledges and transitions"
   ],
-  "next_objective": "Exit Petalburg west, re-enter Route 104 on the progression path, and reach Petalburg Woods."
+  "next_objective": "Preserve the Mikey win, heal in Petalburg, then resume the live-grid route to Petalburg Woods."
 }
