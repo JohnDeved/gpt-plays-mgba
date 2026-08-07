@@ -1,0 +1,37 @@
+# ROMs / patches
+*.gba
+*.gb
+*.gbc
+*.zip
+*.ips
+*.ups
+*.bps
+
+# Saves / states
+*.sav
+*.ss0
+*.ss1
+*.ss2
+*.ss3
+*.ss4
+*.ss5
+*.ss6
+*.ss7
+*.ss8
+*.ss9
+*.state
+
+# Emulator binaries / extracted AppImages
+*.appimage
+squashfs-root/
+
+# Generated captures / runtime files
+*.png
+*.bmp
+*.log
+*_ready.txt
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
