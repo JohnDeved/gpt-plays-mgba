@@ -1,0 +1,33 @@
+{
+  "rom": {
+    "title": "POKEMON EMER",
+    "code": "BPEE",
+    "hack": "Pokemon Run & Bun",
+    "version": "1.07"
+  },
+  "verified_symbols": {
+    "gSaveBlock1Ptr": {"address": "0x03005D9C", "points_to_example": "0x02024CBC"},
+    "gSaveBlock2Ptr": {"address": "0x03005DA0", "points_to_example": "0x02024018"},
+    "gPokemonStoragePtr": {"address": "0x03005DA4", "points_to_example": "0x02028848"},
+    "gPlayerPartyCount": {"address": "0x02023A95"},
+    "gPlayerParty": {"address": "0x02023A98", "pokemon_struct_size": 100},
+    "title_menu_cursor": {"address": "0x02023006", "values": {"0": "New Game", "1": "Option"}}
+  },
+  "saveblock1_offsets": {
+    "player_x": 0,
+    "player_y": 2,
+    "map_group": 4,
+    "map_num": 5,
+    "warp_id": 6
+  },
+  "saveblock2_notes": {
+    "player_name": "verified by locating encoded GPT signature",
+    "gender": "verified male for current run"
+  },
+  "battle_notes": {
+    "battle_structs": "decoded from live RAM and gated by framebuffer battle-HUD detection to avoid stale post-battle structs",
+    "move_cursor": "decoded and used successfully in live battles",
+    "persistent_party": "Gen III encrypted party structure decrypted with checksum validation"
+  },
+  "confidence": "verified against Pokemon Run & Bun v1.07 live emulator state; do not assume addresses apply to other versions"
+}
