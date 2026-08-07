@@ -582,3 +582,59 @@ class RunBunAdapter:
             if after["save"]["block1"] == before["save"]["block1"]:
                 break
         return positions
+
+    def follow_route(
+        self,
+        directions: list[str] | tuple[str, ...],
+        *,
+        frames: int = 12,
+        settle_frames: int = 8,
+        transition_frames: int = 30,
+        expected_map: tuple[int, int] | None = None,
+        expected_position: tuple[int, int] | None = None,
+    ) -> dict[str, Any]:
+        """Execute a known route as one bridge action and verify its endpoint.
+
+        This is the fast counterpart to :meth:`walk`: route planning happens
+        from known map geometry/warps, while the emulator still returns one
+        frame-synchronized action record and one semantic endpoint observation.
+        """
+        normalized = [direction.upper() for direction in directions]
+        if not normalized:
+            raise ValueError("route must contain at least one direction")
+        if any(direction not in {"UP", "DOWN", "LEFT", "RIGHT"} for direction in normalized):
+            raise ValueError(f"invalid route direction: {directions!r}")
+        if frames < 1 or settle_frames < 0 or transition_frames < 0:
+            raise ValueError("route timing values must be non-negative, with frames >= 1")
+        steps: list[dict[str, Any]] = []
+        index = 0
+        while index < len(normalized):
+            direction = normalized[index]
+            end = index + 1
+            while end < len(normalized) and normalized[end] == direction:
+                end += 1
+            run_length = end - index
+            # Holding a direction lets the game consume a clear straight run
+            # without a host round trip per tile.  A short tail of held input
+            # absorbs the movement animation between repeated steps; the
+            # explicit release still prevents this run leaking into the next
+            # turn or across a warp.
+            held_frames = frames if run_length == 1 else frames * run_length + settle_frames
+            steps.append({"keys": [direction], "frames": held_frames})
+            if settle_frames:
+                steps.append({"keys": [], "frames": settle_frames})
+            index = end
+        action = self.gba.sequence(steps)
+        if transition_frames:
+            self.gba.wait_frames(transition_frames)
+        state = self.observe()
+        block = state.get("save", {}).get("block1") or {}
+        actual_map = (block.get("map_group"), block.get("map_number"))
+        actual_position = (block.get("x"), block.get("y"))
+        if expected_map is not None and actual_map != expected_map:
+            raise RuntimeError(f"route ended on map {actual_map}, expected {expected_map}")
+        if expected_position is not None and actual_position != expected_position:
+            raise RuntimeError(
+                f"route ended at {actual_position}, expected {expected_position}"
+            )
+        return {"action": action, "state": state, "map": actual_map, "position": actual_position}

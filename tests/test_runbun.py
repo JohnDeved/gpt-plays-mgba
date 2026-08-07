@@ -14,8 +14,9 @@ from games.runbun import (
 class FakeMGBA:
     def __init__(self):
         self.ranges = {}
+        self.sequence_calls = []
 
-    def observe(self, reads, screenshot=False):
+    def observe(self, reads=None, screenshot=False, **_kwargs):
         values = {
             "save_block1_ptr": 0x02010000,
             "save_block2_ptr": 0x02011000,
@@ -47,6 +48,13 @@ class FakeMGBA:
         if address == BATTLE_MONS:
             return bytes(length)
         raise AssertionError((hex(address), length))
+
+    def sequence(self, steps):
+        self.sequence_calls.append(steps)
+        return {"id": 8, "state": "done", "total_steps": len(steps)}
+
+    def wait_frames(self, frames):
+        return {"id": 9, "state": "done", "frames": frames}
 
 
 class RunBunTests(unittest.TestCase):
@@ -91,6 +99,35 @@ class RunBunTests(unittest.TestCase):
         self.assertEqual(len(state["battle"]["mons"]), 4)
         self.assertFalse(state["battle"]["active"])
         self.assertEqual(state["player"]["name"], "Ac")
+
+    def test_follow_route_batches_input_and_checks_endpoint(self):
+        fake = FakeMGBA()
+        adapter = RunBunAdapter(fake)
+
+        result = adapter.follow_route(
+            ["RIGHT", "DOWN"],
+            expected_map=(2, 3),
+            expected_position=(5, 7),
+        )
+
+        self.assertEqual(result["map"], (2, 3))
+        self.assertEqual(result["position"], (5, 7))
+        self.assertEqual(len(fake.sequence_calls), 1)
+        self.assertEqual(len(fake.sequence_calls[0]), 4)
+
+    def test_follow_route_compresses_clear_straight_runs(self):
+        fake = FakeMGBA()
+        adapter = RunBunAdapter(fake)
+
+        adapter.follow_route(["RIGHT", "RIGHT", "RIGHT"], settle_frames=8)
+
+        self.assertEqual(
+            fake.sequence_calls[0],
+            [
+                {"keys": ["RIGHT"], "frames": 44},
+                {"keys": [], "frames": 8},
+            ],
+        )
 
 
 if __name__ == "__main__":
