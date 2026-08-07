@@ -1,5 +1,5 @@
 local PORT = 8765
-local PROTOCOL = "mgba-rpc/0.1"
+local PROTOCOL = "mgba-rpc/0.3"
 
 local server = nil
 local clients = {}
@@ -10,6 +10,11 @@ local actions = {}
 local actionQueue = {}
 local activeAction = nil
 local activeKeys = {}
+local watches = {}
+local snapshots = {}
+local nextSnapshotId = 1
+local waits = {}
+local nextWaitId = 1
 
 local KEYS = {
   A = C.GBA_KEY.A, B = C.GBA_KEY.B,
@@ -205,15 +210,110 @@ local function write_width(width, address, value)
   error("width must be 8, 16, or 32")
 end
 
+local function read_range(address, length)
+  address=assert(tonumber(address),"address required")
+  length=math.floor(assert(tonumber(length),"length required"))
+  if length < 0 or length > 1048576 then error("length must be between 0 and 1048576") end
+  return emu:readRange(address,length)
+end
+
+local function hex_encode(s)
+  return (s:gsub('.', function(c) return string.format('%02x', string.byte(c)) end))
+end
+
+local function watch_values()
+  local out={}
+  local names={}
+  for name,_ in pairs(watches) do names[#names+1]=name end
+  table.sort(names)
+  for _,name in ipairs(names) do
+    local w=watches[name]
+    out[#out+1]={name=name,address=w.address,width=w.width,value=read_width(w.width,w.address)}
+  end
+  return out
+end
+
+local function compare_value(actual, op, expected, mask)
+  if op=="eq" then return actual==expected end
+  if op=="ne" then return actual~=expected end
+  if op=="gt" then return actual>expected end
+  if op=="ge" then return actual>=expected end
+  if op=="lt" then return actual<expected end
+  if op=="le" then return actual<=expected end
+  if op=="mask_eq" then
+    mask=assert(tonumber(mask),"mask required")
+    return (actual & mask)==(expected & mask)
+  end
+  error("unsupported comparison op: "..tostring(op))
+end
+
+local function wait_public(w)
+  if not w then return nil end
+  return {id=w.id,state=w.state,kind=w.kind,created_frame=w.created_frame,finished_frame=w.finished_frame,deadline_frame=w.deadline_frame,address=w.address,width=w.width,op=w.op,value=w.value,initial=w.initial,actual=w.actual}
+end
+
+local function update_waits()
+  local f=frame()
+  for _,w in pairs(waits) do
+    if w.state=="waiting" then
+      local matched=false
+      if w.kind=="frame" then
+        matched=f>=w.target_frame
+        w.actual=f
+      elseif w.kind=="memory" then
+        local actual=read_width(w.width,w.address); w.actual=actual
+        if w.op=="changed" then matched=actual~=w.initial
+        else matched=compare_value(actual,w.op,w.value,w.mask) end
+      end
+      if matched then w.state="done"; w.finished_frame=f
+      elseif w.deadline_frame and f>=w.deadline_frame then w.state="timeout"; w.finished_frame=f end
+    end
+  end
+end
+
+local function normalize_captures(captures)
+  local out={}
+  for _,c in ipairs(captures or {}) do
+    local address=assert(tonumber(c.address),"capture address required")
+    local length=math.floor(assert(tonumber(c.length),"capture length required"))
+    if length < 0 or length > 1048576 then error("capture length must be between 0 and 1048576") end
+    out[#out+1]={name=c.name,address=address,length=length}
+  end
+  return out
+end
+
+local function capture_ranges(captures)
+  local out={}
+  for i,c in ipairs(captures or {}) do
+    local data=read_range(c.address,c.length)
+    out[i]={name=c.name,address=c.address,length=c.length,hex=hex_encode(data)}
+  end
+  return out
+end
+
+local function experiment_public(a, include_captures)
+  local r=action_public(a)
+  r.kind="experiment"
+  r.load_state_path=a.load_state_path
+  r.capture_frame=a.capture_frame
+  if include_captures and a.captured then r.captures=a.captured end
+  return r
+end
+
 local function capabilities()
   return {
     protocol=PROTOCOL,
-    ops={"ping","info","observe","input.press","input.sequence","input.clear","action.status","memory.read","memory.read_batch","memory.write","screenshot","state.save","state.load","reset"},
+    ops={"ping","info","observe","input.press","input.sequence","input.clear","action.status","memory.read","memory.read_batch","memory.read_range","memory.write","memory.snapshot","memory.diff","memory.snapshot_drop","watch.set","watch.remove","watch.list","wait.create","wait.status","experiment.run","experiment.status","screenshot","state.save","state.load","reset"},
     keys={"A","B","SELECT","START","RIGHT","LEFT","UP","DOWN","R","L"},
     memory_widths={8,16,32},
     frame_synchronized_input=true,
     screenshot=true,
     savestate=true,
+    memory_ranges=true,
+    memory_snapshots=true,
+    named_watches=true,
+    conditional_waits=true,
+    atomic_experiments=true,
   }
 end
 
@@ -252,11 +352,91 @@ local function dispatch(req)
     end
     return {reads=vals}
   end
+  if op=="memory.read_range" then
+    local address=assert(tonumber(p.address),"address required")
+    local length=math.floor(assert(tonumber(p.length),"length required"))
+    local data=read_range(address,length)
+    return {address=address,length=length,hex=hex_encode(data)}
+  end
   if op=="memory.write" then
     local address=assert(tonumber(p.address),"address required")
     local width=tonumber(p.width or 8); local value=assert(tonumber(p.value),"value required")
     write_width(width,address,value)
     return {address=address,width=width,value=read_width(width,address)}
+  end
+  if op=="memory.snapshot" then
+    local address=assert(tonumber(p.address),"address required")
+    local length=math.floor(assert(tonumber(p.length),"length required"))
+    local data=read_range(address,length)
+    local id=nextSnapshotId; nextSnapshotId=nextSnapshotId+1
+    snapshots[id]={id=id,address=address,length=length,data=data,frame=frame(),name=p.name}
+    return {snapshot={id=id,address=address,length=length,frame=frame(),name=p.name}}
+  end
+  if op=="memory.diff" then
+    local id=assert(tonumber(p.id),"snapshot id required")
+    local snap=snapshots[id]; if not snap then error("unknown snapshot") end
+    local current=read_range(snap.address,snap.length)
+    local changes={}; local changed_count=0
+    local max_changes=math.floor(tonumber(p.max_changes or 256) or 256)
+    if max_changes < 0 then max_changes=0 end
+    for i=1,snap.length do
+      local a=string.byte(snap.data,i); local b=string.byte(current,i)
+      if a~=b then
+        changed_count=changed_count+1
+        if #changes<max_changes then changes[#changes+1]={offset=i-1,address=snap.address+i-1,before=a,after=b} end
+      end
+    end
+    return {snapshot={id=id,address=snap.address,length=snap.length,frame=snap.frame,name=snap.name},frame=frame(),changed_count=changed_count,truncated=changed_count>#changes,changes=changes}
+  end
+  if op=="memory.snapshot_drop" then
+    local id=assert(tonumber(p.id),"snapshot id required")
+    local existed=snapshots[id]~=nil; snapshots[id]=nil
+    return {id=id,dropped=existed}
+  end
+  if op=="watch.set" then
+    local name=assert(p.name,"name required")
+    local address=assert(tonumber(p.address),"address required")
+    local width=tonumber(p.width or 8); read_width(width,address)
+    watches[name]={address=address,width=width}
+    return {watch={name=name,address=address,width=width,value=read_width(width,address)}}
+  end
+  if op=="watch.remove" then
+    local name=assert(p.name,"name required"); local existed=watches[name]~=nil; watches[name]=nil
+    return {name=name,removed=existed}
+  end
+  if op=="watch.list" then return {watches=watch_values()} end
+  if op=="wait.create" then
+    local kind=p.kind or "memory"; local id=nextWaitId; nextWaitId=nextWaitId+1
+    local timeout_frames=math.floor(tonumber(p.timeout_frames or 600) or 600)
+    local w={id=id,state="waiting",kind=kind,created_frame=frame(),deadline_frame=frame()+timeout_frames}
+    if kind=="frame" then
+      local frames=math.floor(tonumber(p.frames or 1) or 1); if frames<1 then frames=1 end
+      w.target_frame=frame()+frames
+    elseif kind=="memory" then
+      w.address=assert(tonumber(p.address),"address required"); w.width=tonumber(p.width or 8); w.op=p.op or "changed"
+      w.initial=read_width(w.width,w.address)
+      if w.op~="changed" then w.value=assert(tonumber(p.value),"value required") end
+      w.mask=p.mask and tonumber(p.mask) or nil
+    else error("unsupported wait kind: "..tostring(kind)) end
+    waits[id]=w
+    return {wait=wait_public(w)}
+  end
+  if op=="wait.status" then
+    local w=waits[assert(tonumber(p.id),"wait id required")]; if not w then error("unknown wait") end
+    return {wait=wait_public(w)}
+  end
+  if op=="experiment.run" then
+    local path=assert(p.state_path,"state_path required")
+    local a=enqueue_action(p.steps)
+    a.kind="experiment"
+    a.load_state_path=path
+    a.captures=normalize_captures(p.captures)
+    return {experiment=experiment_public(a,false)}
+  end
+  if op=="experiment.status" then
+    local a=actions[assert(tonumber(p.id),"experiment id required")]
+    if not a or a.kind~="experiment" then error("unknown experiment") end
+    return {experiment=experiment_public(a,a.state=="done")}
   end
   if op=="screenshot" then
     local path=p.path or "/mnt/data/mgba-shot.png"
@@ -285,6 +465,7 @@ local function dispatch(req)
         result.reads[idx]={address=address,width=width,value=read_width(width,address),name=r.name}
       end
     end
+    if p.watches then result.watches=watch_values() end
     if p.screenshot then
       local path=type(p.screenshot)=="string" and p.screenshot or string.format("/mnt/data/mgba-frame-%d.png",frame())
       emu:screenshot(path); result.screenshot=path
@@ -333,15 +514,27 @@ local function accept_client()
 end
 
 callbacks:add("frame",function()
+  update_waits()
   if not activeAction and #actionQueue>0 then
-    activeAction=table.remove(actionQueue,1); activeAction.state="running"; activeAction.started_frame=frame(); activeAction.step=0; activeAction.remaining=0
+    activeAction=table.remove(actionQueue,1)
+    if activeAction.load_state_path then
+      local ok=emu:loadStateFile(activeAction.load_state_path)
+      if not ok then
+        activeAction.state="error"; activeAction.error="failed to load state"; activeAction.finished_frame=frame(); activeAction=nil
+      end
+    end
+    if activeAction then activeAction.state="running"; activeAction.started_frame=frame(); activeAction.step=0; activeAction.remaining=0 end
   end
   if activeAction then
     if activeAction.remaining<=0 then
       activeAction.step=activeAction.step+1
       local st=activeAction.steps[activeAction.step]
       if not st then
-        clear_all_keys(); activeAction.state="done"; activeAction.finished_frame=frame(); activeAction=nil
+        clear_all_keys()
+        if activeAction.captures then
+          activeAction.capture_frame=frame(); activeAction.captured=capture_ranges(activeAction.captures)
+        end
+        activeAction.state="done"; activeAction.finished_frame=frame(); activeAction=nil
       else
         set_step_keys(st.keys); activeAction.remaining=st.frames
       end
