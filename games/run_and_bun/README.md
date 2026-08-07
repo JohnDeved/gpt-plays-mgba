@@ -1,82 +1,75 @@
 # Run & Bun adapter
 
-This directory contains the ROM-specific layer for **Pokémon Run & Bun v1.07**. The generic mGBA RPC bridge intentionally knows nothing about Pokémon.
+ROM-specific control and observation for **Pokémon Run & Bun v1.07**. The mGBA Lua/RPC layer remains generic.
 
-## Files
+## Modules
 
-- `state.py` — verified RAM structures, party decryption, player/map state, menu cursors, movement and dialogue/free-overworld helpers.
-- `visual.py` — framebuffer classifier for dialogue, battles, Bag, Start, Party, Shop and transition states.
-- `battle_driver.py` — acknowledged battle state machine built from live fights.
-- `symbols.json` — addresses and struct notes verified against this exact ROM version.
+- `state.py` — SaveBlocks, party decryption, battle structs, menus, movement/dialogue helpers.
+- `visual.py` — framebuffer state classification.
+- `battle_driver.py` — acknowledged turn/switch/faint state machine.
+- `navigation.py` — transition-aware stepping plus live-map-grid route proposals.
+- `symbols.json` — addresses/layouts verified against this exact ROM.
 
-## Observation model
+## Battle state lessons
 
-The adapter combines three channels:
+The battle driver now treats the following as first-class states rather than animation noise:
 
-1. **RAM** for exact facts: coordinates, HP, PP, species, stats, stages, party data.
-2. **Framebuffer state** for UI mode: battle text, command menu, Bag, Start, Party, Shop, dialogue.
-3. **Action acknowledgement** for causality: PP drops, HP changes, EXP changes, species changes and coordinate changes.
+- teal **battle intro text before HUDs exist**;
+- move selection accepted vs move actually executed;
+- tactical opponent changes vs faint replacements;
+- forced replacement after our active Pokémon faints;
+- trapping/switch rejection (observed with Bind);
+- mutable persistent party order during battle.
 
-No single channel is trusted for every decision. Coordinates remain valid while menus are open; battle transitions can temporarily hide the HUD; field poison briefly dims the framebuffer.
+Because switching can move the active Pokémon to party index 0, semantic switching now targets **species/current identity**, then resolves its current party index when the Party screen opens. Stale slot numbers are not stable battle identities.
 
-## Persistent party
+## Live map grid
 
-`gPlayerParty` uses Gen III encrypted substructures. The adapter decrypts/reorders them, reads species/item/EXP/moves/PP/friendship, reads the unencrypted battle-stat/status tail, and validates the stored checksum.
+Run & Bun's current `gBackupMapLayout` was located at `0x03005DD0`.
 
-This is authoritative persistent party state outside battle.
+For Route 104 the live struct reported a padded grid of 55×94 for a 40×80 layout, with the backing map in EWRAM. Each u16 grid entry packs metatile/collision/elevation exactly as the Gen III engine expects.
 
-## Battle state
+`LiveMapGrid` snapshots that running buffer and exposes:
 
-The live battle structure exposes species/level, HP, combat stats, three type bytes, ability, moves/PP, status and eight stat stages including accuracy/evasion.
+```python
+grid = LiveMapGrid(game)
+cell = grid.cell(x, y)
+path = grid.collision_path(game.player().position, targets={(11, 38)})
+```
 
-The driver infers enemy move execution from opponent PP deltas and separates selection acceptance from execution. A faster opponent can KO the active mon before the selected move spends PP.
+This is intentionally a **proposal** path. `Navigator.step_or_event()` remains authoritative for object events, trainers, scripts, wild encounters, directional metatile behavior, ledges and map changes.
 
-The driver is also **active-battler aware**: after switching, it does not read party slot 0 as though it were still active. Forced faint replacement is a separate Party -> Send Out flow.
+The result is much stronger than using vanilla Emerald map data as truth: the planner observes the hack's actual live metatile edits, while still learning dynamic blocked/event edges from the emulator.
 
-## Menu state
+## Visual classifier
 
-The Start menu uses the generic cursor at `0x0203C3C2`, so selection is semantic rather than relative button counting.
+Current explicit modes include:
 
-The visual classifier recognizes the bright and dimmed Start-menu variants. Party detection deliberately uses the two exact dominant party-panel colors `(206,214,123)` and `(181,181,90)`; a broad olive range false-positived Route 104 grass.
+- normal battle HUD / battle textbox
+- HUD-less battle intro textbox
+- battle command / move menus
+- Bag
+- Start menu, including its dimmed transition
+- Party
+- Poké Mart
+- overworld dialogue
 
-Run & Bun's Bag has multiple pockets. Pocket state must be explicit; an empty visible pocket never proves the inventory is empty.
+False-positive fixes discovered during play include exact Party-panel colors (grass shared the broad olive palette) and right-localized gray for the dimmed Start menu (whole-screen fades can also become neutral gray).
 
-## Movement / navigation
+## Current playthrough milestone
 
-`step_tile(direction)` pulses one direction and stops as soon as coordinates/map change. This handles Gen III's turn-first behavior without risking a two-tile overshoot.
+Latest stable checkpoint: **Route 104 after defeating Triathlete Mikey**.
 
-The higher-level navigation model uses static Emerald data only as a proposal. Every directed edge is verified against the live ROM. The planner can forbid unrelated building warps for a route objective and can use savestate-backed offline probes when ledges, encounters, NPCs or transient UI states make live exploration expensive.
+Mikey verified:
 
-## Verified current playthrough
+- Krabby Lv9 — Aqua Jet / Stomp / Mud Shot
+- Yanma Lv9 — Acrobatics / Sonic Boom
+- Clobbopus Lv9 — Rock Smash / Bind / Detect
 
-- GPT / male
-- May Route 103: defeated
-- Pokédex + Running Shoes: obtained
-- Wally tutorial / Petalburg Gym intro: complete
-- Route 102: crossed; Calvin, Rick, Tiana and other early trainers defeated
-- Petalburg reached
-- Route 104 entered
-- Starly caught and raised to Lv12
-- Venipede caught on Route 104
-- current recovery point: back in Petalburg before healing/re-entering Route 104
+The fight also demonstrated why a third party member matters: Venipede resisted Clobbopus's Fighting attacks, poisoned it, and forced the driver to handle trapping and mutable party order correctly.
 
-Party at the latest source sync:
-
-- Turtwig Lv12 — Bite / Growl / Absorb / Confide
-- Starly Lv12 — Tackle / Growl / Quick Attack / Aerial Ace
-- Venipede Lv5 — Rollout / Poison Sting
-
-See `../../data/session_progress.json` for the machine-readable snapshot.
-
-## Next interface targets
-
-- semantic Bag pocket/item/target selection
-- generalized catch/nickname helper instead of one-off keyboard navigation
-- robust transient-state classifier (battle-transition and field-poison fades)
-- reusable route planner with static-map import + persistent directed-edge cache
-- battle policy with explicit type effectiveness, speed and lethal-risk estimates
-- structured inventory/shop model
+Current next action is to heal after Mikey and resume the live-grid route toward Petalburg Woods.
 
 ## Version rule
 
-All raw addresses and inferred layouts are **v1.07-specific evidence**. Revalidate them against ROM identity and live behavior before reuse on another Run & Bun build.
+Every raw address/layout here is evidence for **Run & Bun v1.07** only. Validate ROM identity and live behavior before using it with another build.
