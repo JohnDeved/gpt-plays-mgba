@@ -11,6 +11,10 @@
     "gPokemonStoragePtr": {"address": "0x03005DA4", "points_to_example": "0x02028848"},
     "gPlayerPartyCount": {"address": "0x02023A95"},
     "gPlayerParty": {"address": "0x02023A98", "pokemon_struct_size": 100},
+    "gBattleMons": {"address": "0x020233FC", "battler_stride": 92},
+    "battle_action_cursor": {"address": "0x02023A1C", "values": {"0": "Fight", "1": "Bag", "2": "Pokemon", "3": "Run"}},
+    "battle_move_cursor": {"address": "0x02023A20", "values": {"0": "move 1", "1": "move 2", "2": "move 3", "3": "move 4"}},
+    "generic_menu_cursor": {"address": "0x0203C3C2", "uses": ["Yes/No", "Start menu"]},
     "title_menu_cursor": {"address": "0x02023006", "values": {"0": "New Game", "1": "Option"}}
   },
   "saveblock1_offsets": {
@@ -20,14 +24,23 @@
     "map_num": 5,
     "warp_id": 6
   },
-  "saveblock2_notes": {
-    "player_name": "verified by locating encoded GPT signature",
-    "gender": "verified male for current run"
+  "battle_struct_notes": {
+    "stat_stages_offset": "0x18",
+    "ability_offset": "0x20 (u16)",
+    "types_offset": "0x22 (3 bytes)",
+    "pp_offset": "0x25",
+    "hp_offset": "0x2A",
+    "level_offset": "0x2C",
+    "max_hp_offset": "0x2E",
+    "status_offset": "0x50"
   },
-  "battle_notes": {
-    "battle_structs": "decoded from live RAM and gated by framebuffer battle-HUD detection to avoid stale post-battle structs",
-    "move_cursor": "decoded and used successfully in live battles",
-    "persistent_party": "Gen III encrypted party structure decrypted with checksum validation"
+  "verified_gameplay": {
+    "persistent_party": "Gen III encrypted party substructures decrypted with checksum validation",
+    "status_decode": ["sleep", "poison", "burn", "freeze", "paralysis", "toxic"],
+    "battle_pp_tracking": "used to infer both player move execution and opponent move selection",
+    "stat_stage_tracking": "used in Calvin/Rick trainer fights to observe attack and accuracy stages",
+    "start_menu_semantic_selection": "generic menu cursor used instead of relative button-count assumptions",
+    "single_tile_step": "direction pulses stop on decoded coordinate/map change"
   },
   "confidence": "verified against Pokemon Run & Bun v1.07 live emulator state; do not assume addresses apply to other versions"
 }
