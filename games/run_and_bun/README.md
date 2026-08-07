@@ -1,12 +1,12 @@
 # Run & Bun adapter
 
-This directory contains the ROM-specific layer for **Pokémon Run & Bun v1.07**. The generic mGBA socket/RPC code intentionally does not know anything about Pokémon.
+This directory contains the ROM-specific layer for **Pokémon Run & Bun v1.07**. The generic mGBA RPC bridge intentionally knows nothing about Pokémon.
 
 ## Files
 
-- `state.py` — verified RAM structures, party decryption, player/map state, menu cursors, one-tile movement, dialogue/free-overworld helpers.
+- `state.py` — verified RAM structures, party decryption, player/map state, menu cursors, movement and dialogue/free-overworld helpers.
 - `visual.py` — framebuffer classifier for dialogue, battles, Bag, Start, Party, Shop and transition states.
-- `battle_driver.py` — battle state machine built from live fights.
+- `battle_driver.py` — acknowledged battle state machine built from live fights.
 - `symbols.json` — addresses and struct notes verified against this exact ROM version.
 
 ## Observation model
@@ -17,89 +17,66 @@ The adapter combines three channels:
 2. **Framebuffer state** for UI mode: battle text, command menu, Bag, Start, Party, Shop, dialogue.
 3. **Action acknowledgement** for causality: PP drops, HP changes, EXP changes, species changes and coordinate changes.
 
-No single channel is trusted for every decision. For example, player coordinates remain valid while a menu is open, and some battle animations temporarily hide HUD elements.
+No single channel is trusted for every decision. Coordinates remain valid while menus are open; battle transitions can temporarily hide the HUD; field poison briefly dims the framebuffer.
 
 ## Persistent party
 
-`gPlayerParty` uses normal Gen III encrypted substructures. The adapter:
+`gPlayerParty` uses Gen III encrypted substructures. The adapter decrypts/reorders them, reads species/item/EXP/moves/PP/friendship, reads the unencrypted battle-stat/status tail, and validates the stored checksum.
 
-- decrypts the four secure substructures using `personality ^ otId`;
-- reorders them from `personality % 24`;
-- decodes species, held item, EXP, moves, PP and friendship;
-- reads the unencrypted battle stats/status tail;
-- validates the stored checksum.
-
-This is the authoritative party state outside battle.
+This is authoritative persistent party state outside battle.
 
 ## Battle state
 
-The live battle structure exposes:
+The live battle structure exposes species/level, HP, combat stats, three type bytes, ability, moves/PP, status and eight stat stages including accuracy/evasion.
 
-- species and level
-- HP/max HP
-- offensive/defensive stats
-- three type bytes
-- ability ID
-- moves and PP
-- status
-- eight stat stages, including accuracy and evasion
+The driver infers enemy move execution from opponent PP deltas and separates selection acceptance from execution. A faster opponent can KO the active mon before the selected move spends PP.
 
-The battle driver uses opponent PP deltas to infer which enemy move executed. It treats player move selection and player move execution as separate events: a faster opponent can KO before the selected move spends PP.
-
-### Turn-result semantics
-
-A `TurnResult` records:
-
-- selected move
-- whether selection was accepted
-- whether the move actually executed
-- player HP before/after
-- opponent HP/species before/after
-- inferred opponent move
-- PP before/after
-- EXP before/after
-- whether an opponent change represented a KO replacement
-
-This data came directly from the May, Calvin and Rick fights.
+The driver is also **active-battler aware**: after switching, it does not read party slot 0 as though it were still active. Forced faint replacement is a separate Party -> Send Out flow.
 
 ## Menu state
 
-The Start menu uses the generic menu cursor at `0x0203C3C2`. Selection is semantic rather than based on a remembered number of Down presses.
+The Start menu uses the generic cursor at `0x0203C3C2`, so selection is semantic rather than relative button counting.
 
-The visual classifier also recognizes the dimmed Start-menu transition that appears while entering/leaving submenus. This matters because moving while that frame is incorrectly classified as overworld can corrupt an automation sequence.
+The visual classifier recognizes the bright and dimmed Start-menu variants. Party detection deliberately uses the two exact dominant party-panel colors `(206,214,123)` and `(181,181,90)`; a broad olive range false-positived Route 104 grass.
 
-The Bag has multiple pockets in Run & Bun. A visible empty pocket never proves that inventory is empty.
+Run & Bun's Bag has multiple pockets. Pocket state must be explicit; an empty visible pocket never proves the inventory is empty.
 
-## Movement
+## Movement / navigation
 
-`step_tile(direction)` is the default primitive. It sends short direction pulses and checks decoded coordinates after each pulse. It stops as soon as exactly one tile/map transition occurs.
+`step_tile(direction)` pulses one direction and stops as soon as coordinates/map change. This handles Gen III's turn-first behavior without risking a two-tile overshoot.
 
-This handles the Gen III behavior where the first input may only turn the avatar.
+The higher-level navigation model uses static Emerald data only as a proposal. Every directed edge is verified against the live ROM. The planner can forbid unrelated building warps for a route objective and can use savestate-backed offline probes when ledges, encounters, NPCs or transient UI states make live exploration expensive.
 
-For route planning, static `pokeemerald` map data can propose collision paths, but every edge is verified by the running ROM. Directed edges are required for ledges.
+## Verified current playthrough
 
-## Current party/playthrough
+- GPT / male
+- May Route 103: defeated
+- Pokédex + Running Shoes: obtained
+- Wally tutorial / Petalburg Gym intro: complete
+- Route 102: crossed; Calvin, Rick, Tiana and other early trainers defeated
+- Petalburg reached
+- Route 104 entered
+- Starly caught and raised to Lv12
+- Venipede caught on Route 104
+- current recovery point: back in Petalburg before healing/re-entering Route 104
 
-At the latest sync:
+Party at the latest source sync:
 
-- Turtwig Lv11 — Bite / Growl / Absorb / Confide
-- Starly Lv11 — Tackle / Growl / Quick Attack / Aerial Ace
-- May first rival battle won
-- Calvin defeated
-- Rick defeated
-- current route: Route 102, heading toward Petalburg
+- Turtwig Lv12 — Bite / Growl / Absorb / Confide
+- Starly Lv12 — Tackle / Growl / Quick Attack / Aerial Ace
+- Venipede Lv5 — Rollout / Poison Sting
 
 See `../../data/session_progress.json` for the machine-readable snapshot.
 
 ## Next interface targets
 
-- semantic Bag-pocket/item selection instead of pocket-relative button scripts
-- explicit wild-battle catch state machine, including Pokédex/nickname transitions
-- reusable Repellent control for solved-route traversal
-- map planner generalized beyond Route 101/102
-- richer battle policy using type effectiveness, observed damage ranges, speed and lethal-risk estimation
-- structured shop/inventory model
+- semantic Bag pocket/item/target selection
+- generalized catch/nickname helper instead of one-off keyboard navigation
+- robust transient-state classifier (battle-transition and field-poison fades)
+- reusable route planner with static-map import + persistent directed-edge cache
+- battle policy with explicit type effectiveness, speed and lethal-risk estimates
+- structured inventory/shop model
 
 ## Version rule
 
-All raw addresses and inferred layouts are **v1.07-specific evidence**. Do not silently reuse them on another Run & Bun build; revalidate against ROM identity and live behavior first.
+All raw addresses and inferred layouts are **v1.07-specific evidence**. Revalidate them against ROM identity and live behavior before reuse on another Run & Bun build.
