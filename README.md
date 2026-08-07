@@ -67,7 +67,7 @@ The preferred observation order is semantic RAM/task/text telemetry, then raw ra
 
 ## Navigation and progress
 
-`tools/nav_probe.py` is the savestate-assisted collision explorer. `tools/nav_route101_live.py` demonstrates live coordinate verification around a proposed route, with ROM-specific obstacles, ledges, NPCs, and battles treated as overrides.
+`games/run_and_bun/routes.py` contains the verified Route 101 collision/elevation grid and plans paths offline. `tools/nav_route101_live.py` executes that path as one compressed Lua-bridge macro, resolving random battles from RAM and confirming map transitions. `tools/nav_probe.py` remains available for genuinely unknown maps, but it is not part of normal navigation.
 
 The current handoff is recorded in `data/session_progress.json`; synchronization metadata is in `data/sync_manifest_2026-08-07.json`. Runtime ROMs, saves, screenshots, and savestates remain outside Git in the separate runtime workspace.
 

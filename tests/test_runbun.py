@@ -49,7 +49,7 @@ class FakeMGBA:
             return bytes(length)
         raise AssertionError((hex(address), length))
 
-    def sequence(self, steps):
+    def sequence(self, steps, wait=True, timeout=5.0):
         self.sequence_calls.append(steps)
         return {"id": 8, "state": "done", "total_steps": len(steps)}
 
@@ -92,6 +92,7 @@ class RunBunTests(unittest.TestCase):
 
         self.assertEqual(state["frame"], 42)
         self.assertEqual(state["ui"]["yes_no"], 1)
+        self.assertEqual(state["ui"]["field_message_box_mode_name"], "none")
         self.assertEqual(state["save"]["block1"]["x"], 5)
         self.assertEqual(state["save"]["block1"]["y"], 7)
         self.assertEqual(state["save"]["block1"]["map_group"], 2)

@@ -40,6 +40,15 @@ TEXT_PRINTERS = 0x0202018C
 TEXT_PRINTER_STRIDE = 0x24
 TEXT_PRINTER_SLOTS = 16
 FIELD_MESSAGE_BOX_MODE = 0x0202183D
+FIELD_MESSAGE_MODE_NAMES = {
+    0: "none",
+    2: "ready",
+    3: "auto_scroll",
+    10: "nickname_screen",
+    16: "battle_intro",
+    42: "battle_text",
+    50: "battle_text_prompt",
+}
 
 CHAR_PROMPT_SCROLL = 0xFA
 CHAR_PROMPT_CLEAR = 0xFB
@@ -464,14 +473,35 @@ class RunBunAdapter:
 
         battle_raw = self.gba.read_range(BATTLE_MONS, BATTLE_MON_STRIDE * 4)
         battle_mons = decode_battle_mons(battle_raw)
+        opponent = next((mon for mon in battle_mons if mon["slot"] == 1), None)
+        battle_mode = values["field_message_box_mode"]
         battle_active = any(mon["present"] for mon in battle_mons)
+        # gBattleMons is not cleared immediately after a fight.  A zero-HP
+        # opponent outside the observed battle message modes is the stable
+        # post-KO signature; without this guard, lab/overworld dialogue would
+        # be misclassified as an active battle.
+        if (
+            opponent
+            and opponent["present"]
+            and opponent["state"]["current_hp"] == 0
+            and battle_mode not in {16, 42, 50}
+        ):
+            battle_active = False
         text = decode_text_observation(base.get("text"))
         tasks = base.get("tasks")
         if text is not None:
-            text["visible"] = values["field_message_box_mode"] != 0 or text["active"]
+            text["visible"] = (
+                values["field_message_box_mode"] != 0
+                or text["active"]
+                or any(
+                    page["printer"].get("window_id", 0) != 0
+                    for page in text.get("pages", [])
+                )
+            )
+            text["last_page"] = text.get("current")
             if not text["visible"] and not text["active"]:
                 text["current"] = None
-        if text and text["active"]:
+        if text and text["visible"]:
             mode = "dialogue"
         elif values["field_message_box_mode"] != 0:
             mode = "dialogue"
@@ -490,6 +520,10 @@ class RunBunAdapter:
                 "battle_command": values["battle_command_cursor"],
                 "battle_move": values["battle_move_cursor"],
                 "field_message_box_mode": values["field_message_box_mode"],
+                "field_message_box_mode_name": FIELD_MESSAGE_MODE_NAMES.get(
+                    values["field_message_box_mode"],
+                    f"unknown_{values['field_message_box_mode']}",
+                ),
             },
             "save": save,
             "player": player,
@@ -520,9 +554,17 @@ class RunBunAdapter:
         deadline = time.monotonic() + timeout
         while len(pages) < max_pages:
             state = self.observe()
+            if state["battle"]["active"]:
+                return pages
             if state["mode"] != "dialogue":
                 return pages
-            if state["ui"].get("field_message_box_mode") == 3:
+            field_mode = state["ui"].get("field_message_box_mode")
+            if field_mode in {10, 16, 42, 50}:
+                # These modes are a nickname editor or battle-specific text
+                # window.  They need their own controller and must not receive
+                # blind dialogue A presses.
+                return pages
+            if field_mode == 3:
                 if time.monotonic() >= deadline:
                     raise TimeoutError("auto-scroll dialogue did not close")
                 time.sleep(0.01)
@@ -550,9 +592,17 @@ class RunBunAdapter:
                 deadline = time.monotonic() + timeout
 
             ready = (
-                state["ui"].get("field_message_box_mode") == 2
-                and not text.get("active")
-            ) or current.get("state") in (1, 2, 3, 5, 6)
+                (
+                    state["ui"].get("field_message_box_mode") == 2
+                    and not text.get("active")
+                )
+                or current.get("state") in (1, 2, 3, 5, 6)
+                or (
+                    current.get("state") == 0
+                    and not text.get("active")
+                    and text.get("visible")
+                )
+            )
             if not ready:
                 if time.monotonic() >= deadline:
                     raise TimeoutError("dialogue printer did not reach an input prompt")
@@ -564,6 +614,80 @@ class RunBunAdapter:
             self.gba.press("A")
             deadline = time.monotonic() + timeout
         return pages
+
+    def advance_battle_until_menu(
+        self,
+        *,
+        sample_frames: int = 24,
+        max_frames: int = 900,
+    ) -> dict[str, Any]:
+        """Advance battle text from RAM until a command menu or battle end.
+
+        Battle text is printer-driven in this ROM.  Wait while the printer is
+        still typing, send A only on a completed battle text page, and stop as
+        soon as the opponent HP reaches zero.  This keeps battle control off
+        the screenshot path and prevents a KO transition from receiving an
+        accidental second move selection.
+        """
+        if sample_frames < 1 or max_frames < 1:
+            raise ValueError("sample_frames and max_frames must be positive")
+        elapsed = 0
+        presses = 0
+        while elapsed <= max_frames:
+            state = self.observe()
+            battle = state["battle"]
+            opponent = next(
+                (item for item in battle["mons"] if item["slot"] == 1),
+                None,
+            )
+            if opponent and opponent["present"] and opponent["state"]["current_hp"] == 0:
+                return {"state": "battle_end", "frames": elapsed, "presses": presses}
+            if not battle["active"]:
+                return {"state": "not_in_battle", "frames": elapsed, "presses": presses}
+            field_mode = state["ui"].get("field_message_box_mode", 0)
+            text = state.get("text") or {}
+            if field_mode != 0:
+                if text.get("active"):
+                    self.gba.wait_frames(sample_frames)
+                else:
+                    self.gba.press("A")
+                    presses += 1
+                    self.gba.wait_frames(sample_frames)
+            elif text.get("active"):
+                self.gba.wait_frames(sample_frames)
+            else:
+                return {"state": "command_menu", "frames": elapsed, "presses": presses}
+            elapsed += sample_frames
+            return {"state": "timeout", "frames": elapsed, "presses": presses}
+
+    def finish_battle_after_ko(
+        self,
+        *,
+        sample_frames: int = 24,
+        max_frames: int = 900,
+    ) -> dict[str, Any]:
+        """Drain post-KO battle messages until the overworld is restored."""
+        if sample_frames < 1 or max_frames < 1:
+            raise ValueError("sample_frames and max_frames must be positive")
+        elapsed = 0
+        presses = 0
+        while elapsed <= max_frames:
+            state = self.observe()
+            field_mode = state["ui"].get("field_message_box_mode", 0)
+            if not state["battle"]["active"] and field_mode == 0:
+                return {"state": "overworld", "frames": elapsed, "presses": presses}
+            text = state.get("text") or {}
+            if field_mode != 0:
+                if text.get("active"):
+                    self.gba.wait_frames(sample_frames)
+                else:
+                    self.gba.press("A")
+                    presses += 1
+                    self.gba.wait_frames(sample_frames)
+            else:
+                self.gba.wait_frames(sample_frames)
+            elapsed += sample_frames
+        return {"state": "timeout", "frames": elapsed, "presses": presses}
 
     def walk(self, direction: str, tiles: int, frames: int = 12) -> list[dict[str, Any]]:
         """Walk with per-tile coordinate confirmation from SaveBlock1."""
@@ -619,12 +743,14 @@ class RunBunAdapter:
             # absorbs the movement animation between repeated steps; the
             # explicit release still prevents this run leaking into the next
             # turn or across a warp.
-            held_frames = frames if run_length == 1 else frames * run_length + settle_frames
+            inter_tile_frames = frames + max(4, settle_frames // 2)
+            held_frames = frames + inter_tile_frames * (run_length - 1)
             steps.append({"keys": [direction], "frames": held_frames})
             if settle_frames:
                 steps.append({"keys": [], "frames": settle_frames})
             index = end
-        action = self.gba.sequence(steps)
+        action_timeout = max(5.0, sum(step["frames"] for step in steps) / 30.0 + 2.0)
+        action = self.gba.sequence(steps, timeout=action_timeout)
         if transition_frames:
             self.gba.wait_frames(transition_frames)
         state = self.observe()

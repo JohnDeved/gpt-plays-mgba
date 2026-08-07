@@ -1,102 +1,77 @@
+"""Run the verified Route 101 path with one batched bridge action per leg."""
+
+from __future__ import annotations
+
+import argparse
+import os
 import sys
-from collections import deque
-sys.path.insert(0,'/mnt/data')
-from mgba_rpc import MGBA
-from runbun_adapter import RunBun
+from pathlib import Path
 
-COLL_STR=[
-'11111111000011111111','11111111000011111111','11000000000000001111','11000000000000001111',
-'00000000000000000011','00000000000000000011','11000011111110000000','11111110000111100000',
-'11000000000111100000','11110100000110000000','11110000000000000000','11110000000000000000',
-'11110000000000000000','11000000111100000000','00000000000011000011','00000000000011000011',
-'11000000000011111111','11000000000011111111','11111111110011111111','11111111110011111111']
-ELEV_STR=[
-'00000000333300000000','00000000333300000000','00333333333333330000','03333333333333330000',
-'33333333333333333300','33333333333333333300','00333300000003333333','00000003333000033333',
-'00333333333000033333','00003033333003333333','00003333333333333333','00003333333333333333',
-'00003333333333333333','00333333000033333333','33333333333300333300','33333333333300333300',
-'00333333333300000000','00333333333300000000','00000000003300000000','00000000003300000000']
-coll=[[int(c) for c in r] for r in COLL_STR]
-elev=[[int(c,16) for c in r] for r in ELEV_STR]
-DIRS=[(0,-1,'UP'),(1,0,'RIGHT'),(0,1,'DOWN'),(-1,0,'LEFT')]
+REPO_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO_ROOT))
 
-def plan(start, blocked_edges):
-    goals={(x,0) for x in range(20) if coll[0][x]==0 and elev[0][x]==3}
-    q=deque([start]); prev={start:None}; pd={}
-    goal=None
-    while q:
-        cur=q.popleft()
-        if cur in goals:
-            goal=cur;break
-        x,y=cur
-        for dx,dy,d in DIRS:
-            n=(x+dx,y+dy)
-            if (cur,d) in blocked_edges: continue
-            nx,ny=n
-            if not (0<=nx<20 and 0<=ny<20): continue
-            if coll[ny][nx]!=0 or elev[ny][nx]!=3: continue
-            if n in prev: continue
-            prev[n]=cur;pd[n]=d;q.append(n)
-    if not goal: return None
-    path=[];cur=goal
-    while prev[cur] is not None:
-        path.append(pd[cur]);cur=prev[cur]
-    return path[::-1]
+from client.mgba_rpc import MGBA
+from games.run_and_bun.routes import route101_path
+from games.run_and_bun.state import RunBun
+from games.runbun import RunBunAdapter
 
-def step(g, rb, d, max_pulses=7):
-    before=rb.player()
-    for n in range(max_pulses):
-        g.press(d,frames=4);g.wait_frames(6)
-        after=rb.player()
-        if after.map_id!=before.map_id or after.position!=before.position:
-            g.wait_frames(12)
-            return True,before,rb.player(),n+1
-    return False,before,rb.player(),max_pulses
 
-def resolve_battle(rb):
+def resolve_battles(gba: MGBA, adapter: RunBunAdapter, state: RunBun) -> None:
     for turn in range(16):
-        obs=rb.observe(screenshot=f'/mnt/data/nav_battle_{turn}.png')
-        if 'battle' not in obs:
+        status = adapter.advance_battle_until_menu(sample_frames=24, max_frames=1200)
+        print("BATTLE", turn, status)
+        if status["state"] == "battle_end":
+            print("BATTLE_DRAIN", adapter.finish_battle_after_ko())
             return
-        b=obs['battle']
-        print(' BATTLE',b['opponent']['nickname'],b['opponent']['level'],b['opponent']['hp'],'/',b['opponent']['max_hp'],'player',b['player']['hp'])
-        st=rb.advance_battle_until_menu(prefix='/mnt/data/nav_battle_adv')
-        s=st['state'] if isinstance(st,dict) else st
-        if s=='battle_end':
-            continue
-        if s=='command_menu':
-            rb.open_fight_menu(); rb.choose_move(0)
-        elif s=='move_menu':
-            rb.choose_move(0)
-    raise RuntimeError('battle did not end')
+        if status["state"] != "command_menu":
+            raise RuntimeError(f"battle controller stopped in {status['state']}")
+        battle = state.battle()
+        if not battle.player.move_ids[0]:
+            raise RuntimeError("first battle move slot is empty")
+        state.open_fight_menu()
+        state.choose_move(0)
+        gba.wait_frames(30)
+    raise RuntimeError("battle did not end after 16 turns")
 
-with MGBA(timeout=5) as g:
-    rb=RunBun(g)
-    g.load_state('/mnt/data/route101_post_bunnelby.ss0');g.wait_frames(24)
-    blocked=set();steps=0
-    while rb.player().map_id==(0,16) and steps<120:
-        obs=rb.observe(screenshot='/mnt/data/nav_current.png')
-        if 'battle' in obs:
-            resolve_battle(rb); g.save_state('/mnt/data/route101_live_progress.ss0'); continue
-        p=rb.player(); path=plan(p.position,blocked)
-        if path is None:
-            raise RuntimeError(f'no path from {p.position}, blocked={blocked}')
-        if p.y==0:
-            print('AT NORTH EDGE',p)
-            ok,b,a,np=step(g,rb,'UP')
-            print(' EXIT UP',ok,b.position,b.map_id,'->',a.position,a.map_id)
-            if a.map_id!=b.map_id: break
-            blocked.add((p.position,'UP'));continue
-        d=path[0]
-        ok,b,a,np=step(g,rb,d);steps+=1
-        print(f'{steps:02d}',b.position,d,'->',a.position,a.map_id,'pulses',np)
-        obs=rb.observe(screenshot='/mnt/data/nav_after.png')
-        if 'battle' in obs:
-            resolve_battle(rb);g.save_state('/mnt/data/route101_live_progress.ss0');continue
-        if not ok:
-            blocked.add((b.position,d));print(' BLOCKED EDGE',b.position,d);continue
-        g.save_state('/mnt/data/route101_live_progress.ss0')
-    print('FINAL',rb.player())
-    print('PARTY',rb.party())
-    print('SAVE',g.save_state('/mnt/data/oldale_arrival.ss0'))
-    rb.observe(screenshot='/mnt/data/oldale_arrival.png')
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--start-state", type=Path)
+    parser.add_argument("--save-state", type=Path)
+    args = parser.parse_args()
+
+    runtime_dir = Path(os.environ.get("MGBA_RUNTIME_DIR", REPO_ROOT.parent / "runtime" / "session"))
+    start_state = args.start_state
+    save_state = args.save_state or runtime_dir / "route101-progress.ss"
+
+    with MGBA(timeout=15) as gba:
+        state = RunBun(gba)
+        adapter = RunBunAdapter(gba)
+        if start_state:
+            gba.load_state(start_state)
+            gba.wait_frames(4)
+
+        while state.player().map_id == (0, 16):
+            player = state.player()
+            path = route101_path(player.position)
+            print("ROUTE101", player.position, "steps", len(path))
+            result = adapter.follow_route(path, expected_map=(0, 16), transition_frames=120)
+            if result["state"]["battle"]["active"]:
+                resolve_battles(gba, adapter, state)
+                continue
+            if result["position"][1] != 0:
+                raise RuntimeError(f"static route stopped unexpectedly at {result['position']}")
+            exit_result = adapter.follow_route(
+                ["UP", "UP"],
+                transition_frames=150,
+            )
+            if exit_result["map"] != (0, 16):
+                break
+
+        final = adapter.observe()
+        print("FINAL", final["save"]["block1"], final["mode"])
+        gba.save_state(save_state)
+
+
+if __name__ == "__main__":
+    main()

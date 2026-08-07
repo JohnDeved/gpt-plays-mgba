@@ -77,7 +77,7 @@ Once state decoding is reliable:
 - `open_party()` / `select_party_member()`
 - `choose_move(slot)` / `switch_pokemon(slot)`
 - Wait for battle/menu/transition completion instead of fixed sleeps
-- Map graph and pathfinding where useful
+- Offline Route 101 collision/elevation pathfinding with batched live execution
 
 ## Session layer
 

@@ -67,9 +67,9 @@ class MGBA:
         action = self.call("input.press", key=key, frames=frames)["action"]
         return self.wait_action(action["id"]) if wait else action
 
-    def sequence(self, steps, wait: bool = True):
+    def sequence(self, steps, wait: bool = True, timeout: float = 5.0):
         action = self.call("input.sequence", steps=steps)["action"]
-        return self.wait_action(action["id"]) if wait else action
+        return self.wait_action(action["id"], timeout=timeout) if wait else action
 
     def action_status(self, action_id: int):
         return self.call("action.status", id=action_id)["action"]
