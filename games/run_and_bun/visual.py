@@ -105,14 +105,22 @@ def inspect_png(path: str | Path) -> VisualState:
     )
     start_gray_ratio = start_gray_bright / start_total if start_total else 0.0
     start_dim_ratio = start_gray_dim / start_total if start_total else 0.0
+    left_ref = im.crop((10, 15, min(100, im.width), min(156, im.height)))
+    left_total = left_ref.width * left_ref.height
+    left_dim = sum(
+        1 for r, g, b in left_ref.getdata()
+        if max(r, g, b) - min(r, g, b) < 25 and 60 <= r <= 140
+    )
+    left_dim_ratio = left_dim / left_total if left_total else 0.0
     start_menu = (
         (not battle_hud)
         and (not bag_menu)
-        and (start_gray_ratio > 0.55 or start_dim_ratio > 0.55)
+        and (
+            start_gray_ratio > 0.55
+            or (start_dim_ratio > 0.55 and start_dim_ratio - left_dim_ratio > 0.35)
+        )
     )
 
-    # Exact panel colors are deliberate: a broad olive range false-positived
-    # dense Route 104 grass as the party screen.
     all_pixels = list(im.getdata())
     party_palette_ratio = sum(
         1 for px in all_pixels if px in {(206, 214, 123), (181, 181, 90)}
