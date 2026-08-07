@@ -2,142 +2,99 @@
 
 A control, observation, reverse-engineering, and gameplay layer for playing **Pokémon Run & Bun v1.07** through a development build of mGBA.
 
-This project has two equal goals:
+The project has two equal goals: complete the game with normal emulator inputs, and continuously improve the interface so later gameplay becomes structured, deterministic, state-aware, and cheaper in emulator round trips.
 
-1. Complete the game using normal emulator inputs.
-2. Continuously improve the interface so later gameplay becomes more structured, deterministic, and state-aware.
+## Current status
 
-The current sandbox-tested emulator is mGBA development build `0.11-9122-afd6f14ea`. The live bridge is **RPC v0.3**.
-
-## Current playthrough
-
-At the latest source sync:
-
+- mGBA development build: `0.11-9122-afd6f14ea`
+- RPC bridge: **v0.3**
 - player: **GPT**
-- May's first Route 103 rival battle: **won**
-- Pokédex / Running Shoes: received
-- Wally catching tutorial / Petalburg Gym intro: complete
-- Route 102 trainer wins include Calvin, Rick and Tiana
-- current area: **Petalburg City**, after a Route 104 scouting/capture detour
-- party:
-  - **Turtwig Lv12** — Bite / Growl / Absorb / Confide
-  - **Starly Lv12** — Tackle / Growl / Quick Attack / Aerial Ace
-  - **Venipede Lv5** — Rollout / Poison Sting
-- next objective: heal the three-mon party, then re-enter Route 104 on the progression path to **Petalburg Woods**
+- May Route 103: defeated
+- Pokédex / Running Shoes / Wally tutorial: complete
+- Route 102 crossed; Calvin, Rick, Tiana and other early trainers defeated
+- Petalburg reached
+- Route 104 in progress
+- **Triathlete Mikey defeated**
+- party: Turtwig Lv12 / Starly Lv12 / Venipede Lv5
+- recovery checkpoint: `r104_mikey_win.ss0`
 
-Machine-readable progress lives in `data/session_progress.json`.
+Machine-readable progress lives in `data/session_progress.json`. Runtime artifacts (ROM, savestates, screenshots, debug captures, full workspace archives) live outside Git in the Google Drive workspace.
 
 ## Architecture
 
 ```text
 mGBA
-  └─ scripts/mgba_rpc.lua          frame-synchronized emulator RPC
-       └─ client/mgba_rpc.py       generic Python client
+  └─ scripts/mgba_rpc.lua
+       └─ client/mgba_rpc.py
             └─ games/run_and_bun/
-                 ├─ state.py       ROM-specific RAM/state decoder + actions
-                 ├─ visual.py      framebuffer UI-state classifier
-                 ├─ battle_driver.py acknowledged battle state machine
-                 └─ symbols.json   verified v1.07 addresses/layout notes
+                 ├─ state.py
+                 ├─ visual.py
+                 ├─ battle_driver.py
+                 ├─ navigation.py
+                 └─ symbols.json
 ```
 
-Navigation experiments remain under `tools/`. Runtime artifacts such as ROMs, savestates, screenshots, debug captures, and full workspace archives are intentionally excluded from Git and stored separately in the Google Drive workspace.
+The Lua bridge stays game-agnostic. Python turns emulator primitives into Run & Bun state/actions.
 
 ## RPC v0.3
 
-The Lua bridge provides NDJSON request IDs, frame-synchronized input, memory reads/writes/ranges, snapshots/diffs, watches, frame waits, exact-frame savestate experiments, mGBA-native screenshots, save/load states and reset.
+The bridge provides NDJSON request IDs, frame-synchronized input, memory reads/writes/ranges, snapshots/diffs, watches, frame waits, exact-frame savestate experiments, mGBA-native screenshots, save/load states and reset.
 
-The bridge stays game-agnostic. Strategy and ROM-specific interpretation stay in Python.
+## Observation model
 
-## Run & Bun state adapter
+The Run & Bun layer combines:
 
-`games/run_and_bun/state.py` currently understands:
+1. **RAM** for exact facts such as coordinates, HP, PP, party data, battle stats and stat stages.
+2. **Framebuffer regions** for UI mode such as dialogue, battle menus, Bag, Start, Party and Shop.
+3. **Action acknowledgement** from PP/HP/EXP/species/coordinate changes.
 
-- dynamic SaveBlock1 / SaveBlock2 / Pokémon storage pointers
-- player name, gender, map ID and exact coordinates
-- persistent encrypted party structures with checksum validation
-- status conditions
-- live battle stats, HP, types, abilities, moves, PP and stat stages
-- battle action/move cursors and the generic menu cursor
-- semantic Start-menu selection
-- coordinate-conditioned one-tile movement (`step_tile`)
-- dialogue readiness and sustained free-overworld detection
-- verified map IDs through Petalburg City / Route 104
-- verified species/moves encountered so far, including Starly and Venipede
+No single channel is trusted universally. Battle intros can show a teal message box before either HUD exists; transitions can temporarily remove HUDs; field fades can resemble dimmed menus; coordinates remain populated while menus are open.
 
-All raw addresses in `symbols.json` are scoped to Run & Bun **v1.07**.
+## Live-map navigation
+
+The current navigation backend reads **Run & Bun's actual live map grid from EWRAM** rather than treating vanilla Emerald `map.bin` as authoritative.
+
+Verified v1.07 symbol:
+
+```text
+gBackupMapLayout = 0x03005DD0
+```
+
+The structure contains padded map width/height and a live `u16 *map` pointer. Entries encode a 10-bit metatile ID, 2-bit collision value, and 4-bit elevation. SaveBlock player coordinates are layout-space; the engine adds a 7-tile map-buffer offset internally.
+
+`LiveMapGrid.collision_path()` uses the running hack's collision data as a shortest-path proposal graph. Every edge is still executed through `Navigator.step_or_event()`, so NPCs, trainers, scripts, directional metatile behavior, ledges, map transitions and wild battles override the static proposal.
+
+This hybrid already planned Route 104 accurately enough to reach a mandatory trainer and stop before making a battle decision.
 
 ## Battle driver
 
-`games/run_and_bun/battle_driver.py` is built from actual fights and failures. It supports:
+The acknowledged battle state machine supports:
 
-- trainer dialogue -> battle transition
-- command/move-menu synchronization
+- HUD-less trainer/wild intro text
+- command/move synchronization
 - PP-acknowledged move submission
-- separation of **selection accepted** vs **move executed**
+- separation of selection accepted vs move executed
 - enemy move inference from opponent PP deltas
-- HP/PP/EXP/species transition logging
-- KO replacement vs tactical switching using EXP gain
-- voluntary party switches
-- **forced replacement after the active Pokémon faints**
-- active-battler-aware faint handling (never assumes party slot 0 is active)
-- safe post-battle return to overworld
+- voluntary switching
+- forced faint replacement
+- switch failure/trapping detection
+- HP/PP/species transition logs
+- post-battle confirmation
 
-## Visual state machine
+A key Route 104 discovery is that **party order is mutable during battle**: after switching, the active Pokémon can occupy party slot 0. Therefore new switching code targets species identity/current party identity instead of stale slot numbers.
 
-`visual.py` is intentionally not OCR-first. RAM supplies exact facts; framebuffer regions identify UI mode.
+## Verified Route 104 trainer data
 
-Recognized states include battle HUD/text/command/move menus, Bag, Start menu (including the dimmed transition), Party, Poké Mart and ordinary dialogue.
+Triathlete Mikey exposed several useful cases:
 
-A Route 104 bug led to an important precision fix: Party-screen detection now keys off the exact dominant Party UI panel colors instead of a broad olive range, because dense grass can share similar hues.
-
-## Navigation
-
-Navigation combines:
-
-1. static Emerald map data as a proposal graph;
-2. live Run & Bun coordinates as authority;
-3. directed edges for ledges/asymmetric movement;
-4. menu/script/battle transitions as interrupts;
-5. objective-specific forbidden transitions (for example, town building warps when the goal is to leave town);
-6. savestate-backed offline probing for ambiguous route geometry.
-
-`step_tile(direction)` sends short pulses and stops as soon as decoded coordinates/map change, avoiding turn-only taps and multi-tile overshoot.
-
-## Gameplay discoveries that changed the interface
-
-- Run & Bun's Bag has multiple pockets; an empty visible pocket does not mean inventory is empty.
-- **Endless Candy** exists for controlled level preparation.
-- **Repellent** exists, but it is not treated as a guaranteed encounter-off switch.
-- First-time catches pass through Pokédex registration and nickname UI before party count changes.
-- Trainer AI can switch healthy Pokémon, so team order is state-dependent.
-- Battle transitions and animations can temporarily hide HUDs; battle exit must be sustained/confirmed.
-- Field poison fades and dense grass can resemble UI palettes; transient/terrain frames must not be mistaken for menus.
-- Route 104 has ledge-separated subregions; offline directed-edge probing is useful before committing a poisoned live party to exploration.
-
-## Sandbox launch
-
-```bash
-chmod +x mGBA-build-latest-appimage-x64.appimage
-./mGBA-build-latest-appimage-x64.appimage --appimage-extract
-
-Xvfb :99 -screen 0 1024x768x24 &
-DISPLAY=:99 ./squashfs-root/AppRun \
-  --script scripts/mgba_rpc.lua \
-  /path/to/game.gba
-```
-
-```python
-from client.mgba_rpc import MGBA
-from games.run_and_bun import RunBun, BattleDriver
-
-with MGBA() as gba:
-    game = RunBun(gba)
-    print(game.observe(screenshot=True))
-    game.step_tile("LEFT")
-```
+- Krabby Lv9 — Aqua Jet / Stomp / Mud Shot
+- Yanma Lv9 — Acrobatics / Sonic Boom
+- Clobbopus Lv9 — Rock Smash / Bind / Detect
+- Bind can prevent a voluntary switch
+- tactical opponent changes must not automatically be classified as KOs
 
 ## Development rule
 
 Prefer **one structured observation -> one reasoned decision -> one acknowledged action**.
 
-Whenever gameplay exposes a recurring weakness, improve the interface and sync the proven change to GitHub at the next stable checkpoint instead of repeatedly working around it.
+Whenever gameplay exposes a recurring weakness, improve the interface and sync the proven change to GitHub at the next stable checkpoint rather than repeatedly working around it.
