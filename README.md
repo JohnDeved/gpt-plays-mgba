@@ -1,58 +1,138 @@
 # gpt-plays-mgba
 
-A control, observation, and game-state layer for playing Pokémon Run & Bun through a development build of mGBA.
+A control, observation, reverse-engineering, and gameplay layer for playing **Pokémon Run & Bun v1.07** through a development build of mGBA.
 
-The project has two parallel goals:
+This project has two equal goals:
 
-1. Complete Pokémon Run & Bun using normal emulator inputs.
-2. Continuously improve the interface so later gameplay needs fewer fragile screenshot/button round trips.
+1. Complete the game using normal emulator inputs.
+2. Continuously improve the interface so later gameplay becomes more structured, deterministic, and state-aware.
 
-The current sandbox-tested environment uses mGBA development build `0.11-9122-afd6f14ea` and Pokémon Run & Bun v1.07.
+The current sandbox-tested emulator is mGBA development build `0.11-9122-afd6f14ea`. The live bridge is **RPC v0.3**.
 
-## Current interface: RPC v0.3
+## Current playthrough
 
-The canonical emulator bridge is `scripts/mgba_rpc.lua`, with the Python client in `client/mgba_rpc.py`.
+At the latest source sync:
 
-RPC v0.3 provides:
+- player: **GPT**
+- May's first Route 103 rival battle: **won**
+- Pokédex: received
+- Running Shoes: received
+- current area: **Route 102**
+- Youngster Calvin: **defeated**
+- Bug Catcher Rick: **defeated**
+- party:
+  - **Turtwig Lv11** — Bite / Growl / Absorb / Confide
+  - **Starly Lv11** — Tackle / Growl / Quick Attack / Aerial Ace
+
+Machine-readable progress lives in `data/session_progress.json`.
+
+## Architecture
+
+```text
+mGBA
+  └─ scripts/mgba_rpc.lua          frame-synchronized emulator RPC
+       └─ client/mgba_rpc.py       generic Python client
+            └─ games/run_and_bun/
+                 ├─ state.py       ROM-specific RAM/state decoder + actions
+                 ├─ visual.py      framebuffer UI-state classifier
+                 ├─ battle_driver.py adaptive battle state machine
+                 └─ symbols.json   verified v1.07 addresses/layout notes
+```
+
+Navigation experiments remain under `tools/`. Runtime artifacts such as ROMs, savestates, screenshots, debug captures, and full workspace archives are intentionally excluded from Git and stored separately in the Google Drive workspace.
+
+## RPC v0.3
+
+The Lua bridge provides:
 
 - NDJSON request IDs and capability negotiation
-- frame-synchronized queued input sequences
-- 8/16/32-bit memory reads and writes
-- bulk `read_range`
-- memory snapshots and diffs
+- frame-synchronized queued input
+- 8/16/32-bit reads and writes
+- range reads
+- snapshots and diffs
 - named memory watches
 - emulator-frame conditional waits
-- atomic savestate experiments with exact-frame captures
+- exact-frame savestate experiments
 - mGBA-native screenshots
-- savestate save/load and reset
+- savestate save/load
+- reset
 
-## Run & Bun adapter
+The bridge is deliberately game-agnostic. Strategy and ROM-specific interpretation stay in Python.
 
-ROM-specific code lives under `games/run_and_bun/`.
+## Run & Bun state adapter
 
-It currently decodes and controls:
+`games/run_and_bun/state.py` currently understands:
 
 - dynamic SaveBlock1 / SaveBlock2 / Pokémon storage pointers
-- player name, gender, map and coordinates
-- persistent Gen III encrypted party data with checksum validation
-- battle battler stats, HP, types, moves, PP, action cursor and move cursor
-- generic Yes/No selection
-- dialogue readiness from framebuffer state
-- battle HUD / command-menu / move-menu visual state
+- player name, gender, map ID and exact coordinates
+- persistent Gen III encrypted party structures with checksum verification
+- status conditions
+- live battle battlers, stats, HP, types, abilities, moves and PP
+- battle stat stages including accuracy/evasion
+- battle action and move cursors
+- generic menu cursor used by Yes/No and Start-menu selection
+- semantic Start-menu selection
+- coordinate-conditioned one-tile movement (`step_tile`)
+- dialogue readiness and sustained free-overworld detection
 
-Verified addresses are stored in `games/run_and_bun/symbols.json` and are explicitly scoped to Run & Bun v1.07.
+All addresses in `symbols.json` are explicitly scoped to Run & Bun **v1.07**.
 
-## Navigation experiments
+## Battle driver
 
-`tools/nav_probe.py` is the early savestate-assisted collision explorer.
+`games/run_and_bun/battle_driver.py` was built from actual failed and successful fights rather than from a planned abstraction alone.
 
-`tools/nav_route101_live.py` demonstrates the newer navigation model: static Emerald map/collision data proposes a route, while live decoded coordinates verify each directed edge. ROM-specific obstacles, one-way ledges, NPCs and wild battles override the static model.
+It currently supports:
 
-## Current playthrough snapshot
+- trainer dialogue -> battle transition
+- command/move-menu synchronization
+- PP-acknowledged move submission
+- distinction between **selection accepted** and **move executed**
+- enemy move inference from opponent PP deltas
+- HP, PP, EXP and species transition logging
+- KO replacement vs tactical-switch classification using EXP gain
+- party switching with RAM acknowledgement
+- safe post-battle return to overworld
 
-Machine-readable current progress is stored in `data/session_progress.json`.
+This machinery was used to beat Calvin and Rick and to diagnose the original May loss.
 
-Runtime artifacts such as ROMs, saves, screenshots and savestates are intentionally kept out of Git. They live in the separate Google Drive workspace.
+## Visual state machine
+
+`visual.py` is intentionally not OCR-first. It recognizes stable UI classes from framebuffer regions and palette structure, while RAM supplies exact game facts.
+
+Currently recognized states include:
+
+- battle HUD
+- battle message box
+- battle command menu
+- move menu
+- Bag
+- Start menu
+- **dimmed Start-menu transition**
+- party screen
+- Poké Mart screens
+- standard overworld dialogue
+
+The rule is simple: decoded coordinates alone never prove that the player is free to move, because coordinates remain valid while menus and scripts are active.
+
+## Navigation
+
+The navigation model combines:
+
+1. static Emerald map/collision data as a proposal graph;
+2. live Run & Bun coordinates as the authority;
+3. directed edges for ledges and asymmetric movement;
+4. battle/menu/script detection as interrupts.
+
+`step_tile(direction)` uses short input pulses and stops immediately when decoded coordinates/map change. This avoids the old bug where one tap merely turned the avatar or a long hold accidentally walked multiple tiles.
+
+## Gameplay discoveries that affect the interface
+
+- Run & Bun's Bag has multiple pockets; seeing an empty pocket does **not** mean the inventory is empty.
+- The hack provides an **Endless Candy** key item, useful for controlled level preparation without wild grinding.
+- A reusable **Repellent** key item exists for encounter management.
+- First-time catches pass through Pokédex registration and nickname UI before party count changes.
+- Trainer AI can switch healthy Pokémon, so enemy team order is state-dependent.
+- Some battle animations temporarily hide HUD regions; battle exit must be sustained/confirmed rather than inferred from one frame.
 
 ## Sandbox launch
 
@@ -68,17 +148,20 @@ DISPLAY=:99 ./squashfs-root/AppRun \
   /path/to/game.gba
 ```
 
-Then:
+Python:
 
 ```python
 from client.mgba_rpc import MGBA
+from games.run_and_bun import RunBun, BattleDriver
 
 with MGBA() as gba:
-    print(gba.info())
-    gba.press("A")
-    print(gba.read_range(0x02000000, 32).hex())
+    game = RunBun(gba)
+    print(game.observe(screenshot=True))
+    game.step_tile("LEFT")
 ```
 
-## Design rule
+## Development rule
 
-Prefer one structured observation followed by one reasoned action. Whenever gameplay exposes a weakness in the interface, improve the interface rather than repeatedly working around it.
+Prefer **one structured observation -> one reasoned decision -> one acknowledged action**.
+
+Whenever gameplay exposes a recurring weakness, improve the interface instead of repeatedly working around it.
