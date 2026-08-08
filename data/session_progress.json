@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-08-08T04:22:00+02:00",
+  "timestamp": "2026-08-08T09:36:14+02:00",
   "player": {"name": "GPT", "gender": "male"},
   "rom": {"hack": "Pokemon Run & Bun", "version": "1.07", "title": "POKEMON EMER", "code": "BPEE"},
   "current_state": {
@@ -9,7 +9,7 @@
     "x": 7,
     "y": 4,
     "battle_active": false,
-    "checkpoint": "petalburg_healed_capped_party.ss0"
+    "checkpoint": "petalburg_post_cindy_healed_veni12.ss0"
   },
   "party": [
     {"species": "Turtwig", "species_id": 387, "level": 12, "hp": 38, "max_hp": 38, "status": null, "moves": ["Bite", "Growl", "Absorb", "Confide"], "pp": [25, 10, 25, 10]},
@@ -26,14 +26,17 @@
   "trainer_wins": [
     "May (Route 103)", "Youngster Calvin (Route 102)", "Bug Catcher Rick (Route 102)",
     "Route 102 Skiddo/Psyduck trainer", "Tiana (Route 102)", "Triathlete Mikey (Route 104)",
-    "Fisherman Brian (Route 104)"
+    "Fisherman Brian (Route 104)", "Lass Cindy (Route 104)"
   ],
-  "scouted_trainers": [
+  "verified_route104_trainers": [
     {
-      "location": "Route 104 sight pocket near (18,43)",
-      "lead": "Minccino Lv10",
-      "known_team": ["Minccino Lv10", "Jigglypuff Lv10"],
-      "notes": "Minccino uses Swift / Attract / Thunder Wave and a held heal; Jigglypuff is Normal/Fairy with Round / Draining Kiss / Attract / Thunder Wave. Retreat chosen after scouting because first attempt exhausted Starly and Venipede."
+      "trainer": "Lass Cindy",
+      "team": [
+        "Minccino Lv10 — Swift / Attract / Thunder Wave — held healing berry",
+        "Jigglypuff Lv10 — Round / Draining Kiss / Attract / Thunder Wave — held healing berry",
+        "Phanpy Lv10 — Stomp / Attract — held healing berry"
+      ],
+      "winning_notes": "Level-capping Venipede was decisive. Bug Bite consumed Minccino's berry and healed Venipede; Poison Tail was super-effective into Jigglypuff and forced its berry; Starly finished Jigglypuff; Turtwig used super-effective Absorb to defeat Phanpy and recover HP."
     }
   ],
   "captures": ["Starly", "Venipede"],
@@ -43,11 +46,13 @@
     "Bind trapping surfaced as switch_failed instead of timeout",
     "Run & Bun live gBackupMapLayout located and decoded",
     "live map collision paths use the running hack's EWRAM map grid",
-    "live-grid proposal correctly stopped on Fisherman Brian and the later trainer sight pocket",
+    "live-grid proposal correctly stopped on Fisherman Brian and Lass Cindy sight pockets",
     "two-turn Bounce demonstrated opponent-PP acknowledgement before delayed player execution",
     "trainer sight areas need forbidden-cell/sight-pocket modeling in addition to directed blocked edges",
     "Endless Candy item targeting has a persistent party cursor and therefore requires target acknowledgement",
-    "current Route 104 level cap confirmed at Lv12; Venipede raised from Lv5 to the cap and learned Bug Bite + Poison Tail"
+    "current Route 104 level cap confirmed at Lv12; Venipede raised from Lv5 to the cap and learned Bug Bite + Poison Tail",
+    "Bug Bite consuming an opponent healing berry can materially improve hard-mode battle lines",
+    "headless mGBA requires audioSync=0 when no ALSA device exists; videoSync can be enabled temporarily for reproducible savestate timing experiments"
   ],
-  "next_objective": "Return to Route 104 with the fully healed Lv12 party, lead Starly for priority pressure against the Minccino/Jigglypuff status trainer, defeat it, then resume live-grid routing to Petalburg Woods."
+  "next_objective": "Exit Petalburg with the fully healed Lv12 party, return past Lass Cindy on Route 104, and continue the event-aware live-grid route north toward Petalburg Woods."
 }
