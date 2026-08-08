@@ -287,6 +287,40 @@ class RunBunTests(unittest.TestCase):
         self.assertEqual(action["action"], "switch")
         self.assertEqual(action["species"], 16)
 
+    def test_battle_strategy_reuses_observed_super_effective_damage(self):
+        seedot = {"slot": 0, "present": True, "state": {
+            "species": 273, "current_hp": 10, "max_hp": 34,
+            "attack": 16, "defense": 18, "speed": 10,
+            "special_attack": 12, "special_defense": 14, "level": 12,
+            "types": (12, 12, 9), "moves": (117, 267, 0, 0), "pp": (9, 20, 0, 0),
+        }}
+        chimchar = {"slot": 1, "present": True, "state": {
+            "species": 390, "current_hp": 10, "max_hp": 32,
+            "attack": 22, "defense": 14, "speed": 23,
+            "special_attack": 22, "special_defense": 20, "level": 12,
+            "types": (10, 10, 9), "moves": (10, 43, 52, 183), "pp": (35, 10, 25, 30),
+        }}
+        pidgey = {"slot": 2, "present": True, "state": {
+            "species": 16, "current_hp": 33, "max_hp": 33,
+            "attack": 19, "defense": 15, "speed": 21,
+            "special_attack": 17, "special_defense": 16, "level": 12,
+            "types": (0, 2, 9), "moves": (16, 28, 33, 0), "pp": (35, 5, 35, 0),
+        }}
+        krabby = {"slot": 1, "present": True, "state": {
+            "species": 98, "current_hp": 7, "max_hp": 27,
+            "attack": 26, "defense": 25, "speed": 14,
+            "special_attack": 12, "special_defense": 12, "level": 9,
+            "types": (11, 11, 9), "moves": (453, 23, 341, 0), "pp": (31, 15, 14, 0),
+        }}
+        observation = {"battle": {"active": True, "mons": [seedot, krabby]},
+                       "party": {"mons": [seedot, chimchar, pidgey]}}
+        action = RunBunAdapter.choose_battle_action(
+            observation,
+            damage_memory={(98, 453, 390): [19], (98, 23, 273): [10]},
+        )
+        self.assertEqual(action["action"], "switch")
+        self.assertNotEqual(action.get("species"), 390)
+
     def test_battle_strategy_switches_from_critical_hp(self):
         observation = {
             "battle": {

@@ -472,6 +472,9 @@ class RunBunAdapter:
     def __init__(self, gba):
         self.gba = gba
         self._rom_data: BattleRomData | None = None
+        # Learned from live HP deltas. Keyed by attacker species, move ID,
+        # defender species; values are observed damage samples.
+        self._damage_memory: dict[tuple[int, int, int], list[int]] = {}
 
     def rom_data(self) -> BattleRomData:
         """Return the cached, header-validated ROM metadata reader."""
@@ -597,6 +600,7 @@ class RunBunAdapter:
         *,
         effectiveness_memory: dict[tuple[int, int], float] | None = None,
         type_chart: dict[int, dict[int, float]] | None = None,
+        damage_memory: dict[tuple[int, int, int], list[int]] | None = None,
     ) -> float:
         """Rough Gen III damage estimate for tactical ordering.
 
@@ -605,14 +609,22 @@ class RunBunAdapter:
         """
         if move_id in STATUS_MOVE_IDS:
             return 0.0
+        attacker_state = attacker.get("state", attacker)
+        defender_state = defender.get("state", defender)
+        learned = (damage_memory or {}).get(
+            (attacker_state.get("species"), move_id, defender_state.get("species")),
+            (),
+        )
+        if learned:
+            # Use the largest observed hit: conservative for deciding whether
+            # a switch-in survives, and still grounded in this exact hack.
+            return float(max(learned))
         move_type = MOVE_TYPE_IDS.get(move_id)
         if move_type is None:
             return 0.0
         power = MOVE_POWER.get(move_id, 40)
         if move_id == 49:  # Sonic Boom is fixed 20 damage in this battle.
             return 20.0
-        attacker_state = attacker.get("state", attacker)
-        defender_state = defender.get("state", defender)
         attack_key = "special_attack" if move_id in MOVE_SPECIAL_IDS else "attack"
         defense_key = "special_defense" if move_id in MOVE_SPECIAL_IDS else "defense"
         attack = attacker_state.get(attack_key, 0)
@@ -645,6 +657,7 @@ class RunBunAdapter:
         *,
         effectiveness_memory: dict[tuple[int, int], float] | None,
         type_chart: dict[int, dict[int, float]] | None,
+        damage_memory: dict[tuple[int, int, int], list[int]] | None,
         low_hp_fraction: float,
         allow_switch: bool,
     ) -> dict[str, Any] | None:
@@ -674,6 +687,7 @@ class RunBunAdapter:
                     defender,
                     effectiveness_memory=effectiveness_memory,
                     type_chart=type_chart,
+                    damage_memory=damage_memory,
                 )
                 result.append({"slot": slot, "move_id": move_id, "damage": damage})
             return result
@@ -689,12 +703,21 @@ class RunBunAdapter:
         player_hp = player_state.get("current_hp", 0)
         active_fraction = player_hp / max(player_state.get("max_hp", 1), 1)
         incoming = max(
-            (cls._estimated_damage(move_id, opponent, player, type_chart=type_chart) for move_id in opponent_state.get("moves", ()) if move_id),
+            (cls._estimated_damage(move_id, opponent, player, type_chart=type_chart, damage_memory=damage_memory) for move_id in opponent_state.get("moves", ()) if move_id),
             default=0.0,
         )
         acts_first = player_state.get("speed", 0) >= opponent_state.get("speed", 0)
         can_finish = best_move["damage"] >= opponent_hp > 0
         can_finish_before_hit = can_finish and (acts_first or best_move["move_id"] in MOVE_PRIORITY_IDS)
+        turns_to_ko = int((opponent_hp + max(best_move["damage"], 1) - 1) // max(best_move["damage"], 1))
+        # A live, repeatable two-hit line is often better than a speculative
+        # switch: keep the active mon if it can absorb the one intervening hit.
+        # Priority means the final hit lands before the opponent's next move.
+        safe_two_turn_finish = (
+            1 < turns_to_ko <= 2
+            and player_hp > incoming * (turns_to_ko - 1)
+            and (acts_first or best_move["move_id"] in MOVE_PRIORITY_IDS)
+        )
 
         switch_options: list[tuple[float, dict[str, Any], dict[str, Any]]] = []
         if allow_switch:
@@ -709,7 +732,7 @@ class RunBunAdapter:
                     continue
                 best = max(options, key=lambda item: item["damage"])
                 threat = max(
-                    (cls._estimated_damage(move_id, opponent, mon, type_chart=type_chart) for move_id in opponent_state.get("moves", ()) if move_id),
+                    (cls._estimated_damage(move_id, opponent, mon, type_chart=type_chart, damage_memory=damage_memory) for move_id in opponent_state.get("moves", ()) if move_id),
                     default=0.0,
                 )
                 hp_fraction = state.get("current_hp", 0) / max(state.get("max_hp", 1), 1)
@@ -729,6 +752,13 @@ class RunBunAdapter:
                 "slot": best_move["slot"],
                 "move_id": best_move["move_id"],
                 "reason": "finish_before_switch",
+            }
+        if safe_two_turn_finish:
+            return {
+                "action": "move",
+                "slot": best_move["slot"],
+                "move_id": best_move["move_id"],
+                "reason": "safe_two_turn_finish",
             }
         if best_switch is not None and (
             active_fraction <= low_hp_fraction
@@ -757,6 +787,7 @@ class RunBunAdapter:
         *,
         effectiveness_memory: dict[tuple[int, int], float] | None = None,
         type_chart: dict[int, dict[int, float]] | None = None,
+        damage_memory: dict[tuple[int, int, int], list[int]] | None = None,
         low_hp_fraction: float = 0.25,
         allow_switch: bool = True,
     ) -> dict[str, Any]:
@@ -783,6 +814,7 @@ class RunBunAdapter:
             party,
             effectiveness_memory=effectiveness_memory,
             type_chart=type_chart,
+            damage_memory=damage_memory,
             low_hp_fraction=low_hp_fraction,
             allow_switch=allow_switch,
         )
@@ -1347,12 +1379,11 @@ class RunBunAdapter:
         state = RunBun(self.gba)
         turns = 0
         effectiveness_memory: dict[tuple[int, int], float] = {}
-        try:
-            type_chart = self.rom_data().type_chart()
-        except Exception:
-            # Keep the controller usable on an unprofiled revision; the
-            # fallback chart is deliberately conservative for known moves.
-            type_chart = None
+        # Keep the raw ROM chart available through ``rom_data()``. Its table
+        # has a legacy reserved-type index that still needs a complete mapping
+        # proof before it is allowed to steer decisions; live feedback and
+        # learned damage are safer for this battle loop today.
+        type_chart = None
         while turns <= max_turns:
             observation = self.observe()
             if not observation["battle"]["active"]:
@@ -1393,6 +1424,7 @@ class RunBunAdapter:
                     observation,
                     effectiveness_memory=effectiveness_memory,
                     type_chart=type_chart,
+                    damage_memory=self._damage_memory,
                     low_hp_fraction=low_hp_fraction,
                     allow_switch=allow_switch,
                 )
@@ -1420,15 +1452,39 @@ class RunBunAdapter:
             if resolved["state"] == "not_in_battle" and not self.observe()["battle"]["active"]:
                 return {"state": "overworld", "turns": turns + 1, "status": resolved}
             feedback = resolved.get("feedback", "")
+            post_observation = self.observe()
+            post_player = next(
+                (mon["state"] for mon in post_observation["battle"]["mons"] if mon.get("slot") == 0 and mon.get("present")),
+                None,
+            )
+            post_opponent = next(
+                (mon["state"] for mon in post_observation["battle"]["mons"] if mon.get("slot") == 1 and mon.get("present")),
+                None,
+            )
+            pre_opponent = next(
+                (mon["state"] for mon in observation["battle"]["mons"] if mon.get("slot") == 1 and mon.get("present")),
+                None,
+            )
             if plan.get("action") == "move":
-                opponent = next(
-                    (mon["state"] for mon in self.observe()["battle"]["mons"] if mon.get("slot") == 1 and mon.get("present")),
-                    None,
-                )
+                opponent = post_opponent
                 if opponent:
                     effectiveness = self._battle_effectiveness(feedback)
                     if effectiveness is not None:
                         effectiveness_memory[(opponent["species"], active["moves"][plan["slot"]])] = effectiveness
+                if pre_opponent and post_opponent and post_opponent["species"] == pre_opponent["species"]:
+                    damage = pre_opponent["current_hp"] - post_opponent["current_hp"]
+                    if damage > 0:
+                        key = (active["species"], active["moves"][plan["slot"]], post_opponent["species"])
+                        self._damage_memory.setdefault(key, []).append(damage)
+            # Learn the opponent's actual hit when its move name appears in the
+            # printer feedback and the active identity survived the turn.
+            if post_player and post_player["species"] == active["species"]:
+                damage = active["current_hp"] - post_player["current_hp"]
+                if damage > 0 and post_opponent:
+                    for move_id, move_name in zip(post_opponent["moves"], post_opponent.get("move_names", ())):
+                        if move_id and move_name and move_name.lower() in feedback.lower():
+                            key = (post_opponent["species"], move_id, active["species"])
+                            self._damage_memory.setdefault(key, []).append(damage)
             turns += 1
         raise RuntimeError(f"battle exceeded {max_turns} turns")
 
