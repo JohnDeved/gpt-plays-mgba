@@ -2206,7 +2206,20 @@ class RunBunAdapter:
         tasks = self.gba.inspect_tasks().get("tasks", [])
         for task in tasks:
             data = task.get("data") or []
-            if task.get("active") and len(data) >= 14 and data[0] == 23472:
+            # The task function ID is allocator/state dependent in this hack
+            # (the same Bag used 23472 outdoors and 10876 in the Center).
+            # Its cursor payload is stable: two ROM script pointers, the
+            # pocket selector at +6, menu mode 8 at +9, and item cursor +13.
+            if (
+                task.get("active")
+                and len(data) >= 14
+                and data[1] == 512
+                and data[3] == 2077
+                and data[4] == 51445
+                and data[5] == 2077
+                and 0 <= data[6] <= 4
+                and data[9] == 8
+            ):
                 return task
         raise RuntimeError("field_bag_not_open: Bag task is not active")
 
