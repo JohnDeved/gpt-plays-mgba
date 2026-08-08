@@ -22,7 +22,8 @@
     "map_offset": 7,
     "entry_format": {"metatile_id_bits": "0-9", "collision_bits": "10-11", "elevation_bits": "12-15"},
     "coordinate_rule": "SaveBlock1 pos is layout-space; add MAP_OFFSET only when indexing the padded live map buffer",
-    "route104_live_dimensions": {"padded_width": 55, "padded_height": 94, "layout_width": 40, "layout_height": 80}
+    "route104_live_dimensions": {"padded_width": 55, "padded_height": 94, "layout_width": 40, "layout_height": 80},
+    "dynamic_obstacle_note": "trainer sight pockets can block several otherwise collision-passable edges; model forbidden cells/regions as well as directed blocked edges"
   },
   "saveblock1_offsets": {"player_x": 0, "player_y": 2, "map_group": 4, "map_num": 5, "warp_id": 6},
   "verified_map_ids": {
@@ -34,17 +35,23 @@
     "ability_id": "u16 at battler+0x20", "type_bytes": "three bytes at battler+0x22",
     "pp": "four bytes at battler+0x25", "hp": "u16 at battler+0x2A", "level": "u8 at battler+0x2C",
     "max_hp": "u16 at battler+0x2E", "stat_stages": "8 bytes at battler+0x18; neutral stage is 6",
-    "party_order": "mutable during battle; active Pokemon moves to slot 0, so switching should target identity/species rather than stale slot",
+    "party_order": "mutable during battle; active Pokemon can move to slot 0, so switching must resolve current identity/species instead of stale slot",
     "trapping": "Bind can reject a voluntary switch; battle driver must surface switch_failed",
-    "two_turn_moves": "Fisherman Brian's Bounce demonstrated that opponent PP can decrement long before the player's selected move executes; turn acknowledgement must not rely only on player PP or HUD timing"
+    "two_turn_moves": "Fisherman Brian's Bounce demonstrated that opponent PP can decrement long before the player's selected move executes; turn acknowledgement must not rely only on player PP or HUD timing",
+    "volatile_status": "Attract is cleared by switching/faint replacement even though persistent paralysis remains; battle policy can deliberately use forced replacement to reset attraction"
   },
   "verified_recent_content": {
-    "species": {"98": "Krabby", "129": "Magikarp", "193": "Yanma", "387": "Turtwig", "396": "Starly", "543": "Venipede", "852": "Clobbopus"},
-    "moves": {"20": "Bind", "23": "Stomp", "40": "Poison Sting", "44": "Bite", "49": "Sonic Boom", "56": "Hydro Pump", "71": "Absorb", "175": "Flail", "197": "Detect", "205": "Rollout", "249": "Rock Smash", "332": "Aerial Ace", "340": "Bounce", "341": "Mud Shot", "453": "Aqua Jet", "512": "Acrobatics", "590": "Confide"},
+    "species": {"39": "Jigglypuff", "98": "Krabby", "129": "Magikarp", "193": "Yanma", "387": "Turtwig", "396": "Starly", "543": "Venipede", "572": "Minccino", "852": "Clobbopus"},
+    "moves": {"20": "Bind", "23": "Stomp", "40": "Poison Sting", "44": "Bite", "49": "Sonic Boom", "56": "Hydro Pump", "71": "Absorb", "86": "Thunder Wave", "129": "Swift", "175": "Flail", "197": "Detect", "205": "Rollout", "213": "Attract", "249": "Rock Smash", "332": "Aerial Ace", "340": "Bounce", "341": "Mud Shot", "342": "Poison Tail", "450": "Bug Bite", "453": "Aqua Jet", "496": "Round", "512": "Acrobatics", "577": "Draining Kiss", "590": "Confide"},
     "type_18": "Fairy",
+    "current_route104_level_cap": 12,
     "route104_fisherman_brian": {
       "first_magikarp": {"level": 12, "hp": 30, "speed": 27, "moves": ["Bounce"], "observed_effects": ["Bounce charged before Turtwig acted", "Bounce dealt 18 to Turtwig and caused paralysis"]},
       "second_magikarp": {"level": 12, "hp": 26, "speed": 29, "moves": ["Hydro Pump", "Tackle", "Flail"], "observed_effects": ["Absorb reduced it from 26 to 1 and restored Turtwig to full HP before the finishing turn"]}
+    },
+    "route104_status_trainer": {
+      "minccino": {"level": 10, "hp": 34, "types": ["Normal", "Normal"], "ability_id": 56, "moves": ["Swift", "Attract", "Thunder Wave"], "notes": ["held item healed after dropping to low HP", "priority Quick Attack can act before the first Attract/Thunder Wave status turn"]},
+      "jigglypuff": {"level": 10, "hp": 46, "types": ["Normal", "Fairy"], "ability_id": 56, "moves": ["Round", "Draining Kiss", "Attract", "Thunder Wave"]}
     }
   },
   "confidence": "Verified against Pokemon Run & Bun v1.07 live emulator state; do not assume addresses apply to other versions."
