@@ -148,10 +148,10 @@
         "same_plan_failures": 1
       },
       "strategy": {
-        "status": "blocked",
-        "reason": "counter-team and validated pre-fight plan not built yet",
-        "plan_path": null,
-        "plan_sha256": null
+        "status": "ready",
+        "reason": "six-member capped party, healed PP, and validated pre-fight plan are live",
+        "plan_path": "runtime/session/route109_preflight_plan.json",
+        "plan_sha256": "df3a67214d30cbd1443df7dbee6c68b89355d3b3ed4622955d23f5d46ea2506d"
       },
       "evidence": {
         "npc_checkpoint_sha256": "aa133c8640ef78203a97b66dbad8046fb0ab28d34d8be5d32358888be81178a9",

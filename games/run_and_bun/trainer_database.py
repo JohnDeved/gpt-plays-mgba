@@ -8,7 +8,15 @@ from pathlib import Path
 from typing import Any
 
 
-DEFAULT_DATABASE = (
+REPO_DATABASE = (
+    Path(__file__).resolve().parents[2]
+    / ".agents"
+    / "skills"
+    / "prepare-runbun-hard-fight"
+    / "references"
+    / "trainers.json"
+)
+GLOBAL_DATABASE = (
     Path.home()
     / ".codex"
     / "skills"
@@ -16,6 +24,7 @@ DEFAULT_DATABASE = (
     / "references"
     / "trainers.json"
 )
+DEFAULT_DATABASE = REPO_DATABASE if REPO_DATABASE.exists() else GLOBAL_DATABASE
 
 
 def database_path() -> Path:

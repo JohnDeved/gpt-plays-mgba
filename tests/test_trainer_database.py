@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from games.run_and_bun.trainer_database import lookup_trainer, stable_trainer_key
+from games.run_and_bun.trainer_database import DEFAULT_DATABASE, lookup_trainer, stable_trainer_key
 
 
 class TrainerDatabaseTests(unittest.TestCase):
@@ -39,6 +39,10 @@ class TrainerDatabaseTests(unittest.TestCase):
 
     def test_stable_key_uses_map_and_local_id(self):
         self.assertEqual(stable_trainer_key(0, 24, 7), "map:0:24/local:7")
+
+    def test_default_database_prefers_versioned_repo_copy(self):
+        self.assertTrue(DEFAULT_DATABASE.exists())
+        self.assertTrue(str(DEFAULT_DATABASE).endswith(".agents/skills/prepare-runbun-hard-fight/references/trainers.json"))
 
     def test_lookup_verifies_secondary_npc_identity(self):
         result = lookup_trainer(
