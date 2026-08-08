@@ -1,20 +1,20 @@
 {
-  "timestamp": "2026-08-07T23:28:00+02:00",
+  "timestamp": "2026-08-08T04:02:00+02:00",
   "player": {"name": "GPT", "gender": "male"},
   "rom": {"hack": "Pokemon Run & Bun", "version": "1.07", "title": "POKEMON EMER", "code": "BPEE"},
   "current_state": {
-    "map_group": 8,
-    "map_num": 4,
-    "map_name": "PetalburgCity_PokemonCenter_1F",
-    "x": 7,
-    "y": 4,
+    "map_group": 0,
+    "map_num": 19,
+    "map_name": "Route104",
+    "x": 39,
+    "y": 63,
     "battle_active": false,
-    "checkpoint": "petalburg_post_mikey_healed.ss0"
+    "checkpoint": "route104_post_mikey_reentry.ss0"
   },
   "party": [
-    {"species": "Turtwig", "species_id": 387, "level": 12, "hp": 38, "max_hp": 38, "status": null, "moves": ["Bite", "Growl", "Absorb", "Confide"]},
-    {"species": "Starly", "species_id": 396, "level": 12, "hp": 31, "max_hp": 31, "status": null, "moves": ["Tackle", "Growl", "Quick Attack", "Aerial Ace"]},
-    {"species": "Venipede", "species_id": 543, "level": 5, "hp": 19, "max_hp": 19, "status": null, "moves": ["Rollout", "Poison Sting"]}
+    {"species": "Turtwig", "species_id": 387, "level": 12, "hp": 38, "max_hp": 38, "status": null, "moves": ["Bite", "Growl", "Absorb", "Confide"], "pp": [25, 10, 25, 10]},
+    {"species": "Starly", "species_id": 396, "level": 12, "hp": 31, "max_hp": 31, "status": null, "moves": ["Tackle", "Growl", "Quick Attack", "Aerial Ace"], "pp": [35, 10, 30, 20]},
+    {"species": "Venipede", "species_id": 543, "level": 5, "hp": 19, "max_hp": 19, "status": null, "moves": ["Rollout", "Poison Sting", null, null], "pp": [20, 35, 0, 0]}
   ],
   "story": {
     "may_route103": "won",
@@ -33,8 +33,10 @@
     "switches target species identity instead of stale mutable party slots",
     "Bind trapping surfaced as switch_failed instead of timeout",
     "Run & Bun live gBackupMapLayout located and decoded",
-    "live map collision path returned Mikey interception as a dynamic event",
-    "post-Mikey return route to Petalburg and Pokemon Center planned/executed from live grid"
+    "live map collision paths use the running hack's EWRAM map grid",
+    "recovered post-Mikey healed Drive savestate verified byte-for-state against GitHub logical checkpoint",
+    "sandbox-recycle recovery path validated from Drive checkpoint through Petalburg live-grid navigation",
+    "Petalburg Pokemon Center to Route 104 re-entry executed as acknowledged live-grid edges"
   ],
-  "next_objective": "Exit Petalburg with the fully healed party, re-enter Route 104, and resume the trainer-cleared live-grid route to Petalburg Woods."
+  "next_objective": "Use the Route 104 live map grid from (39,63) to reach Petalburg Woods, stopping on trainers, scripts, wild battles, or directional-edge mismatches."
 }
