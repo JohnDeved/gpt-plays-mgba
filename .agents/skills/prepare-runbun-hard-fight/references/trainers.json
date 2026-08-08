@@ -131,7 +131,10 @@
         }
       ],
       "experience": {
-        "outcomes": ["loss_with_three_member_party"],
+        "outcomes": [
+          "loss_with_three_member_party",
+          "live_2026-08-09_sequential_single_victory"
+        ],
         "failure_causes": [
           "entered_six-on-three",
           "Staravia entered damaged",
@@ -163,7 +166,10 @@
         ],
         "held_item_names": "decoded from ROM item table at 0x08678d60 using held-item IDs from battle RAM"
       },
-      "uncertainties": ["trainer display name not yet ROM-decoded"]
+      "uncertainties": [
+        "trainer display name not yet ROM-decoded",
+        "historical double-battle evidence conflicts with the current live sequential-single field-mode run; trust live command ownership and field mode until the ROM battle-type branch is reconciled"
+      ]
     }
   }
 }

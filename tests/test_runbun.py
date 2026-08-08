@@ -5,6 +5,7 @@ from games.runbun import (
     BATTLE_MONS,
     BATTLE_MON_STRIDE,
     BATTLE_KO_FIELD_MESSAGE_MODES,
+    DOUBLE_BATTLE_FIELD_MESSAGE_MODES,
     FIELD_MESSAGE_MODE_NAMES,
     PLAYER_PARTY,
     RunBunAdapter,
@@ -237,6 +238,11 @@ class RunBunTests(unittest.TestCase):
             FIELD_MESSAGE_MODE_NAMES[36], "double_battle_party_transition"
         )
         self.assertEqual(FIELD_MESSAGE_MODE_NAMES[60], "double_battle_move")
+
+    def test_stale_double_slots_do_not_promote_single_field_mode(self):
+        self.assertEqual(RunBunAdapter._battle_format_for_field_mode(34), "single")
+        self.assertEqual(RunBunAdapter._battle_format_for_field_mode(52), "double")
+        self.assertIn(52, DOUBLE_BATTLE_FIELD_MESSAGE_MODES)
 
     def test_health_preflight_requires_every_present_mon_at_full_hp(self):
         observation = {

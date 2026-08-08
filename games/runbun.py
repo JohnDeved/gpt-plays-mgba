@@ -82,6 +82,11 @@ FIELD_MESSAGE_MODE_NAMES = {
     60: "double_battle_move",
     68: "double_battle_text",
 }
+# Battler structs are not cleared when a prior double battle ends. These are
+# the field modes observed only while the current battle engine owns the
+# double-battle UI; stale gBattleMons slots 2/3 must not promote a single
+# battle into a double battle.
+DOUBLE_BATTLE_FIELD_MESSAGE_MODES = {36, 44, 48, 52, 60, 68}
 BATTLE_FIELD_MESSAGE_MODES = {16, 34, 36, 38, 42, 44, 46, 48, 50, 52, 54, 55, 59, 60, 68}
 BATTLE_KO_FIELD_MESSAGE_MODES = BATTLE_FIELD_MESSAGE_MODES
 
@@ -662,6 +667,15 @@ class RunBunAdapter:
             if match:
                 return " ".join(match.group(1).split())
         return None
+
+    @staticmethod
+    def _battle_format_for_field_mode(field_mode: int) -> str:
+        """Use the live battle UI mode, not stale partner battler structs."""
+        return (
+            "double"
+            if field_mode in DOUBLE_BATTLE_FIELD_MESSAGE_MODES
+            else "single"
+        )
 
     @staticmethod
     def _battle_menu_state(
@@ -1355,13 +1369,9 @@ class RunBunAdapter:
 
         battle_raw = self.gba.read_range(BATTLE_MONS, BATTLE_MON_STRIDE * 4)
         battle_mons = decode_battle_mons(battle_raw)
-        battle_format = (
-            "double"
-            if any(mon.get("present") for mon in battle_mons[2:4])
-            else "single"
-        )
-        opponent = next((mon for mon in battle_mons if mon["slot"] == 1), None)
         battle_mode = values["field_message_box_mode"]
+        battle_format = self._battle_format_for_field_mode(battle_mode)
+        opponent = next((mon for mon in battle_mons if mon["slot"] == 1), None)
         battle_active = any(mon["present"] for mon in battle_mons)
         # gBattleMons is not cleared immediately after a fight.  A zero-HP
         # opponent outside the observed battle message modes is the stable
