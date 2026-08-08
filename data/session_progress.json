@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-08-08T09:36:14+02:00",
+  "timestamp": "2026-08-08T09:45:00+02:00",
   "player": {"name": "GPT", "gender": "male"},
   "rom": {"hack": "Pokemon Run & Bun", "version": "1.07", "title": "POKEMON EMER", "code": "BPEE"},
   "current_state": {
@@ -9,7 +9,7 @@
     "x": 7,
     "y": 4,
     "battle_active": false,
-    "checkpoint": "petalburg_post_cindy_healed_veni12.ss0"
+    "checkpoint": "petalburg_post_route104_package_trainer_healed_veni12.ss0"
   },
   "party": [
     {"species": "Turtwig", "species_id": 387, "level": 12, "hp": 38, "max_hp": 38, "status": null, "moves": ["Bite", "Growl", "Absorb", "Confide"], "pp": [25, 10, 25, 10]},
@@ -26,7 +26,8 @@
   "trainer_wins": [
     "May (Route 103)", "Youngster Calvin (Route 102)", "Bug Catcher Rick (Route 102)",
     "Route 102 Skiddo/Psyduck trainer", "Tiana (Route 102)", "Triathlete Mikey (Route 104)",
-    "Fisherman Brian (Route 104)", "Lass Cindy (Route 104)"
+    "Fisherman Brian (Route 104)", "Lass Cindy (Route 104)",
+    "Route 104 package-chase trainer"
   ],
   "verified_route104_trainers": [
     {
@@ -37,6 +38,18 @@
         "Phanpy Lv10 — Stomp / Attract — held healing berry"
       ],
       "winning_notes": "Level-capping Venipede was decisive. Bug Bite consumed Minccino's berry and healed Venipede; Poison Tail was super-effective into Jigglypuff and forced its berry; Starly finished Jigglypuff; Turtwig used super-effective Absorb to defeat Phanpy and recover HP."
+    },
+    {
+      "trainer": "Route 104 package-chase trainer",
+      "location": "Route 104 near (11,40)",
+      "intro": "Move! Out of my way! I need to make it to Slateport!",
+      "post_battle": "Oh no, that grunt got away with the stolen package.",
+      "team": [
+        "Carvanha Lv11 — Bite / Water Pulse-like move / Aqua Jet / Poison Fang-like move — Rough Skin — held healing berry",
+        "Croagunk Lv12 — Belch-like move / Rock Smash / Poison Sting / Fake Out — held item 569",
+        "Exeggcute Lv11 — Confusion / move 331 / Leech Seed / Stun Spore — held healing berry"
+      ],
+      "winning_notes": "Turtwig used Absorb into Carvanha; Starly used Aerial Ace + Quick Attack into Croagunk before Venipede cleaned up; Venipede's 4x-effective Bug Bite consumed Exeggcute's berry and finished it before another Confusion."
     }
   ],
   "captures": ["Starly", "Venipede"],
@@ -46,13 +59,14 @@
     "Bind trapping surfaced as switch_failed instead of timeout",
     "Run & Bun live gBackupMapLayout located and decoded",
     "live map collision paths use the running hack's EWRAM map grid",
-    "live-grid proposal correctly stopped on Fisherman Brian and Lass Cindy sight pockets",
+    "live-grid proposal correctly stops on trainer sight pockets and dynamic object edges",
     "two-turn Bounce demonstrated opponent-PP acknowledgement before delayed player execution",
     "trainer sight areas need forbidden-cell/sight-pocket modeling in addition to directed blocked edges",
     "Endless Candy item targeting has a persistent party cursor and therefore requires target acknowledgement",
     "current Route 104 level cap confirmed at Lv12; Venipede raised from Lv5 to the cap and learned Bug Bite + Poison Tail",
     "Bug Bite consuming an opponent healing berry can materially improve hard-mode battle lines",
-    "headless mGBA requires audioSync=0 when no ALSA device exists; videoSync can be enabled temporarily for reproducible savestate timing experiments"
+    "headless mGBA requires audioSync=0 when no ALSA device exists; videoSync can be enabled temporarily for reproducible savestate timing experiments",
+    "field poison can stop movement with a survival textbox and clear itself at 1 HP; navigation must treat that as a recoverable dialogue interrupt"
   ],
-  "next_objective": "Exit Petalburg with the fully healed Lv12 party, return past Lass Cindy on Route 104, and continue the event-aware live-grid route north toward Petalburg Woods."
+  "next_objective": "Exit Petalburg with the fully healed Lv12 party, return past the cleared Route 104 package-chase trainer, and continue north from the old (11,38) progression target toward Petalburg Woods."
 }
