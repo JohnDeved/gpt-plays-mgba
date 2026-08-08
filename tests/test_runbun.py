@@ -301,7 +301,7 @@ class RunBunTests(unittest.TestCase):
         self.assertEqual(chosen["order"], "tie")
 
     def test_stat_stage_and_speed_tie_are_not_treated_as_first(self):
-        state = {"stat_stages": (5, 6, 6, 6, 6)}
+        state = {"stat_stages": (6, 5, 6, 6, 6)}
         self.assertAlmostEqual(RunBunAdapter._stage_multiplier(state, "attack"), 2 / 3)
 
     def test_battle_strategy_keeps_a_finisher_against_faster_threat(self):

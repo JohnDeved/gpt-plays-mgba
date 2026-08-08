@@ -631,11 +631,13 @@ class RunBunAdapter:
     def _stage_multiplier(cls, state: dict[str, Any], stat_key: str) -> float:
         """Apply the live Gen III stat-stage ratio to a decoded battler stat."""
         stage_index = {
-            "attack": 0,
-            "defense": 1,
-            "speed": 2,
-            "special_attack": 3,
-            "special_defense": 4,
+            # The verified Run & Bun battler layout keeps byte 0 as the
+            # reserved HP stage; the live Attack decrement appears at byte 1.
+            "attack": 1,
+            "defense": 2,
+            "speed": 3,
+            "special_attack": 4,
+            "special_defense": 5,
         }.get(stat_key)
         stages = state.get("stat_stages") or ()
         if stage_index is None or stage_index >= len(stages):
@@ -685,7 +687,19 @@ class RunBunAdapter:
             else:
                 samples = learned
             if samples:
-                return (float(min(samples)), float(max(samples)))
+                # Samples are observed at the then-live stages. Scale them
+                # for the current attacker/defender stages before using them
+                # as a bound; this keeps a successful Play Nice decrement
+                # useful instead of treating it as cosmetic metadata.
+                attack_key = "special_attack" if move_id in MOVE_SPECIAL_IDS else "attack"
+                defense_key = "special_defense" if move_id in MOVE_SPECIAL_IDS else "defense"
+                stage_scale = cls._stage_multiplier(attacker_state, attack_key) / max(
+                    cls._stage_multiplier(defender_state, defense_key), 0.01
+                )
+                return (
+                    max(1.0, float(min(samples)) * stage_scale),
+                    max(1.0, float(max(samples)) * stage_scale),
+                )
         move_type = MOVE_TYPE_IDS.get(move_id)
         if move_type is None:
             return (0.0, 0.0)
@@ -822,12 +836,23 @@ class RunBunAdapter:
             None,
         )
         if defensive_debuff and incoming >= max(player_hp, 1) and speed_order != "first":
-            return {
-                "action": "move",
-                "slot": defensive_debuff["slot"],
-                "move_id": defensive_debuff["move_id"],
-                "reason": "defensive_status_vs_physical_threat",
-            }
+            # One Attack stage is a 2/3 multiplier. If that still cannot
+            # keep the active mon alive, status is no longer a survival line;
+            # spend the turn on the highest observed/estimated damage instead.
+            if incoming * (2 / 3) < max(player_hp, 1):
+                return {
+                    "action": "move",
+                    "slot": defensive_debuff["slot"],
+                    "move_id": defensive_debuff["move_id"],
+                    "reason": "defensive_status_vs_physical_threat",
+                }
+            if best_move["damage_max"] > 0:
+                return {
+                    "action": "move",
+                    "slot": best_move["slot"],
+                    "move_id": best_move["move_id"],
+                    "reason": "last_damage_line",
+                }
         can_finish = best_move["damage_min"] >= opponent_hp > 0
         can_finish_before_hit = can_finish and (acts_first or best_move["move_id"] in MOVE_PRIORITY_IDS)
         turns_to_ko = int((opponent_hp + max(best_move["damage_min"], 1) - 1) // max(best_move["damage_min"], 1))
@@ -856,6 +881,8 @@ class RunBunAdapter:
                     (cls._damage_bounds(move_id, opponent, mon, type_chart=type_chart, damage_memory=damage_memory)[1] for move_id in opponent_state.get("moves", ()) if move_id),
                     default=0.0,
                 )
+                if threat >= max(state.get("current_hp", 0), 1):
+                    continue
                 hp_fraction = state.get("current_hp", 0) / max(state.get("max_hp", 1), 1)
                 score = best["damage"] + (100.0 if best["damage_min"] >= opponent_hp else 0.0)
                 score += hp_fraction * 12.0 + (4.0 if cls._effective_speed(state) > opponent_speed else 0.0)
@@ -1106,6 +1133,9 @@ class RunBunAdapter:
         elif chosen and plan.get("reason") == "defensive_status_vs_physical_threat":
             proof_level = "best_estimate"
             claim = "only live status line that can reduce the modeled physical KO threat; every switch candidate is also KO'd"
+        elif chosen and plan.get("reason") == "last_damage_line":
+            proof_level = "heuristic"
+            claim = "no legal line guarantees survival; selected the highest observed damage chance"
         else:
             proof_level = "best_estimate"
             claim = "highest modeled damage/survival score among legal actions"
@@ -2212,7 +2242,8 @@ class RunBunAdapter:
         arbitrary row. Party selection is by identity when a species or
         nickname is supplied, then the live field cursor is verified before A.
         """
-        if item_name.casefold() != "endless candy":
+        item_key = item_name.casefold()
+        if item_key != "endless candy":
             raise ValueError(f"unsupported field item: {item_name!r}")
         if sum(value is not None for value in (target_slot, target_species, target_nickname)) != 1:
             raise ValueError("field item target requires exactly one of slot, species, or nickname")
@@ -2275,16 +2306,18 @@ class RunBunAdapter:
 
         # Bag opens on Poké Balls (2) in this save. Read the task instead of
         # assuming that state; RIGHT advances to Key Items (4).
+        desired_pocket = 4
         for _ in range(4):
             task = self._field_bag_task()
             pocket = task["data"][6]
-            if pocket == 4:
+            if pocket == desired_pocket:
                 break
-            self.gba.press("RIGHT", frames=3)
+            direction = "LEFT" if pocket > desired_pocket else "RIGHT"
+            self.gba.press(direction, frames=3)
             self.gba.wait_frames(60)
         task = self._field_bag_task()
-        if task["data"][6] != 4:
-            raise RuntimeError(f"field_bag_pocket_failed: expected=4 got={task['data'][6]}")
+        if task["data"][6] != desired_pocket:
+            raise RuntimeError(f"field_bag_pocket_failed: expected={desired_pocket} got={task['data'][6]}")
 
         # Endless Candy is the first Key Item row. Reset the live item cursor
         # by observation, not by pressing a guessed number of UP inputs.

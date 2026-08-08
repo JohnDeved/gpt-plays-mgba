@@ -360,6 +360,7 @@ def _battle_commit(args: dict[str, Any]) -> dict[str, Any]:
             "created_at": time.time(),
             "pre_state_hash": expected_hash,
             "action": action,
+            "pre_observation": before_compact,
             "executed": executed,
         })
         return {
@@ -390,6 +391,37 @@ def _battle_verify(args: dict[str, Any]) -> dict[str, Any]:
         after = _compact_state(adapter.observe())
         changed = after["state_hash"] != record.get("pre_state_hash")
         verified = resolution.get("state") in {"command_menu", "move_menu", "party_switch", "battle_end", "not_in_battle"} and changed
+        discrepancies: list[str] = []
+        pre_battle = (record.get("pre_observation") or {}).get("battle", {}).get("mons", [])
+        post_battle = after.get("battle", {}).get("mons", [])
+        pre_by_slot = {mon.get("slot"): mon for mon in pre_battle}
+        post_by_slot = {mon.get("slot"): mon for mon in post_battle}
+        action_data = record.get("action") or {}
+        if action_data.get("kind") == "move":
+            pre_player = pre_by_slot.get(0, {})
+            pre_foe = pre_by_slot.get(1, {})
+            post_player = post_by_slot.get(0, {})
+            post_foe = post_by_slot.get(1, {})
+            move_slot = int(action_data.get("slot", -1))
+            move_ids = pre_player.get("moves") or []
+            move_id = move_ids[move_slot] if 0 <= move_slot < len(move_ids) else 0
+            if move_id and pre_foe.get("hp") is not None and post_foe.get("hp") is not None:
+                damage = int(pre_foe["hp"] - post_foe["hp"])
+                if damage > 0:
+                    from games.run_and_bun.experience import append_damage_sample
+
+                    append_damage_sample((int(pre_player.get("species", 0)), int(move_id), int(pre_foe.get("species", 0))), damage, feedback=resolution.get("feedback", ""))
+            if pre_player.get("species") == post_player.get("species") and pre_player.get("hp") is not None and post_player.get("hp") is not None:
+                incoming_damage = int(pre_player["hp"] - post_player["hp"])
+                if incoming_damage > 0:
+                    foe_moves = pre_foe.get("moves") or []
+                    foe_move = next((int(value) for value in foe_moves if value), 0)
+                    if foe_move:
+                        from games.run_and_bun.experience import append_damage_sample
+
+                        append_damage_sample((int(pre_foe.get("species", 0)), foe_move, int(pre_player.get("species", 0))), incoming_damage, feedback=resolution.get("feedback", ""))
+        if not verified:
+            discrepancies.append("action did not reach a changed verified battle state")
         result = {
             "action_id": action_id,
             "verified": verified,
@@ -401,6 +433,7 @@ def _battle_verify(args: dict[str, Any]) -> dict[str, Any]:
                 "presses": resolution.get("presses"),
                 "feedback": resolution.get("feedback", "")[-1200:],
             },
+            "discrepancies": discrepancies,
             "observation": after,
         }
         _append_transaction({"action_id": action_id, "verification": result})
@@ -644,7 +677,7 @@ _CAPABILITIES = [
     ),
     Capability(
         "game_use_field_item", "RAM field-item use",
-        "Use a verified field item through Bag pocket/item cursors and select the target by live party identity. Use when: applying Endless Candy or another explicitly supported field item outside battle.",
+        "Use a verified field item through Bag pocket/item cursors and select the target by live party identity. Use when: applying Endless Candy outside battle.",
         ("use endless candy", "level a Pokémon", "use field item", "apply item to party"),
         {"type": "object", "properties": {"item": {"type": "string", "enum": ["Endless Candy"]}, "target_slot": {"type": "integer", "minimum": 0, "maximum": 5}, "target_species": {"type": "integer", "minimum": 1}, "target_nickname": {"type": "string"}}, "required": ["item"], "additionalProperties": False},
         {"type": "object"}, "write", "safe", _use_field_item,
