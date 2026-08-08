@@ -249,7 +249,11 @@ def _compact_state(state: dict[str, Any], *, include_objects: bool = False) -> d
             for obj in state.get("objects", [])
             if not obj.get("is_player")
         ]
-    canonical = json.dumps(result, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    # Frame count is telemetry, not decision state. Excluding it makes a hash
+    # stable while the emulator waits on the same command prompt, yet still
+    # changes when map/battle/UI facts or party resources change.
+    canonical_payload = {key: value for key, value in result.items() if key != "frame"}
+    canonical = json.dumps(canonical_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     result["state_hash"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
     return result
 
