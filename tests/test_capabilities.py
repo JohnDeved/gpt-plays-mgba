@@ -19,6 +19,11 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertTrue(item["doNotUseWhen"])
         self.assertEqual(item["inputSchema"]["additionalProperties"], False)
 
+    def test_field_item_capability_is_identity_targeted(self):
+        item = self.registry.inspect("game_use_field_item")
+        self.assertIn("target_species", item["inputSchema"]["properties"])
+        self.assertIn("Endless Candy", item["inputSchema"]["properties"]["item"]["enum"])
+
     def test_native_first_gate_rejects_shell_when_match_exists(self):
         decision = self.registry.authorize_fallback("find a trainer and walk to it", "shell")
         self.assertFalse(decision["allowed"])

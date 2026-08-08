@@ -27,6 +27,11 @@ PC_STORAGE_PTR = 0x03005DA4
 
 NEW_GAME_CURSOR = 0x02023006
 YES_NO_CURSOR = 0x0203C3C2
+# Run & Bun reuses this byte for the field start-menu cursor and the party
+# target cursor.  The Bag task keeps its pocket and item cursors in task data;
+# these are read back rather than inferred from a framebuffer.
+FIELD_MENU_CURSOR = 0x0203C3C2
+FIELD_PARTY_CURSOR = 0x0203C51D
 BATTLE_COMMAND_CURSOR = 0x02023A1C
 BATTLE_MOVE_CURSOR = 0x02023A20
 
@@ -53,6 +58,7 @@ FIELD_MESSAGE_MODE_NAMES = {
     3: "auto_scroll",
     11: "party_menu",
     13: "party_prompt",
+    15: "field_item_target",
     10: "nickname_screen",
     16: "battle_intro",
     34: "battle_text",
@@ -2034,6 +2040,143 @@ class RunBunAdapter:
         from games.run_and_bun.inventory import read_inventory
 
         return read_inventory(self.gba)
+
+    def _field_bag_task(self) -> dict[str, Any]:
+        """Return the live Bag task that owns pocket/item cursors."""
+        tasks = self.gba.inspect_tasks().get("tasks", [])
+        for task in tasks:
+            data = task.get("data") or []
+            if task.get("active") and len(data) >= 14 and data[0] == 23472:
+                return task
+        raise RuntimeError("field_bag_not_open: Bag task is not active")
+
+    def _move_field_cursor(self, address: int, target: int, *, max_steps: int = 8) -> int:
+        """Move a small RAM-backed vertical cursor and verify every step."""
+        for _ in range(max_steps):
+            current = self.gba.read8(address)
+            if current == target:
+                return current
+            if current > target:
+                direction = "UP"
+            else:
+                direction = "DOWN"
+            self.gba.press(direction, frames=3)
+            self.gba.wait_frames(30)
+        final = self.gba.read8(address)
+        if final != target:
+            raise RuntimeError(f"field_cursor_failed: address={address:#x} target={target} got={final}")
+        return final
+
+    def use_field_item(
+        self,
+        item_name: str,
+        *,
+        target_slot: int | None = None,
+        target_species: int | None = None,
+        target_nickname: str | None = None,
+    ) -> dict[str, Any]:
+        """Use a verified field item through RAM-backed Bag/party cursors.
+
+        Run & Bun's current field Bag exposes Endless Candy in Key Items. The
+        operation intentionally rejects unknown names instead of selecting an
+        arbitrary row. Party selection is by identity when a species or
+        nickname is supplied, then the live field cursor is verified before A.
+        """
+        if item_name.casefold() != "endless candy":
+            raise ValueError(f"unsupported field item: {item_name!r}")
+        if sum(value is not None for value in (target_slot, target_species, target_nickname)) != 1:
+            raise ValueError("field item target requires exactly one of slot, species, or nickname")
+
+        before = self.observe()
+        if before.get("mode") != "overworld":
+            raise RuntimeError(f"field_item_unavailable_in_mode: {before.get('mode')}")
+        party = before.get("party", {}).get("mons", [])
+        if target_species is not None:
+            matches = [
+                mon.get("slot")
+                for mon in party
+                if mon.get("present") and mon.get("state", {}).get("species") == target_species
+            ]
+            if len(matches) != 1:
+                raise ValueError(f"field_item_target_species_not_unique: {target_species}")
+            target_slot = matches[0]
+        elif target_nickname is not None:
+            matches = [
+                mon.get("slot")
+                for mon in party
+                if mon.get("present") and mon.get("state", {}).get("nickname", "").casefold() == target_nickname.casefold()
+            ]
+            if len(matches) != 1:
+                raise ValueError(f"field_item_target_nickname_not_unique: {target_nickname!r}")
+            target_slot = matches[0]
+        if target_slot is None or target_slot < 0 or target_slot >= len(party):
+            raise ValueError(f"field_item_target_slot_invalid: {target_slot}")
+        target_mon = next((mon for mon in party if mon.get("slot") == target_slot), None)
+        if not target_mon or not target_mon.get("present"):
+            raise ValueError(f"field_item_target_slot_invalid: {target_slot}")
+
+        # Open Start -> Bag. The live menu has three entries and Bag is cursor 2.
+        self.gba.press("START", frames=3)
+        self.gba.wait_frames(60)
+        self._move_field_cursor(FIELD_MENU_CURSOR, 2, max_steps=4)
+        self.gba.press("A", frames=3)
+        self.gba.wait_frames(180)
+
+        # Bag opens on Poké Balls (2) in this save. Read the task instead of
+        # assuming that state; RIGHT advances to Key Items (4).
+        for _ in range(4):
+            task = self._field_bag_task()
+            pocket = task["data"][6]
+            if pocket == 4:
+                break
+            self.gba.press("RIGHT", frames=3)
+            self.gba.wait_frames(60)
+        task = self._field_bag_task()
+        if task["data"][6] != 4:
+            raise RuntimeError(f"field_bag_pocket_failed: expected=4 got={task['data'][6]}")
+
+        # Endless Candy is the first Key Item row. Reset the live item cursor
+        # by observation, not by pressing a guessed number of UP inputs.
+        for _ in range(8):
+            task = self._field_bag_task()
+            cursor = task["data"][13]
+            if cursor == 0:
+                break
+            self.gba.press("UP", frames=3)
+            self.gba.wait_frames(30)
+        task = self._field_bag_task()
+        if task["data"][13] != 0:
+            raise RuntimeError(f"field_bag_item_cursor_failed: expected=0 got={task['data'][13]}")
+
+        # One A selects the row; the second confirms Use and opens the party
+        # target prompt. The field prompt exposes its own RAM cursor.
+        self.gba.press("A", frames=3)
+        self.gba.wait_frames(30)
+        self.gba.press("A", frames=3)
+        self.gba.wait_frames(120)
+        if self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 15:
+            raise RuntimeError("field_item_target_prompt_missing")
+        selected_cursor = self._move_field_cursor(FIELD_PARTY_CURSOR, target_slot)
+        self.gba.press("A", frames=3)
+        self.gba.wait_frames(300)
+        effect_state = self.observe()
+        text = ((effect_state.get("text") or {}).get("current") or {}).get("text")
+        # Endless Candy leaves the reusable item on the target screen. B is
+        # the non-destructive close action; A would apply another candy.
+        for _ in range(2):
+            if self.gba.read8(FIELD_MESSAGE_BOX_MODE) == 0:
+                break
+            self.gba.press("B", frames=3)
+            self.gba.wait_frames(90)
+        after = self.observe()
+        return {
+            "item": item_name,
+            "target_slot": target_slot,
+            "target_species": target_mon.get("state", {}).get("species"),
+            "cursor": selected_cursor,
+            "text": text,
+            "state": after,
+        }
 
     def progress(self) -> dict[str, Any]:
         """Return raw progression flag IDs and non-zero vars from SaveBlock1."""

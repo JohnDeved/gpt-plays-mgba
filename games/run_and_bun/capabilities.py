@@ -309,6 +309,28 @@ def _inventory(_: dict[str, Any]) -> dict[str, Any]:
     return _with_adapter(read)
 
 
+def _use_field_item(args: dict[str, Any]) -> dict[str, Any]:
+    item = args.get("item")
+    if not isinstance(item, str) or not item:
+        raise CapabilityError("VALIDATION_ERROR", "use_field_item requires item")
+    targets = {key: args[key] for key in ("target_slot", "target_species", "target_nickname") if key in args}
+    if len(targets) != 1:
+        raise CapabilityError("VALIDATION_ERROR", "use_field_item requires exactly one target selector")
+
+    def use(adapter: Any) -> dict[str, Any]:
+        result = adapter.use_field_item(item, **targets)
+        return {
+            "item": result.get("item"),
+            "target_slot": result.get("target_slot"),
+            "target_species": result.get("target_species"),
+            "cursor": result.get("cursor"),
+            "text": result.get("text"),
+            "observation": _compact_state(result.get("state", {})),
+        }
+
+    return _with_adapter(use)
+
+
 def _battle_advance(args: dict[str, Any]) -> dict[str, Any]:
     def advance(adapter: Any) -> dict[str, Any]:
         result = adapter.advance_battle_until_menu(
@@ -422,6 +444,14 @@ _CAPABILITIES = [
         "Read money and item pockets from SaveBlock1 RAM with compact item IDs and quantities. Use when: deciding whether a medicine, ball, berry, or progression item is available.",
         ("check inventory", "find potion or candy", "read bag"),
         _OBJECT_SCHEMA, {"type": "object"}, "none", "safe", _inventory,
+    ),
+    Capability(
+        "game_use_field_item", "RAM field-item use",
+        "Use a verified field item through Bag pocket/item cursors and select the target by live party identity. Use when: applying Endless Candy or another explicitly supported field item outside battle.",
+        ("use endless candy", "level a Pokémon", "use field item", "apply item to party"),
+        {"type": "object", "properties": {"item": {"type": "string", "enum": ["Endless Candy"]}, "target_slot": {"type": "integer", "minimum": 0, "maximum": 5}, "target_species": {"type": "integer", "minimum": 1}, "target_nickname": {"type": "string"}}, "required": ["item"], "additionalProperties": False},
+        {"type": "object"}, "write", "safe", _use_field_item,
+        ("Do not use in battle; use the battle menu and tactical report.",),
     ),
     Capability(
         "game_battle_advance", "RAM battle text advancement",

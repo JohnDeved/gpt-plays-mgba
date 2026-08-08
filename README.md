@@ -101,8 +101,10 @@ stops progress, and replans around moving blockers. Grass is a high-cost tile
 by default, so ordinary travel avoids wild encounters; pass
 `grass_penalty=0` only for deliberate encounter/training routes. Battle input
 is RAM/text-printer driven: `choose_battle_action()` accounts for PP, known
-effectiveness, and Flash Fire, while the battle state adapter exposes explicit
-switch and Bag primitives.
+effectiveness, and Flash Fire, while the adapter exposes explicit switch,
+battle-Bag, and field-item primitives. `use_field_item("Endless Candy",
+target_species=...)` reads the Bag task and party identity cursor, then closes
+the reusable item screen with B so a follow-up A cannot apply it twice.
 
 `follow_live_path_to_npc()` selects a live object by `local_id`, `graphics_id`,
 or slot, chooses a reachable tile beside it, blocks occupied object tiles, and

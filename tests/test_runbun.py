@@ -5,6 +5,7 @@ from games.runbun import (
     BATTLE_MONS,
     BATTLE_MON_STRIDE,
     BATTLE_KO_FIELD_MESSAGE_MODES,
+    FIELD_MESSAGE_MODE_NAMES,
     PLAYER_PARTY,
     RunBunAdapter,
     decode_gen3_text,
@@ -75,6 +76,9 @@ class RunBunTests(unittest.TestCase):
 
     def test_field_mode_54_is_drained_as_post_ko_battle_text(self):
         self.assertIn(54, BATTLE_KO_FIELD_MESSAGE_MODES)
+
+    def test_field_item_target_mode_is_named(self):
+        self.assertEqual(FIELD_MESSAGE_MODE_NAMES[15], "field_item_target")
 
     def test_npc_interaction_gap_supports_counter_service_range(self):
         class FakeLiveMap:
