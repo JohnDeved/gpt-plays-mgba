@@ -1,72 +1,72 @@
 {
-  "timestamp": "2026-08-08T09:45:00+02:00",
+  "timestamp": "2026-08-08T12:00:00+02:00",
   "player": {"name": "GPT", "gender": "male"},
   "rom": {"hack": "Pokemon Run & Bun", "version": "1.07", "title": "POKEMON EMER", "code": "BPEE"},
   "current_state": {
-    "map_group": 8,
-    "map_num": 4,
-    "map_name": "PetalburgCity_PokemonCenter_1F",
-    "x": 7,
-    "y": 4,
+    "map_group": 0,
+    "map_num": 24,
+    "map_name": "Route109",
+    "x": 21,
+    "y": 23,
     "battle_active": false,
-    "checkpoint": "petalburg_post_route104_package_trainer_healed_veni12.ss0"
+    "checkpoint": "route109_post_steven_arrival.ss0"
   },
   "party": [
-    {"species": "Turtwig", "species_id": 387, "level": 12, "hp": 38, "max_hp": 38, "status": null, "moves": ["Bite", "Growl", "Absorb", "Confide"], "pp": [25, 10, 25, 10]},
-    {"species": "Starly", "species_id": 396, "level": 12, "hp": 31, "max_hp": 31, "status": null, "moves": ["Tackle", "Growl", "Quick Attack", "Aerial Ace"], "pp": [35, 10, 30, 20]},
-    {"species": "Venipede", "species_id": 543, "level": 12, "hp": 32, "max_hp": 32, "status": null, "moves": ["Rollout", "Poison Sting", "Bug Bite", "Poison Tail"], "pp": [20, 35, 20, 25]}
+    {"species": "Grotle", "species_id": 388, "level": 17, "hp": 57, "max_hp": 57, "status": null, "moves": ["Bite", "Razor Leaf", "Absorb", "Confide"], "pp": [25, 25, 25, 10]},
+    {"species": "Staravia", "species_id": 397, "level": 17, "hp": 46, "max_hp": 46, "status": null, "moves": ["Endeavor", "Growl", "Quick Attack", "Aerial Ace"], "pp": [5, 10, 30, 20]},
+    {"species": "Venipede", "species_id": 543, "level": 17, "hp": 41, "max_hp": 41, "status": null, "moves": ["Rollout", "Protect", "Bug Bite", "Poison Tail"], "pp": [20, 10, 20, 25]}
   ],
   "story": {
     "may_route103": "won",
     "pokedex": "received",
     "running_shoes": "received",
     "wally_tutorial": "completed",
-    "petalburg_gym_intro": "completed"
+    "petalburg_gym_intro": "completed",
+    "letter_to_steven": "delivered",
+    "briney_dewford_voyage": "completed",
+    "briney_slateport_voyage": "completed",
+    "granite_cave_steven": "completed"
   },
   "trainer_wins": [
     "May (Route 103)", "Youngster Calvin (Route 102)", "Bug Catcher Rick (Route 102)",
     "Route 102 Skiddo/Psyduck trainer", "Tiana (Route 102)", "Triathlete Mikey (Route 104)",
-    "Fisherman Brian (Route 104)", "Lass Cindy (Route 104)",
-    "Route 104 package-chase trainer"
+    "Fisherman Brian (Route 104)", "Lass Cindy (Route 104)", "Route 104 package-chase trainer",
+    "Route 106 Staryu/Lombre/Arrokuda trainer", "Route 106 Dwebble/Sandygast/Mawile/Munchlax trainer"
   ],
-  "verified_route104_trainers": [
+  "verified_route106_trainers": [
     {
-      "trainer": "Lass Cindy",
       "team": [
-        "Minccino Lv10 — Swift / Attract / Thunder Wave — held healing berry",
-        "Jigglypuff Lv10 — Round / Draining Kiss / Attract / Thunder Wave — held healing berry",
-        "Phanpy Lv10 — Stomp / Attract — held healing berry"
+        "Staryu Lv13 — Water Pulse / Aurora Beam / Psybeam / Shock Wave",
+        "Lombre Lv13 — Giga Drain / BubbleBeam / Seismic Toss / Teeter Dance",
+        "Arrokuda Lv13 — Aqua Jet / Bite / Peck / move 636"
       ],
-      "winning_notes": "Level-capping Venipede was decisive. Bug Bite consumed Minccino's berry and healed Venipede; Poison Tail was super-effective into Jigglypuff and forced its berry; Starly finished Jigglypuff; Turtwig used super-effective Absorb to defeat Phanpy and recover HP."
+      "winning_notes": "At the Dewford cap, Grotle's Razor Leaf removed both Water leads efficiently and Staravia's Aerial Ace one-shot Lombre."
     },
     {
-      "trainer": "Route 104 package-chase trainer",
-      "location": "Route 104 near (11,40)",
-      "intro": "Move! Out of my way! I need to make it to Slateport!",
-      "post_battle": "Oh no, that grunt got away with the stolen package.",
-      "team": [
-        "Carvanha Lv11 — Bite / Water Pulse-like move / Aqua Jet / Poison Fang-like move — Rough Skin — held healing berry",
-        "Croagunk Lv12 — Belch-like move / Rock Smash / Poison Sting / Fake Out — held item 569",
-        "Exeggcute Lv11 — Confusion / move 331 / Leech Seed / Stun Spore — held healing berry"
-      ],
-      "winning_notes": "Turtwig used Absorb into Carvanha; Starly used Aerial Ace + Quick Attack into Croagunk before Venipede cleaned up; Venipede's 4x-effective Bug Bite consumed Exeggcute's berry and finished it before another Confusion."
+      "team": ["Dwebble Lv13", "Sandygast Lv14", "Mawile Lv13", "Munchlax Lv13"],
+      "winning_notes": "Dwebble required resisted-move pivots plus Intimidate/Growl and Endeavor/priority utility. Sandygast required a reproducible Hypnosis-miss timing. Double Intimidate plus Growl/Endeavor reduced Mawile; an 18-frame Rollout selection offset let Venipede chain through Mawile and Munchlax and survive at 1 HP."
     }
   ],
-  "captures": ["Starly", "Venipede"],
+  "granite_cave": {
+    "escape_rope_acquired": true,
+    "route": ["1F (37,12)", "1F ladder (17,11)", "B1F ladder (28,21)", "B2F ladder (29,13)", "B1F ladder (25,13)", "1F Steven warp (5,10) pressed DOWN", "Steven room (24,10)"],
+    "steven_location": [7, 8],
+    "letter_delivered": true,
+    "reward_description": "Removes obstacles and lowers evasion",
+    "escape_rope_used": true
+  },
   "interface_milestones": [
-    "HUD-less battle intro textbox recognized",
-    "switches target species identity instead of stale mutable party slots",
-    "Bind trapping surfaced as switch_failed instead of timeout",
-    "Run & Bun live gBackupMapLayout located and decoded",
-    "live map collision paths use the running hack's EWRAM map grid",
-    "live-grid proposal correctly stops on trainer sight pockets and dynamic object edges",
-    "two-turn Bounce demonstrated opponent-PP acknowledgement before delayed player execution",
-    "trainer sight areas need forbidden-cell/sight-pocket modeling in addition to directed blocked edges",
-    "Endless Candy item targeting has a persistent party cursor and therefore requires target acknowledgement",
-    "current Route 104 level cap confirmed at Lv12; Venipede raised from Lv5 to the cap and learned Bug Bite + Poison Tail",
-    "Bug Bite consuming an opponent healing berry can materially improve hard-mode battle lines",
-    "headless mGBA requires audioSync=0 when no ALSA device exists; videoSync can be enabled temporarily for reproducible savestate timing experiments",
-    "field poison can stop movement with a survival textbox and clear itself at 1 HP; navigation must treat that as a recoverable dialogue interrupt"
+    "Run & Bun live gBackupMapLayout located and decoded at 0x03005DD0",
+    "live map collision paths use the running hack's EWRAM map grid and stop on dynamic object/trainer/script edges",
+    "battle switching resolves current species identity because party order mutates during battle",
+    "Endless Candy current Dewford cap confirmed at Lv17",
+    "Turtwig evolved to Grotle at Lv16 and learned Razor Leaf over Growl; Sand Tomb skipped",
+    "Starly evolved to Staravia and learned Endeavor over Tackle",
+    "Venipede learned Protect over Poison Sting",
+    "headless mGBA requires audioSync=0 when no ALSA device exists; videoSync can be toggled for reproducible timing experiments",
+    "live gMapHeader located at 0x020368DC and ROM map event/warp/object tables decoded directly",
+    "Granite Cave special warp at (5,10) requires pressing DOWN from the warp tile"
   ],
-  "next_objective": "Exit Petalburg with the fully healed Lv12 party, return past the cleared Route 104 package-chase trainer, and continue north from the old (11,38) progression target toward Petalburg Woods."
+  "captures": ["Starly", "Venipede"],
+  "next_objective": "Enter Slateport from Route 109 and follow the Capt. Stern / Devon Goods story using live map events and scripts."
 }
