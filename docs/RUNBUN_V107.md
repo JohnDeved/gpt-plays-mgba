@@ -120,6 +120,20 @@ Verified useful offsets inside one battler:
 | `0x4C` | personality, u32 |
 | `0x50` | primary status, u32 |
 
+## ROM battle metadata
+
+The live battler structs provide move IDs, current PP, and type bytes. The
+immutable metadata reader additionally validates the BPEE header, then caches:
+
+- move names at ROM `0x083A4493`, 13-byte slots indexed from move 1;
+- the 20-entry fixed-point effectiveness table at ROM `0x083ADEE0`;
+- raw chart values are unsigned Q4.12 (`0x1000 = 1x`, `0x0800 = 0.5x`,
+  `0x2000 = 2x`).
+
+The bridge reads these with `memory.read_range`; no screenshot or hardcoded
+move-name list is needed. Move types discovered from the battle menu can be
+remembered by ID and combined with this cached chart.
+
 ## Inventory evidence
 
 The berry-tree script explicitly reports “Bag's Berries Pocket” and writes

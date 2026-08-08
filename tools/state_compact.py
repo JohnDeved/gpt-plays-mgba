@@ -39,7 +39,7 @@ def main() -> None:
                         "max_hp": mon["state"]["max_hp"],
                         "types": mon["state"]["types"],
                         "moves": mon["state"]["moves"],
-                        "move_names": [
+                        "move_names": mon["state"].get("move_names") or [
                             VERIFIED_MOVE_NAMES.get(move_id, f"Move#{move_id}")
                             for move_id in mon["state"]["moves"]
                             if move_id

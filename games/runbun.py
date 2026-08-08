@@ -15,6 +15,8 @@ try:
 except ImportError:  # Pillow remains optional for RAM-only clients.
     inspect_png = None
 
+from games.run_and_bun.rom_data import BattleRomData
+
 
 ROM_TITLE = "POKEMON EMER"
 ROM_CODE = "BPEE"
@@ -469,6 +471,13 @@ class RunBunAdapter:
 
     def __init__(self, gba):
         self.gba = gba
+        self._rom_data: BattleRomData | None = None
+
+    def rom_data(self) -> BattleRomData:
+        """Return the cached, header-validated ROM metadata reader."""
+        if self._rom_data is None:
+            self._rom_data = BattleRomData(self.gba)
+        return self._rom_data
 
     def _battle_printer_contexts(self, printers: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Decode the transient battle-text buffers behind active printers.
@@ -587,6 +596,7 @@ class RunBunAdapter:
         defender: dict[str, Any],
         *,
         effectiveness_memory: dict[tuple[int, int], float] | None = None,
+        type_chart: dict[int, dict[int, float]] | None = None,
     ) -> float:
         """Rough Gen III damage estimate for tactical ordering.
 
@@ -613,7 +623,8 @@ class RunBunAdapter:
         defender_types = cls._mon_types(defender)
         effectiveness = 1.0
         for defender_type in defender_types:
-            effectiveness *= TYPE_EFFECTIVENESS.get(move_type, {}).get(defender_type, 1.0)
+            chart = type_chart or TYPE_EFFECTIVENESS
+            effectiveness *= chart.get(move_type, {}).get(defender_type, 1.0)
         remembered = (effectiveness_memory or {}).get((defender_state.get("species"), move_id))
         if remembered is not None:
             effectiveness = remembered
@@ -633,6 +644,7 @@ class RunBunAdapter:
         party: list[dict[str, Any]],
         *,
         effectiveness_memory: dict[tuple[int, int], float] | None,
+        type_chart: dict[int, dict[int, float]] | None,
         low_hp_fraction: float,
         allow_switch: bool,
     ) -> dict[str, Any] | None:
@@ -657,7 +669,11 @@ class RunBunAdapter:
                 if not move_id or not pp:
                     continue
                 damage = cls._estimated_damage(
-                    move_id, attacker, defender, effectiveness_memory=effectiveness_memory
+                    move_id,
+                    attacker,
+                    defender,
+                    effectiveness_memory=effectiveness_memory,
+                    type_chart=type_chart,
                 )
                 result.append({"slot": slot, "move_id": move_id, "damage": damage})
             return result
@@ -673,7 +689,7 @@ class RunBunAdapter:
         player_hp = player_state.get("current_hp", 0)
         active_fraction = player_hp / max(player_state.get("max_hp", 1), 1)
         incoming = max(
-            (cls._estimated_damage(move_id, opponent, player) for move_id in opponent_state.get("moves", ()) if move_id),
+            (cls._estimated_damage(move_id, opponent, player, type_chart=type_chart) for move_id in opponent_state.get("moves", ()) if move_id),
             default=0.0,
         )
         acts_first = player_state.get("speed", 0) >= opponent_state.get("speed", 0)
@@ -693,7 +709,7 @@ class RunBunAdapter:
                     continue
                 best = max(options, key=lambda item: item["damage"])
                 threat = max(
-                    (cls._estimated_damage(move_id, opponent, mon) for move_id in opponent_state.get("moves", ()) if move_id),
+                    (cls._estimated_damage(move_id, opponent, mon, type_chart=type_chart) for move_id in opponent_state.get("moves", ()) if move_id),
                     default=0.0,
                 )
                 hp_fraction = state.get("current_hp", 0) / max(state.get("max_hp", 1), 1)
@@ -740,6 +756,7 @@ class RunBunAdapter:
         observation: dict[str, Any],
         *,
         effectiveness_memory: dict[tuple[int, int], float] | None = None,
+        type_chart: dict[int, dict[int, float]] | None = None,
         low_hp_fraction: float = 0.25,
         allow_switch: bool = True,
     ) -> dict[str, Any]:
@@ -765,6 +782,7 @@ class RunBunAdapter:
             opponent,
             party,
             effectiveness_memory=effectiveness_memory,
+            type_chart=type_chart,
             low_hp_fraction=low_hp_fraction,
             allow_switch=allow_switch,
         )
@@ -800,7 +818,7 @@ class RunBunAdapter:
                 score = 1.0
             else:
                 score = max(
-                    (TYPE_EFFECTIVENESS.get(move_type, {}).get(defender, 1.0) for defender in defender_types),
+                    ((type_chart or TYPE_EFFECTIVENESS).get(move_type, {}).get(defender, 1.0) for defender in defender_types),
                     default=1.0,
                 )
             score *= MOVE_POWER.get(move_id, 1)
@@ -966,6 +984,20 @@ class RunBunAdapter:
             mode = "overworld"
         else:
             mode = "unknown"
+        battle_metadata_error = None
+        if battle_active:
+            try:
+                rom = self.rom_data()
+                for mon in battle_mons:
+                    if mon.get("present"):
+                        move_ids = mon["state"]["moves"]
+                        mon["state"]["move_names"] = [
+                            rom.move_name(move_id) for move_id in move_ids if move_id
+                        ]
+            except Exception as error:
+                # The live RAM observation remains useful if a different ROM
+                # revision is loaded; callers can see the failed profile check.
+                battle_metadata_error = f"{type(error).__name__}: {error}"
         objects: list[dict[str, Any]] = []
         objects_error: str | None = None
         try:
@@ -1016,6 +1048,11 @@ class RunBunAdapter:
                 "party_switch_required": party_switch_prompt,
                 "kind": battle_kind,
                 "activity_detection": "battle_mons_species_and_battle_field_mode_or_command_prompt",
+                "metadata": {
+                    "source": "verified_rom",
+                    "type_chart": "Q4.12@0x083ADEE0",
+                    "move_names": "13-byte slots@0x083A4493",
+                } if battle_active and battle_metadata_error is None else None,
                 "menu": {
                     "command": values["battle_command_cursor"] if battle_active else None,
                     "move": values["battle_move_cursor"] if battle_active else None,
@@ -1030,6 +1067,8 @@ class RunBunAdapter:
         }
         if objects_error is not None:
             result["objects_error"] = objects_error
+        if battle_metadata_error is not None:
+            result["battle_metadata_error"] = battle_metadata_error
         if screenshot and inspect_png is not None:
             try:
                 screenshot_path = base.get("screenshot") or (
@@ -1308,6 +1347,12 @@ class RunBunAdapter:
         state = RunBun(self.gba)
         turns = 0
         effectiveness_memory: dict[tuple[int, int], float] = {}
+        try:
+            type_chart = self.rom_data().type_chart()
+        except Exception:
+            # Keep the controller usable on an unprofiled revision; the
+            # fallback chart is deliberately conservative for known moves.
+            type_chart = None
         while turns <= max_turns:
             observation = self.observe()
             if not observation["battle"]["active"]:
@@ -1347,6 +1392,7 @@ class RunBunAdapter:
                 plan = self.choose_battle_action(
                     observation,
                     effectiveness_memory=effectiveness_memory,
+                    type_chart=type_chart,
                     low_hp_fraction=low_hp_fraction,
                     allow_switch=allow_switch,
                 )
