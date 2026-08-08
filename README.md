@@ -15,10 +15,21 @@ The project has two equal goals: complete the game with normal emulator inputs, 
 - Petalburg reached
 - Route 104 in progress
 - **Triathlete Mikey defeated**
-- party: Turtwig Lv12 / Starly Lv12 / Venipede Lv5
-- recovery checkpoint: `r104_mikey_win.ss0`
+- party: Turtwig Lv12 / Starly Lv12 / Venipede Lv5, currently fully healed
+- current position: **Route 104 `(39,63)`**, re-entered from Petalburg after healing
+- current logical checkpoint: `route104_post_mikey_reentry.ss0`
 
 Machine-readable progress lives in `data/session_progress.json`. Runtime artifacts (ROM, savestates, screenshots, debug captures, full workspace archives) live outside Git in the Google Drive workspace.
+
+## Recovery is part of the interface
+
+The sandbox process can be recycled, so project recovery is now treated as a first-class capability rather than an exceptional manual procedure.
+
+The post-Mikey healed savestate recovered from Google Drive was loaded and verified against the GitHub logical checkpoint: Petalburg Pokémon Center `(8,4)` at `(7,4)`, Turtwig 38/38, Starly 31/31, Venipede 19/19, all healthy with full PP. From that restored state the live-map navigator successfully exited Petalburg and re-entered Route 104 at `(39,63)`.
+
+This gives the project a tested recovery chain:
+
+`GitHub logical state -> Drive savestate -> mGBA RPC verification -> acknowledged navigation -> new stable checkpoint`.
 
 ## Architecture
 
@@ -64,7 +75,7 @@ The structure contains padded map width/height and a live `u16 *map` pointer. En
 
 `LiveMapGrid.collision_path()` uses the running hack's collision data as a shortest-path proposal graph. Every edge is still executed through `Navigator.step_or_event()`, so NPCs, trainers, scripts, directional metatile behavior, ledges, map transitions and wild battles override the static proposal.
 
-This hybrid already planned Route 104 accurately enough to reach a mandatory trainer and stop before making a battle decision.
+The same mechanism has now been validated across a sandbox recovery: it routed the restored healed state through Petalburg to the Route 104 connection without using hard-coded button timing.
 
 ## Battle driver
 
@@ -75,13 +86,13 @@ The acknowledged battle state machine supports:
 - PP-acknowledged move submission
 - separation of selection accepted vs move executed
 - enemy move inference from opponent PP deltas
-- voluntary switching
+- voluntary switching by current Pokémon identity
 - forced faint replacement
 - switch failure/trapping detection
 - HP/PP/species transition logs
 - post-battle confirmation
 
-A key Route 104 discovery is that **party order is mutable during battle**: after switching, the active Pokémon can occupy party slot 0. Therefore new switching code targets species identity/current party identity instead of stale slot numbers.
+A key Route 104 discovery is that **party order is mutable during battle**: after switching, the active Pokémon can occupy party slot 0. Therefore switching code targets species/current identity instead of stale slot numbers.
 
 ## Verified Route 104 trainer data
 
