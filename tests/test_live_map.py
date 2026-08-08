@@ -1,7 +1,7 @@
 import struct
 import unittest
 
-from games.run_and_bun.live_map import LiveMap, read_live_map, read_live_warps
+from games.run_and_bun.live_map import LiveMap, read_live_connections, read_live_map, read_live_warps
 
 
 class FakeMapGBA:
@@ -36,12 +36,47 @@ class FakeWarpGBA:
         raise AssertionError((hex(address), length))
 
 
+class FakeConnectionGBA:
+    def read_range(self, address, length):
+        if address == 0x020368DC:
+            return struct.pack("<IIII", 0, 0, 0, 0x08000300)
+        if address == 0x08000300:
+            return struct.pack("<iI", 2, 0x08000400)
+        if address == 0x08000400:
+            return (
+                bytes([2, 0, 0, 0]) + struct.pack("<i", 0) + bytes([0, 20, 0, 0])
+                + bytes([1, 0, 0, 0]) + struct.pack("<i", 60) + bytes([0, 11, 0, 0])
+            )
+        raise AssertionError((hex(address), length))
+
+
 class LiveMapTests(unittest.TestCase):
     def test_reads_runtime_warp_destinations(self):
         warps = read_live_warps(FakeWarpGBA())
         self.assertEqual([warp.as_dict() for warp in warps], [
             {"x": 5, "y": 7, "warp_id": 0, "map_num": 0, "map_group": 2, "destination": (2, 0)},
             {"x": 14, "y": 6, "warp_id": 0, "map_num": 4, "map_group": 2, "destination": (2, 4)},
+        ])
+
+    def test_reads_runtime_map_connections(self):
+        connections = read_live_connections(FakeConnectionGBA())
+        self.assertEqual([connection.as_dict() for connection in connections], [
+            {
+                "direction_id": 2,
+                "direction": "north",
+                "offset": 0,
+                "map_num": 20,
+                "map_group": 0,
+                "destination": (0, 20),
+            },
+            {
+                "direction_id": 1,
+                "direction": "south",
+                "offset": 60,
+                "map_num": 11,
+                "map_group": 0,
+                "destination": (0, 11),
+            },
         ])
 
     def test_reads_runtime_grid_and_finds_path(self):
@@ -69,6 +104,13 @@ class LiveMapTests(unittest.TestCase):
         live = LiveMap(3, 3, 0x02010000, tuple(words), origin=0, active_width=3, active_height=3)
         self.assertTrue(live.walkable(1, 1))
         self.assertFalse(live.step_allowed((0, 1), (1, 1)))
+
+    def test_warp_transition_layer_connects_to_normal_floor(self):
+        words = [3 << 12] * 9
+        words[1 + 1 * 3] = 0
+        live = LiveMap(3, 3, 0x02010000, tuple(words), origin=0, active_width=3, active_height=3)
+        self.assertTrue(live.step_allowed((1, 1), (1, 0)))
+        self.assertTrue(live.step_allowed((1, 0), (1, 1)))
 
     def test_path_does_not_cross_unverified_elevation_layer(self):
         words = [3 << 12] * 9

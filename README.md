@@ -127,6 +127,22 @@ classification, and a compact text rendering. This works immediately after a
 warp onto an unknown map; `follow_live_path()` and
 `follow_live_path_adaptive()` use the same freshly read buffer for navigation.
 
+`game_map_transitions` / `RunBunAdapter.live_map_transitions()` decode the
+loaded map header's direct connections as well as ordinary event warps. Each
+connection includes its direction, signed offset, and destination map ID/name.
+`game_travel_transition` / `tools/map_transitions.py` can then select a
+direction or destination, walk to a reachable edge tile, and verify the new
+map from SaveBlock RAM. Use `--list` for inspection before selecting an exit.
+
+Some destinations are scripted ferry voyages rather than direct walkable
+connections. `game_map_transit_options` / `tools/map_transits.py --list`
+scans loaded event-template scripts for ROM-backed voyage text and exposes the
+stable NPC identity. `game_travel_transit` or
+`tools/map_transits.py --local-id ...` approaches that actor, advances the
+dialogue, waits through intermediate water maps, and verifies the final stable
+map from RAM. This avoids probing blocked water tiles or guessing which NPC is
+the boat operator.
+
 The launcher runs mGBA at the native 59.7275 Hz target; the bridge does not
 toggle frontend speed or send focus-stealing shortcuts. `MGBA.paused_scope()`
 remains available for explicit idle blocks and suspends the emulator process

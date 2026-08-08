@@ -32,9 +32,22 @@ LIVE_MAP_ACTIVE_HEIGHT = 22
 # us warp destinations directly, eliminating trial-and-error door probing.
 LIVE_MAP_HEADER = 0x020368DC
 MAP_HEADER_EVENTS_OFFSET = 0x04
+MAP_HEADER_CONNECTIONS_OFFSET = 0x0C
 MAP_EVENTS_WARP_COUNT_OFFSET = 0x01
 MAP_EVENTS_WARPS_PTR_OFFSET = 0x08
 LIVE_WARP_STRIDE = 0x08
+MAP_CONNECTIONS_COUNT_OFFSET = 0x00
+MAP_CONNECTIONS_PTR_OFFSET = 0x04
+LIVE_CONNECTION_STRIDE = 0x0C
+
+CONNECTION_DIRECTIONS = {
+    1: "south",
+    2: "north",
+    3: "west",
+    4: "east",
+    5: "dive",
+    6: "emerge",
+}
 
 _DIRECTIONS = ((0, -1, "UP"), (1, 0, "RIGHT"), (0, 1, "DOWN"), (-1, 0, "LEFT"))
 
@@ -110,7 +123,12 @@ class LiveMap:
         destination = self.elevation(*target)
         if source == destination:
             return True
-        return source in {0, 1, 4} and destination in {0, 1, 4}
+        # Elevation 0 is the engine's transition layer.  A player can arrive
+        # on it from a warp and immediately step onto ordinary floor (3),
+        # while arbitrary 3 -> 1/4 bridge changes remain conservative.
+        if source == 0 or destination == 0:
+            return True
+        return source in {1, 4} and destination in {1, 4}
 
     def is_grass(self, x: int, y: int) -> bool:
         """Whether the loaded tile can trigger ordinary land encounters."""
@@ -283,6 +301,34 @@ class LiveWarp:
         }
 
 
+@dataclass(frozen=True)
+class LiveMapConnection:
+    """A direct map-to-map edge from the loaded runtime map header."""
+
+    direction_id: int
+    offset: int
+    map_group: int
+    map_num: int
+
+    @property
+    def direction(self) -> str:
+        return CONNECTION_DIRECTIONS.get(self.direction_id, f"unknown:{self.direction_id}")
+
+    @property
+    def destination(self) -> tuple[int, int]:
+        return self.map_group, self.map_num
+
+    def as_dict(self) -> dict[str, int | str | tuple[int, int]]:
+        return {
+            "direction_id": self.direction_id,
+            "direction": self.direction,
+            "offset": self.offset,
+            "map_group": self.map_group,
+            "map_num": self.map_num,
+            "destination": self.destination,
+        }
+
+
 def read_live_map(gba: Any) -> LiveMap:
     """Read the runtime map header and all collision words in one range call."""
     header = gba.read_range(LIVE_MAP_STRUCT, 12)
@@ -342,6 +388,45 @@ def read_live_warps(gba: Any) -> list[LiveWarp]:
                 warp_id=raw[offset + 0x04],
                 map_num=raw[offset + 0x06],
                 map_group=raw[offset + 0x07],
+            )
+        )
+    return result
+
+
+def read_live_connections(gba: Any) -> list[LiveMapConnection]:
+    """Decode direct map connections from the active ``MapHeader``.
+
+    Run & Bun retains the Gen III ``MapConnections`` layout in the loaded
+    header: a signed count and pointer followed by 12-byte records containing
+    a byte direction, a signed 32-bit offset, and byte destination IDs.
+    """
+    header = gba.read_range(LIVE_MAP_HEADER, MAP_HEADER_CONNECTIONS_OFFSET + 4)
+    connections_ptr = struct.unpack_from(
+        "<I", header, MAP_HEADER_CONNECTIONS_OFFSET
+    )[0]
+    if connections_ptr == 0:
+        return []
+    if not (0x08000000 <= connections_ptr < 0x0A000000):
+        raise RuntimeError(f"invalid live map connections pointer: {connections_ptr:#x}")
+    table = gba.read_range(connections_ptr, 8)
+    count = struct.unpack_from("<i", table, MAP_CONNECTIONS_COUNT_OFFSET)[0]
+    records_ptr = struct.unpack_from("<I", table, MAP_CONNECTIONS_PTR_OFFSET)[0]
+    if count < 0 or count > 64:
+        raise RuntimeError(f"invalid live map connection count: {count}")
+    if count == 0:
+        return []
+    if not (0x08000000 <= records_ptr < 0x0A000000):
+        raise RuntimeError(f"invalid live map connection records pointer: {records_ptr:#x}")
+    raw = gba.read_range(records_ptr, count * LIVE_CONNECTION_STRIDE)
+    result: list[LiveMapConnection] = []
+    for index in range(count):
+        offset = index * LIVE_CONNECTION_STRIDE
+        result.append(
+            LiveMapConnection(
+                direction_id=raw[offset],
+                offset=struct.unpack_from("<i", raw, offset + 0x04)[0],
+                map_group=raw[offset + 0x08],
+                map_num=raw[offset + 0x09],
             )
         )
     return result

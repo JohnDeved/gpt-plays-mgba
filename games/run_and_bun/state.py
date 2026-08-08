@@ -97,6 +97,12 @@ KNOWN_MAPS = {
     (0, 17): "Route102",
     (0, 18): "Route103",
     (0, 19): "Route104",
+    (0, 20): "Route105",
+    (0, 21): "Route106",
+    (0, 22): "Route107",
+    (0, 23): "Route108",
+    (0, 24): "Route109",
+    (0, 11): "DewfordTown",
     (8, 4): "PetalburgCity_PokemonCenter_1F",
 }
 

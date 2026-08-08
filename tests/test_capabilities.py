@@ -24,6 +24,11 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertIn("target_species", item["inputSchema"]["properties"])
         self.assertIn("Endless Candy", item["inputSchema"]["properties"]["item"]["enum"])
 
+    def test_move_learning_capability_requires_explicit_replacement_slot(self):
+        item = self.registry.inspect("game_resolve_move_learning")
+        self.assertEqual(item["inputSchema"]["required"], ["target_species", "forget_slot"])
+        self.assertIn("strategic move plan", item["doNotUseWhen"][0])
+
     def test_trainer_lookup_uses_stable_overworld_identity(self):
         item = self.registry.inspect("game_trainer_lookup")
         self.assertEqual(
@@ -51,6 +56,21 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertFalse(decision["allowed"])
         self.assertEqual(decision["reason"], "native_capability_available")
         self.assertEqual(decision["suggestedCapability"], "game_seek_npc")
+
+    def test_map_transition_capabilities_are_registered(self):
+        for name in ("game_map_transitions", "game_travel_transition"):
+            self.assertIn(name, self.registry.names())
+        travel = self.registry.inspect("game_travel_transition")
+        properties = travel["inputSchema"]["properties"]
+        self.assertIn("direction", properties)
+        self.assertIn("destination", properties)
+
+    def test_scripted_transit_capabilities_are_registered(self):
+        for name in ("game_map_transit_options", "game_travel_transit"):
+            self.assertIn(name, self.registry.names())
+        transit = self.registry.inspect("game_travel_transit")
+        self.assertIn("local_id", transit["inputSchema"]["properties"])
+        self.assertIn("expected_destination", transit["inputSchema"]["properties"])
 
     def test_unknown_capability_is_structured(self):
         with self.assertRaisesRegex(Exception, "unknown capability"):

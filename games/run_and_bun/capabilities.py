@@ -485,6 +485,136 @@ def _map_snapshot(args: dict[str, Any]) -> dict[str, Any]:
     return _with_adapter(read)
 
 
+def _map_name(map_id: tuple[int, int]) -> str | None:
+    from games.run_and_bun.state import KNOWN_MAPS
+
+    if map_id in KNOWN_MAPS:
+        return KNOWN_MAPS[map_id]
+    if map_id[0] == 0 and 16 <= map_id[1] <= 49:
+        return f"Route{map_id[1] + 85}"
+    return None
+
+
+def _map_transitions(_: dict[str, Any]) -> dict[str, Any]:
+    def read(adapter: Any) -> dict[str, Any]:
+        result = adapter.live_map_transitions()
+        map_state = result.get("map") or {}
+        current = (map_state.get("group"), map_state.get("number"))
+        connections = []
+        for connection in result.get("connections", []):
+            destination = tuple(connection["destination"])
+            connections.append(
+                {
+                    **connection,
+                    "destination_name": _map_name(destination),
+                    "selectable": connection["direction"] in {"north", "south", "west", "east"},
+                }
+            )
+        return {
+            "map": map_state,
+            "map_name": _map_name(current) if None not in current else None,
+            "connections": connections,
+            "warps": result.get("warps", []),
+            "selection_rule": result.get("selection_rule"),
+        }
+
+    return _with_adapter(read)
+
+
+def _travel_transition(args: dict[str, Any]) -> dict[str, Any]:
+    direction = args.get("direction")
+    destination = args.get("destination")
+    if direction is None and destination is None:
+        raise CapabilityError(
+            "VALIDATION_ERROR",
+            "travel transition requires direction or destination",
+        )
+    if direction is not None and direction not in {"north", "south", "west", "east"}:
+        raise CapabilityError("VALIDATION_ERROR", "direction must be north, south, east, or west")
+    if destination is not None:
+        if not isinstance(destination, list) or len(destination) != 2:
+            raise CapabilityError("VALIDATION_ERROR", "destination must be [map_group, map_number]")
+
+    def travel(adapter: Any) -> dict[str, Any]:
+        result = adapter.travel_live_transition(
+            direction=direction,
+            destination=tuple(destination) if destination is not None else None,
+            max_candidates=int(args.get("max_candidates", 24)),
+            grass_penalty=int(args.get("grass_penalty", 100)),
+        )
+        state = result.get("state", {})
+        map_state = state.get("map") or {}
+        actual = (map_state.get("group"), map_state.get("number"))
+        return {
+            "verified": result.get("verified", False),
+            "source_map": result.get("source_map"),
+            "source_map_name": _map_name(tuple(result["source_map"])) if result.get("source_map") else None,
+            "connection": {
+                **result.get("connection", {}),
+                "destination_name": _map_name(tuple(result["connection"]["destination"]))
+                if result.get("connection", {}).get("destination")
+                else None,
+            },
+            "attempts": result.get("attempts", []),
+            "actual_map": actual,
+            "actual_map_name": _map_name(actual) if None not in actual else None,
+            "observation": _compact_state(state),
+        }
+
+    return _with_adapter(travel)
+
+
+def _map_transit_options(_: dict[str, Any]) -> dict[str, Any]:
+    def read(adapter: Any) -> dict[str, Any]:
+        result = adapter.live_transit_options()
+        map_state = result.get("map") or {}
+        source = tuple(result["source_map"])
+        return {
+            "map": map_state,
+            "map_name": _map_name(source),
+            "options": result.get("options", []),
+            "selection_rule": result.get("selection_rule"),
+        }
+
+    return _with_adapter(read)
+
+
+def _travel_transit(args: dict[str, Any]) -> dict[str, Any]:
+    if "local_id" not in args and "graphics_id" not in args:
+        raise CapabilityError(
+            "VALIDATION_ERROR",
+            "travel transit requires local_id or graphics_id",
+        )
+    expected = args.get("expected_destination")
+    if expected is not None and (not isinstance(expected, list) or len(expected) != 2):
+        raise CapabilityError(
+            "VALIDATION_ERROR",
+            "expected_destination must be [map_group, map_number]",
+        )
+
+    def travel(adapter: Any) -> dict[str, Any]:
+        result = adapter.travel_live_transit(
+            local_id=int(args["local_id"]) if "local_id" in args else None,
+            graphics_id=int(args["graphics_id"]) if "graphics_id" in args else None,
+            expected_destination=tuple(expected) if expected is not None else None,
+            max_pages=int(args.get("max_pages", 32)),
+            max_wait_frames=int(args.get("max_wait_frames", 3600)),
+        )
+        destination = tuple(result["destination"])
+        return {
+            "verified": result.get("verified"),
+            "source_map": result.get("source_map"),
+            "selected": result.get("selected"),
+            "interaction": result.get("interaction"),
+            "dialogue": result.get("dialogue", []),
+            "destination": result.get("destination"),
+            "destination_name": _map_name(destination),
+            "observation": _compact_state(result.get("state", {})),
+        }
+
+    return _with_adapter(travel)
+
+
 def _inventory(_: dict[str, Any]) -> dict[str, Any]:
     def read(adapter: Any) -> dict[str, Any]:
         inventory = adapter.inventory()
@@ -565,6 +695,29 @@ def _use_field_item(args: dict[str, Any]) -> dict[str, Any]:
         }
 
     return _with_adapter(use)
+
+
+def _resolve_move_learning(args: dict[str, Any]) -> dict[str, Any]:
+    if "target_species" not in args or "forget_slot" not in args:
+        raise CapabilityError("VALIDATION_ERROR", "resolve move learning requires target_species and forget_slot")
+
+    def resolve(adapter: Any) -> dict[str, Any]:
+        result = adapter.resolve_field_move_learning(
+            target_species=int(args["target_species"]),
+            forget_slot=int(args["forget_slot"]),
+            expected_move_id=int(args["expected_move_id"]) if "expected_move_id" in args else None,
+            max_frames=int(args.get("max_frames", 1800)),
+        )
+        return {
+            "target_species": result.get("target_species"),
+            "forgotten_slot": result.get("forgotten_slot"),
+            "old_moves": result.get("old_moves"),
+            "new_moves": result.get("new_moves"),
+            "expected_move_id": result.get("expected_move_id"),
+            "observation": _compact_state(result.get("state", {})),
+        }
+
+    return _with_adapter(resolve)
 
 
 def _battle_advance(args: dict[str, Any]) -> dict[str, Any]:
@@ -712,6 +865,36 @@ _CAPABILITIES = [
         ("Do not use screenshots to infer collision while this capability succeeds.",),
     ),
     Capability(
+        "game_map_transitions", "Loaded map transition options",
+        "Read direct map-to-map connections, destination IDs/names, edge directions, offsets, and event warps from authoritative RAM. Use when: choosing the next route, checking which adjacent maps are available, or planning backtracking without trial-and-error boundary probing.",
+        ("list adjacent routes", "what map exits are available", "show current route", "inspect map connections"),
+        _OBJECT_SCHEMA, {"type": "object"}, "none", "safe", _map_transitions,
+        ("Do not use screenshots to infer map identity or exits while this capability succeeds.",),
+    ),
+    Capability(
+        "game_travel_transition", "Verified map transition",
+        "Walk to a live map edge, select one decoded connection, and verify the destination map ID from SaveBlock RAM. Use when: moving to a selected adjacent route or town after inspecting game_map_transitions.",
+        ("go to adjacent route", "select map exit", "travel to Dewford", "cross map connection"),
+        {"type": "object", "properties": {"direction": {"type": "string", "enum": ["north", "south", "east", "west"]}, "destination": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}, "max_candidates": {"type": "integer", "minimum": 1, "default": 24}, "grass_penalty": {"type": "integer", "minimum": 0, "default": 100}}, "additionalProperties": False},
+        {"type": "object"}, "write", "retry only after fresh game_map_transitions", _travel_transition,
+        ("Do not use without first reading the current map transition options.",),
+    ),
+    Capability(
+        "game_map_transit_options", "Scripted map transit options",
+        "Read loaded-map event scripts and identify ferry or voyage NPCs by stable local identity and ROM dialogue. Use when: a destination is reached through an NPC or scripted boat rather than a direct map edge.",
+        ("find ferry NPC", "list boat destinations", "inspect scripted transit", "find route voyage"),
+        _OBJECT_SCHEMA, {"type": "object"}, "none", "safe", _map_transit_options,
+        ("Do not probe water boundaries when a ROM-identified transit actor exists.",),
+    ),
+    Capability(
+        "game_travel_transit", "Verified scripted map transit",
+        "Approach a ROM-identified ferry NPC, advance its voyage dialogue, wait through intermediate maps, and verify the stable destination map from RAM. Use when: taking a boat or other scripted route transit.",
+        ("take the boat", "sail to Slateport", "use ferry NPC", "travel by scripted route"),
+        {"type": "object", "properties": {"local_id": {"type": "integer", "minimum": 0}, "graphics_id": {"type": "integer", "minimum": 0}, "expected_destination": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}, "max_pages": {"type": "integer", "minimum": 1, "default": 32}, "max_wait_frames": {"type": "integer", "minimum": 1, "default": 3600}}, "additionalProperties": False},
+        {"type": "object"}, "write", "retry only after fresh game_map_transit_options", _travel_transit,
+        ("Do not use without first identifying the transit NPC from live ROM scripts.",),
+    ),
+    Capability(
         "game_inventory", "RAM inventory read",
         "Read money and item pockets from SaveBlock1 RAM with compact item IDs and quantities. Use when: deciding whether a medicine, ball, berry, or progression item is available.",
         ("check inventory", "find potion or candy", "read bag"),
@@ -740,6 +923,14 @@ _CAPABILITIES = [
         {"type": "object", "properties": {"item": {"type": "string", "enum": ["Endless Candy"]}, "target_slot": {"type": "integer", "minimum": 0, "maximum": 5}, "target_species": {"type": "integer", "minimum": 1}, "target_nickname": {"type": "string"}}, "required": ["item"], "additionalProperties": False},
         {"type": "object"}, "write", "safe", _use_field_item,
         ("Do not use in battle; use the battle menu and tactical report.",),
+    ),
+    Capability(
+        "game_resolve_move_learning", "Verified field move learning",
+        "Resolve a pending four-move learn screen by selecting an explicitly planned replacement slot, verify the new move in party RAM, and close the reusable field-item UI. Use when: Endless Candy pauses because a Pokémon wants to learn a move.",
+        ("choose move to forget", "resolve move learning", "replace a field move", "finish candy level-up"),
+        {"type": "object", "properties": {"target_species": {"type": "integer", "minimum": 1}, "forget_slot": {"type": "integer", "minimum": 0, "maximum": 3}, "expected_move_id": {"type": "integer", "minimum": 1}, "max_frames": {"type": "integer", "minimum": 1, "default": 1800}}, "required": ["target_species", "forget_slot"], "additionalProperties": False},
+        {"type": "object"}, "write", "retry only after fresh field move-learning observation", _resolve_move_learning,
+        ("Do not choose a forget slot without a strategic move plan.",),
     ),
     Capability(
         "game_battle_advance", "RAM battle text advancement",

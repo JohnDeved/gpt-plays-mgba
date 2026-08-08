@@ -169,6 +169,16 @@ class RunBunTests(unittest.TestCase):
             "25% action-failure chance",
         )
 
+    def test_capture_certificate_surfaces_accuracy_stage_cost(self):
+        observation = self._capture_observation()
+        observation["battle"]["mons"][0]["state"]["stat_stages"][6] = 4
+        report = RunBunAdapter.capture_decision_certificate(observation, poke_balls=24)
+        move = report["decision"]
+        self.assertEqual(move["accuracy_stage"], 4)
+        self.assertEqual(move["accuracy_multiplier"], 0.6)
+        self.assertEqual(move["expected_damage_after_accuracy"], 5.7)
+        self.assertEqual(report["proof"]["material_uncertainty"]["accuracy_stage"], 4)
+
     def test_battle_prompt_requires_command_text_not_page_control(self):
         self.assertFalse(RunBunAdapter._battle_command_prompt([{"text": "Chimchar used\nEmber!<0x70>"}]))
         self.assertTrue(RunBunAdapter._battle_command_prompt([{"text": "What will\nChimchar do?"}]))
@@ -509,8 +519,11 @@ class RunBunTests(unittest.TestCase):
             damage_memory={(390, 10, 54): [17, 18, 19]},
         )
         chosen = report["chosen"]
-        self.assertEqual(chosen["damage_range"], [17.0, 19.0])
-        self.assertEqual(chosen["guaranteed_ko_in"], 2)
+        # Legacy samples have no stage metadata; known move IDs use the
+        # verified ROM calculation rather than treating those samples as a
+        # standalone bound.
+        self.assertEqual(chosen["damage_range"], [9.0, 11.0])
+        self.assertEqual(chosen["guaranteed_ko_in"], 3)
         self.assertFalse(chosen["ko_before_hit"])
         self.assertEqual(chosen["order"], "tie")
 

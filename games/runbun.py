@@ -103,19 +103,36 @@ MOVE_TYPE_IDS = {
     71: 12,  # Absorb, Grass
     75: 12,  # Razor Leaf, Grass
     88: 5,   # Rock Throw, Rock
+    7: 10,   # Fire Punch, Fire
+    24: 1,   # Double Kick, Fighting
+    92: 3,   # Toxic, Poison
     98: 0,   # Quick Attack, Normal
     117: 0,  # Bide, delayed Normal
     182: 0,  # Protect, status
     183: 1,  # Mach Punch, Fighting
     205: 5,  # Rollout, Rock; unsafe for capture because it locks in
+    209: 13,  # Spark, Electric
+    252: 0,   # Fake Out, Normal; priority
+    270: 0,   # Helping Hand, status
+    317: 5,   # Rock Tomb, Rock
     229: 0,  # Rapid Spin, Normal (verified from the live move window)
     267: 0,  # Nature Power (terrain-dependent; conservative Normal)
     283: 0,  # Endeavor, fixed/conditional; never use for bounded weakening
     332: 2,  # Aerial Ace, Flying
     340: 2,  # Bounce, Flying
     342: 3,  # Poison Tail, Poison; residual-status risk for capture
+    352: 11,  # Water Pulse, Water
+    351: 13,  # Shock Wave, Electric
+    395: 1,   # Force Palm, Fighting
+    458: 0,   # Double Hit, Normal
+    474: 3,   # Venoshock, Poison
+    336: 0,   # Howl, status
+    109: 7,  # Confuse Ray, Ghost
+    86: 13,  # Thunder Wave, Electric
     341: 4,  # Mud Shot, Ground
+    420: 15, # Ice Shard, Ice; priority
     450: 3,  # Venoshock, Poison
+    523: 4,  # Bulldoze, Ground; spread speed control
     453: 11, # Aqua Jet, Water
     512: 2,  # Acrobatics, Flying
     589: 0,  # Play Nice, Normal status move in this build
@@ -123,11 +140,14 @@ MOVE_TYPE_IDS = {
 MOVE_POWER = {
     10: 35, 16: 40, 20: 15, 23: 65, 33: 40, 44: 60, 49: 20, 52: 40,
     71: 20, 75: 55, 88: 50, 98: 40, 183: 40, 205: 30, 229: 20,
-    267: 80, 332: 60, 340: 85, 341: 55, 342: 50, 450: 65, 453: 40, 512: 60,
+    7: 75, 24: 30, 86: 0, 92: 0, 109: 0,
+    209: 65, 252: 40, 317: 60, 332: 60, 342: 50, 351: 60, 352: 60,
+    395: 60, 420: 40, 458: 35, 474: 65, 267: 80, 270: 0, 341: 55,
+    340: 85, 450: 65, 453: 40, 512: 60, 523: 60,
 }
-MOVE_SPECIAL_IDS = frozenset({16, 49, 52, 71, 267, 341, 450})
-MOVE_PRIORITY_IDS = frozenset({98, 183, 453})
-STATUS_MOVE_IDS = frozenset({28, 43, 117, 150, 182, 283, 589})
+MOVE_SPECIAL_IDS = frozenset({16, 49, 52, 71, 267, 341, 351, 352, 450, 474})
+MOVE_PRIORITY_IDS = frozenset({98, 183, 252, 420, 453})
+STATUS_MOVE_IDS = frozenset({28, 43, 86, 92, 109, 117, 150, 182, 270, 283, 336, 589})
 PHYSICAL_THREAT_DEBUFF_IDS = frozenset({589})  # Play Nice lowers Attack.
 ABILITY_FLASH_FIRE = 18
 PARALYSIS_STATUS = 0x40
@@ -142,6 +162,8 @@ CAPTURE_UNSAFE_MOVE_IDS = frozenset({20, 205, 342})
 SPECIES_TYPE_IDS = {
     16: (0, 2), 98: (11,), 193: (6, 2), 273: (12,),
     390: (10,), 761: (12,), 987: (17, 0),
+    95: (5, 4), 231: (4,), 388: (12,), 397: (0, 2),
+    543: (6, 3), 878: (8,), 404: (13,),
 }
 
 # Only the interactions needed by the currently observed party/moves are
@@ -729,6 +751,17 @@ class RunBunAdapter:
         return 2 / (2 + 6 - stage)
 
     @classmethod
+    def _accuracy_stage_multiplier(cls, state: dict[str, Any]) -> float:
+        """Return the Gen III accuracy-stage ratio for a live battler."""
+        stages = state.get("stat_stages") or ()
+        if len(stages) <= 6:
+            return 1.0
+        stage = max(0, min(12, int(stages[6])))
+        if stage >= 6:
+            return (3 + stage - 6) / 3
+        return 3 / (3 + 6 - stage)
+
+    @classmethod
     def _effective_speed(cls, state: dict[str, Any]) -> float:
         speed = float(state.get("speed", 0)) * cls._stage_multiplier(state, "speed")
         if int(state.get("status", 0)) & PARALYSIS_STATUS:
@@ -768,19 +801,17 @@ class RunBunAdapter:
             else:
                 samples = learned
             if samples:
-                # Samples are observed at the then-live stages. Scale them
-                # for the current attacker/defender stages before using them
-                # as a bound; this keeps a successful Play Nice decrement
-                # useful instead of treating it as cosmetic metadata.
-                attack_key = "special_attack" if move_id in MOVE_SPECIAL_IDS else "attack"
-                defense_key = "special_defense" if move_id in MOVE_SPECIAL_IDS else "defense"
-                stage_scale = cls._stage_multiplier(attacker_state, attack_key) / max(
-                    cls._stage_multiplier(defender_state, defense_key), 0.01
-                )
-                return (
-                    max(1.0, float(min(samples)) * stage_scale),
-                    max(1.0, float(max(samples)) * stage_scale),
-                )
+                move_type = MOVE_TYPE_IDS.get(move_id)
+                # Legacy samples do not carry their stage context, so they
+                # are never a standalone bound for a known move. Keep them
+                # useful for custom/unknown move IDs, but let the verified
+                # ROM formula below bound known moves across stat stages and
+                # random rolls.
+                if move_type is None:
+                    return (
+                        max(1.0, float(min(samples))),
+                        max(1.0, float(max(samples))),
+                    )
         move_type = MOVE_TYPE_IDS.get(move_id)
         if move_type is None:
             return (0.0, 0.0)
@@ -2434,6 +2465,9 @@ class RunBunAdapter:
 
         legal_moves: list[dict[str, Any]] = []
         unknown_moves: list[int] = []
+        accuracy_stages = player_state.get("stat_stages") or ()
+        accuracy_stage = int(accuracy_stages[6]) if len(accuracy_stages) > 6 else 6
+        accuracy_multiplier = cls._accuracy_stage_multiplier(player_state)
         for slot, move_id in enumerate(player_state.get("moves", ())):
             pp = (player_state.get("pp") or (0, 0, 0, 0))[slot]
             if not move_id or not pp:
@@ -2464,6 +2498,12 @@ class RunBunAdapter:
                 "pp": int(pp),
                 "damage_range": [round(damage_min, 2), round(damage_max, 2)],
                 "critical_damage_max": round(critical_damage_max, 2),
+                "accuracy_stage": accuracy_stage,
+                "accuracy_multiplier": round(accuracy_multiplier, 4),
+                "expected_damage_after_accuracy": round(
+                    ((damage_min + damage_max) / 2) * accuracy_multiplier,
+                    2,
+                ),
                 "guaranteed_nonlethal": safe,
                 "post_hp_range": [
                     max(1, round(target_hp - critical_damage_max, 2)),
@@ -2535,6 +2575,13 @@ class RunBunAdapter:
                     "catch_rng": decision["kind"] == "throw_ball",
                     "unknown_damage_move_ids": sorted(set(unknown_moves)),
                     "critical_hit_multiplier_bound": 2.0 if decision["kind"] == "move" else None,
+                    "accuracy_stage": accuracy_stage if decision["kind"] == "move" else None,
+                    "accuracy_multiplier": round(accuracy_multiplier, 4) if decision["kind"] == "move" else None,
+                    "volatile_infatuation": (
+                        "not decoded in canonical battler RAM; recent feedback may cause action failure"
+                        if decision["kind"] == "move"
+                        else None
+                    ),
                     "full_paralysis": (
                         "25% action-failure chance"
                         if decision["kind"] == "move"
@@ -2614,12 +2661,31 @@ class RunBunAdapter:
             raise RuntimeError(
                 f"poke_ball_outcome_unresolved: state={resolution.get('state')} feedback={feedback!r}"
             )
+        final_observation = self.observe()
+        active_after = next(
+            (
+                mon["state"].get("current_hp")
+                for mon in final_observation.get("battle", {}).get("mons", [])
+                if mon.get("slot") == 0 and mon.get("present")
+            ),
+            None,
+        )
+        if active_after is None:
+            active_after = next(
+                (
+                    mon["state"].get("current_hp")
+                    for mon in final_observation.get("party", {}).get("mons", [])
+                    if mon.get("present")
+                    and mon.get("state", {}).get("species") == active.get("species")
+                ),
+                None,
+            )
         return {
             "outcome": outcome,
             "target_species": target.get("species"),
             "target_hp": target.get("current_hp"),
             "active_hp_before": active.get("current_hp"),
-            "active_hp_after": state.party_mon(0).hp,
+            "active_hp_after": active_after,
             "balls_before": before_balls,
             "balls_after": after_balls,
             "party_count_before": before_count,
@@ -2954,6 +3020,275 @@ class RunBunAdapter:
 
         return [warp.as_dict() for warp in read_live_warps(self.gba)]
 
+    def live_map_transitions(self) -> dict[str, Any]:
+        """Return direct map connections plus event warps from live RAM."""
+        from games.run_and_bun.live_map import read_live_connections, read_live_warps
+
+        state = self.observe()
+        map_state = state.get("map") or {}
+        map_id = (map_state.get("group"), map_state.get("number"))
+        return {
+            "map": map_state,
+            "connections": [connection.as_dict() for connection in read_live_connections(self.gba)],
+            "warps": [warp.as_dict() for warp in read_live_warps(self.gba)],
+            "selection_rule": "walk to a reachable source edge, press its direction once, then verify destination map id",
+            "source_map": map_id,
+        }
+
+    def live_transit_options(self) -> dict[str, Any]:
+        """Return scripted ferry/transit actors from the loaded map's ROM scripts."""
+        from games.run_and_bun.transit import read_live_transit_options
+
+        state = self.observe()
+        map_state = state.get("map") or {}
+        map_id = (map_state.get("group"), map_state.get("number"))
+        if None in map_id:
+            raise RuntimeError("cannot inspect transit actors without a loaded map id")
+        options = read_live_transit_options(self.gba, map_id=(int(map_id[0]), int(map_id[1])))
+        return {
+            "map": map_state,
+            "source_map": (int(map_id[0]), int(map_id[1])),
+            "options": [option.as_dict() for option in options],
+            "selection_rule": "select a stable event-template local_id whose ROM script contains voyage text",
+        }
+
+    def travel_live_transit(
+        self,
+        *,
+        local_id: int | None = None,
+        graphics_id: int | None = None,
+        expected_destination: tuple[int, int] | None = None,
+        max_pages: int = 32,
+        max_wait_frames: int = 3600,
+        stable_reads: int = 2,
+        wait_chunk_frames: int = 120,
+    ) -> dict[str, Any]:
+        """Interact with one ROM-identified ferry and verify its final map.
+
+        The ferry script may cross several intermediate water maps.  The
+        controller therefore advances visible text, waits in bounded frame
+        chunks while the script is moving, and returns only after the map and
+        mode are stable.  No screenshot or guessed water path is used.
+        """
+        if local_id is None and graphics_id is None:
+            raise ValueError("transit selection requires local_id or graphics_id")
+        if max_pages < 1 or max_wait_frames < 1 or stable_reads < 1 or wait_chunk_frames < 1:
+            raise ValueError("transit bounds must be positive")
+
+        before = self.observe()
+        before_map_state = before.get("map") or {}
+        source_map = (before_map_state.get("group"), before_map_state.get("number"))
+        if None in source_map:
+            raise RuntimeError("cannot travel by transit without a loaded source map")
+        source_map = (int(source_map[0]), int(source_map[1]))
+        options = self.live_transit_options()["options"]
+        matching = [
+            option for option in options
+            if (local_id is None or option.get("local_id") == local_id)
+            and (graphics_id is None or option.get("graphics_id") == graphics_id)
+        ]
+        if not matching:
+            raise RuntimeError(
+                f"no ROM-identified transit actor on {source_map}: "
+                f"local_id={local_id!r} graphics_id={graphics_id!r}"
+            )
+        if len(matching) != 1:
+            raise RuntimeError("transit selector is ambiguous; specify local_id or graphics_id")
+        selected = matching[0]
+
+        interaction = self.follow_live_path_to_npc(
+            local_id=selected["local_id"],
+            graphics_id=selected["graphics_id"],
+            expected_map=source_map,
+            interact=True,
+            require_trainer_ready=False,
+            interaction_gap=2,
+            chunk_steps=6,
+            transition_frames=20,
+        )
+        state = interaction["state"]
+        pages: list[str] = []
+        remaining_frames = max_wait_frames
+        stable = 0
+        previous_key: tuple[Any, ...] | None = None
+        while remaining_frames > 0:
+            if state.get("battle", {}).get("active"):
+                raise RuntimeError("transit interrupted by an unexpected battle")
+            if state.get("mode") == "dialogue":
+                if len(pages) >= max_pages:
+                    raise RuntimeError("transit dialogue exceeded max_pages")
+                pages.extend(self.advance_dialogue(max_pages=max_pages - len(pages)))
+                state = self.observe()
+                stable = 0
+                previous_key = None
+                continue
+            map_state = state.get("map") or {}
+            key = (
+                map_state.get("group"), map_state.get("number"),
+                map_state.get("x"), map_state.get("y"), state.get("mode"),
+            )
+            if state.get("mode") == "overworld" and key == previous_key:
+                stable += 1
+            else:
+                stable = 0
+            if state.get("mode") == "overworld" and stable >= stable_reads:
+                break
+            step = min(wait_chunk_frames, remaining_frames)
+            self.gba.wait_frames(step)
+            remaining_frames -= step
+            previous_key = key
+            state = self.observe()
+        else:
+            raise RuntimeError("transit did not reach a stable overworld destination")
+
+        final_map_state = state.get("map") or {}
+        final_map = (final_map_state.get("group"), final_map_state.get("number"))
+        if expected_destination is not None:
+            expected_destination = (int(expected_destination[0]), int(expected_destination[1]))
+            if final_map != expected_destination:
+                raise RuntimeError(
+                    f"transit reached {final_map}, expected {expected_destination}"
+                )
+        return {
+            "verified": final_map != source_map or bool(pages),
+            "source_map": source_map,
+            "selected": selected,
+            "interaction": {
+                "reason": interaction.get("reason"),
+                "approach": interaction.get("approach"),
+                "replans": interaction.get("replans"),
+            },
+            "dialogue": pages,
+            "destination": final_map,
+            "state": state,
+        }
+
+    def travel_live_transition(
+        self,
+        *,
+        direction: str | None = None,
+        destination: tuple[int, int] | None = None,
+        max_candidates: int = 24,
+        grass_penalty: int = 100,
+    ) -> dict[str, Any]:
+        """Select one decoded map connection and verify the loaded destination.
+
+        The connection record identifies the edge and destination, but the
+        exact crossing tile is map-specific.  Candidate edge tiles are ranked
+        by a live-grid path from the current position; each attempted crossing
+        is verified by the authoritative SaveBlock map group/number.
+        """
+        from games.run_and_bun.live_map import read_live_connections, read_live_map
+
+        if max_candidates < 1:
+            raise ValueError("max_candidates must be >= 1")
+        state = self.observe()
+        map_state = state.get("map") or {}
+        source_map = (map_state.get("group"), map_state.get("number"))
+        if None in source_map:
+            raise RuntimeError("cannot select a map transition without a loaded map id")
+        source_map = (int(source_map[0]), int(source_map[1]))
+        normalized_direction = direction.lower() if direction is not None else None
+        if normalized_direction not in {None, "north", "south", "west", "east"}:
+            raise ValueError(f"unsupported map transition direction: {direction!r}")
+        if destination is not None:
+            destination = (int(destination[0]), int(destination[1]))
+
+        connections = [
+            connection
+            for connection in read_live_connections(self.gba)
+            if connection.direction in {"north", "south", "west", "east"}
+            and (normalized_direction is None or connection.direction == normalized_direction)
+            and (destination is None or connection.destination == destination)
+        ]
+        if not connections:
+            raise ValueError(
+                f"no matching live map connection from {source_map}: "
+                f"direction={normalized_direction!r}, destination={destination!r}"
+            )
+        if len(connections) > 1:
+            raise ValueError("map transition selector is ambiguous; specify direction or destination")
+        connection = connections[0]
+        live = read_live_map(self.gba)
+        current = (int(map_state["x"]), int(map_state["y"]))
+        edge = connection.direction
+        input_direction = {"north": "UP", "south": "DOWN", "west": "LEFT", "east": "RIGHT"}[edge]
+        if edge == "north":
+            edge_positions = [(x, 0) for x in range(live.active_width)]
+        elif edge == "south":
+            edge_positions = [(x, live.active_height - 1) for x in range(live.active_width)]
+        elif edge == "west":
+            edge_positions = [(0, y) for y in range(live.active_height)]
+        else:
+            edge_positions = [(live.active_width - 1, y) for y in range(live.active_height)]
+
+        candidates: list[tuple[int, tuple[int, int], list[str]]] = []
+        for position in edge_positions:
+            if not live.walkable(*position):
+                continue
+            try:
+                path = live.path_to(
+                    current,
+                    position,
+                    allow_nonwalkable_start=True,
+                    grass_penalty=grass_penalty,
+                )
+            except ValueError:
+                continue
+            candidates.append((len(path), position, path))
+        candidates.sort(key=lambda item: (item[0], item[1][1], item[1][0]))
+        if not candidates:
+            raise RuntimeError(f"no reachable {edge} edge tile for map connection {connection.as_dict()}")
+
+        attempts: list[dict[str, Any]] = []
+        for path_steps, position, path in candidates[:max_candidates]:
+            before = self.observe()
+            before_map_state = before.get("map") or {}
+            before_map = (before_map_state.get("group"), before_map_state.get("number"))
+            if before_map != source_map:
+                raise RuntimeError(f"map changed before transition attempt: {before_map} != {source_map}")
+            if (before_map_state.get("x"), before_map_state.get("y")) != position:
+                self.follow_live_path_adaptive(
+                    position,
+                    expected_map=source_map,
+                    chunk_steps=6,
+                    max_replans=32,
+                    grass_penalty=grass_penalty,
+                )
+            result = self.follow_route([input_direction], transition_frames=120)
+            after = result["state"]
+            after_map_state = after.get("map") or {}
+            actual_map = (after_map_state.get("group"), after_map_state.get("number"))
+            attempt = {
+                "edge": edge,
+                "coordinate": position,
+                "path_steps": path_steps,
+                "actual_map": actual_map,
+                "actual_position": (after_map_state.get("x"), after_map_state.get("y")),
+                "mode": after.get("mode"),
+            }
+            attempts.append(attempt)
+            if actual_map == connection.destination:
+                return {
+                    "verified": True,
+                    "source_map": source_map,
+                    "connection": connection.as_dict(),
+                    "attempts": attempts,
+                    "state": after,
+                }
+            if actual_map != source_map:
+                raise RuntimeError(
+                    f"unexpected map transition {actual_map}; expected {connection.destination}"
+                )
+
+        return {
+            "verified": False,
+            "source_map": source_map,
+            "connection": connection.as_dict(),
+            "attempts": attempts,
+            "state": self.observe(),
+        }
+
     def inventory(self) -> dict[str, Any]:
         """Decode the current bag pockets directly from SaveBlock1 RAM."""
         from games.run_and_bun.inventory import read_inventory
@@ -3112,6 +3447,129 @@ class RunBunAdapter:
         return observation.get("ui", {}).get("field_message_box_mode") == 33 or any(
             phrase in rendered for phrase in phrases
         )
+
+    def resolve_field_move_learning(
+        self,
+        *,
+        target_species: int,
+        forget_slot: int,
+        expected_move_id: int | None = None,
+        max_frames: int = 1800,
+    ) -> dict[str, Any]:
+        """Resolve a pending four-move learn screen with RAM verification.
+
+        Endless Candy can pause on the standard five-row forget screen.  The
+        caller supplies the strategic replacement slot; this method never
+        guesses which existing move to discard and verifies the resulting
+        party move tuple before closing the reusable item target screen.
+        """
+        if not 0 <= forget_slot < 4:
+            raise ValueError("forget_slot must be in 0..3")
+        if max_frames < 1:
+            raise ValueError("max_frames must be positive")
+        start = self.observe()
+        target = next(
+            (
+                mon
+                for mon in start.get("party", {}).get("mons", [])
+                if mon.get("present") and mon.get("state", {}).get("species") == target_species
+            ),
+        )
+        if target is None:
+            raise ValueError(f"move_learning_target_species_not_unique: {target_species}")
+        old_moves = tuple(target["state"].get("moves", ()))
+        elapsed = 0
+        while elapsed <= max_frames:
+            state = self.observe()
+            field_mode = state.get("ui", {}).get("field_message_box_mode")
+            if field_mode == 33:
+                break
+            if state.get("mode") == "overworld":
+                raise RuntimeError("move_learning_not_pending")
+            # Pages leading to the forget screen are ordinary field text. A
+            # single verified A advances one page; no blind repeat is used.
+            text = ((state.get("text") or {}).get("current") or {}).get("text")
+            if text:
+                # The custom text printer can keep ``active`` true while the
+                # page is already input-ready. The field task owns the real
+                # boundary, so one A per sampled page is the deterministic
+                # control here.
+                self.gba.press("A", frames=3)
+                self.gba.wait_frames(120)
+                elapsed += 120
+            else:
+                self.gba.wait_frames(30)
+                elapsed += 30
+        if self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 33:
+            raise TimeoutError("move_learning_forget_screen_not_ready")
+
+        # The five-row move-forget task uses a separate cursor byte from the
+        # ordinary field party cursor. Its initial position is the first move;
+        # verify the requested slot by checking the resulting move tuple
+        # below, rather than trusting an unrelated menu cursor address.
+        for _ in range(forget_slot):
+            self.gba.press("DOWN", frames=3)
+            self.gba.wait_frames(60)
+        selected = forget_slot
+        self.gba.press("A", frames=3)
+        self.gba.wait_frames(180)
+        elapsed += 180
+        new_moves: tuple[int, ...] = old_moves
+        while elapsed <= max_frames:
+            state = self.observe()
+            target = next(
+                (
+                    mon
+                    for mon in state.get("party", {}).get("mons", [])
+                    if mon.get("present") and mon.get("state", {}).get("species") == target_species
+                ),
+                None,
+            )
+            if target is not None:
+                new_moves = tuple(target["state"].get("moves", ()))
+                if (
+                    new_moves != old_moves
+                    and new_moves[forget_slot] != old_moves[forget_slot]
+                    and (expected_move_id is None or expected_move_id in new_moves)
+                ):
+                    break
+            self.gba.wait_frames(30)
+            elapsed += 30
+        if (
+            new_moves == old_moves
+            or new_moves[forget_slot] == old_moves[forget_slot]
+            or (expected_move_id is not None and expected_move_id not in new_moves)
+            or (expected_move_id is not None and new_moves[forget_slot] != expected_move_id)
+        ):
+            raise RuntimeError(
+                f"move_learning_party_ack_missing: old={old_moves} new={new_moves} expected={expected_move_id}"
+            )
+
+        # Finish the learn message, then close the reusable item target layer.
+        for _ in range(4):
+            state = self.observe()
+            if state.get("mode") == "overworld":
+                break
+            self.gba.press("A", frames=3)
+            self.gba.wait_frames(90)
+        for _ in range(4):
+            state = self.observe()
+            if state.get("mode") == "overworld":
+                break
+            self.gba.press("B", frames=3)
+            self.gba.wait_frames(120)
+        final = self.observe()
+        if final.get("mode") != "overworld":
+            raise RuntimeError("move_learning_cleanup_failed")
+        return {
+            "target_species": target_species,
+            "forgotten_slot": forget_slot,
+            "selected_cursor": selected,
+            "old_moves": old_moves,
+            "new_moves": new_moves,
+            "expected_move_id": expected_move_id,
+            "state": final,
+        }
 
     def use_field_item(
         self,
