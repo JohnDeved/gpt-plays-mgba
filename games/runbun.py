@@ -2201,6 +2201,56 @@ class RunBunAdapter:
 
         return read_inventory(self.gba)
 
+    @staticmethod
+    def health_preflight(observation: dict[str, Any]) -> dict[str, Any]:
+        """Return the compact party-health gate used before trainer contact.
+
+        A trainer is still a required objective; this gate only prevents
+        walking into its sight line with a damaged or fainted party.  Party
+        identity comes from the live party structs, not battle-slot order.
+        """
+        mons = []
+        for entry in observation.get("party", {}).get("mons", []) or []:
+            if not entry.get("present", True):
+                continue
+            mon = dict(entry.get("state", entry))
+            mon.setdefault("slot", entry.get("slot"))
+            mons.append(mon)
+        damaged = [
+            {
+                "slot": mon.get("slot"),
+                "species": mon.get("species"),
+                "nickname": mon.get("nickname"),
+                "hp": mon.get("current_hp", 0),
+                "max_hp": mon.get("max_hp", 0),
+            }
+            for mon in mons
+            if mon.get("current_hp", 0) != mon.get("max_hp", 0)
+        ]
+        fainted = [mon for mon in damaged if mon["hp"] <= 0]
+        return {
+            "ready": bool(mons) and not damaged,
+            "party_count": len(mons),
+            "damaged": damaged,
+            "fainted": fainted,
+            "reason": "ready" if mons and not damaged else "healing_required",
+        }
+
+    def trainer_preflight(self) -> dict[str, Any]:
+        """Read health plus the actual medicine pockets before trainer contact."""
+        report = self.health_preflight(self.observe())
+        try:
+            pockets = self.inventory().get("pockets", {})
+            report["medicine"] = {
+                name: pockets.get(name, [])
+                for name in ("runbun_medicine", "ui_medicine")
+            }
+        except Exception as error:
+            report["medicine"] = None
+            report["inventory_error"] = f"{type(error).__name__}: {error}"
+        report["action"] = "engage_trainer" if report["ready"] else "heal_before_engaging"
+        return report
+
     def _field_bag_task(self) -> dict[str, Any]:
         """Return the live Bag task that owns pocket/item cursors."""
         tasks = self.gba.inspect_tasks().get("tasks", [])
@@ -2583,6 +2633,7 @@ class RunBunAdapter:
         grass_penalty: int = 100,
         blocked_wait_frames: int = 8,
         interaction_gap: int = 2,
+        require_trainer_ready: bool = True,
     ) -> dict[str, Any]:
         """Seek a live NPC, re-reading its position while walking.
 
@@ -2591,6 +2642,10 @@ class RunBunAdapter:
         table, blocks all occupied object tiles, and selects a fresh reachable
         approach tile. This handles wandering NPCs and scripted movement while
         retaining the grass-avoidance policy of the normal pathfinder.
+
+        When interaction is requested, trainer targets are health-gated before
+        movement begins. A failed gate returns a compact report so the caller
+        can route to healing and then retry the same trainer identity.
         """
         from games.run_and_bun.objects import read_live_objects, select_live_object
 
@@ -2668,6 +2723,17 @@ class RunBunAdapter:
                     f"target NPC not present on map {actual_map}: "
                     f"slot={slot} local_id={local_id} graphics_id={graphics_id}"
                 )
+            if interact and require_trainer_ready and getattr(target, "trainer_type", 0):
+                preflight = self.trainer_preflight()
+                if not preflight["ready"]:
+                    return {
+                        "state": last_state,
+                        "target": target.as_dict(),
+                        "actions": actions,
+                        "replans": attempt,
+                        "reason": "trainer_preflight_failed",
+                        "preflight": preflight,
+                    }
             from games.run_and_bun.live_map import read_live_map
 
             live = read_live_map(self.gba)

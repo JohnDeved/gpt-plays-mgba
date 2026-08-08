@@ -77,6 +77,37 @@ class RunBunTests(unittest.TestCase):
     def test_field_mode_54_is_drained_as_post_ko_battle_text(self):
         self.assertIn(54, BATTLE_KO_FIELD_MESSAGE_MODES)
 
+    def test_health_preflight_requires_every_present_mon_at_full_hp(self):
+        observation = {
+            "party": {
+                "mons": [
+                    {"present": True, "state": {"slot": 0, "species": 390, "current_hp": 32, "max_hp": 32}},
+                    {"present": True, "state": {"slot": 1, "species": 16, "current_hp": 0, "max_hp": 33}},
+                ]
+            }
+        }
+
+        report = RunBunAdapter.health_preflight(observation)
+
+        self.assertFalse(report["ready"])
+        self.assertEqual(report["reason"], "healing_required")
+        self.assertEqual(report["fainted"][0]["species"], 16)
+
+    def test_health_preflight_accepts_full_party(self):
+        observation = {
+            "party": {
+                "mons": [
+                    {"present": True, "state": {"slot": 0, "species": 390, "current_hp": 32, "max_hp": 32}},
+                    {"present": True, "state": {"slot": 1, "species": 16, "current_hp": 33, "max_hp": 33}},
+                ]
+            }
+        }
+
+        report = RunBunAdapter.health_preflight(observation)
+
+        self.assertTrue(report["ready"])
+        self.assertEqual(report["reason"], "ready")
+
     def test_field_item_target_mode_is_named(self):
         self.assertEqual(FIELD_MESSAGE_MODE_NAMES[15], "field_item_target")
 
