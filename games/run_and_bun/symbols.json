@@ -35,12 +35,17 @@
     "pp": "four bytes at battler+0x25", "hp": "u16 at battler+0x2A", "level": "u8 at battler+0x2C",
     "max_hp": "u16 at battler+0x2E", "stat_stages": "8 bytes at battler+0x18; neutral stage is 6",
     "party_order": "mutable during battle; active Pokemon moves to slot 0, so switching should target identity/species rather than stale slot",
-    "trapping": "Bind can reject a voluntary switch; battle driver must surface switch_failed"
+    "trapping": "Bind can reject a voluntary switch; battle driver must surface switch_failed",
+    "two_turn_moves": "Fisherman Brian's Bounce demonstrated that opponent PP can decrement long before the player's selected move executes; turn acknowledgement must not rely only on player PP or HUD timing"
   },
   "verified_recent_content": {
-    "species": {"98": "Krabby", "193": "Yanma", "387": "Turtwig", "396": "Starly", "543": "Venipede", "852": "Clobbopus"},
-    "moves": {"20": "Bind", "23": "Stomp", "40": "Poison Sting", "44": "Bite", "49": "Sonic Boom", "71": "Absorb", "197": "Detect", "205": "Rollout", "249": "Rock Smash", "332": "Aerial Ace", "341": "Mud Shot", "453": "Aqua Jet", "512": "Acrobatics", "590": "Confide"},
-    "type_18": "Fairy"
+    "species": {"98": "Krabby", "129": "Magikarp", "193": "Yanma", "387": "Turtwig", "396": "Starly", "543": "Venipede", "852": "Clobbopus"},
+    "moves": {"20": "Bind", "23": "Stomp", "40": "Poison Sting", "44": "Bite", "49": "Sonic Boom", "56": "Hydro Pump", "71": "Absorb", "175": "Flail", "197": "Detect", "205": "Rollout", "249": "Rock Smash", "332": "Aerial Ace", "340": "Bounce", "341": "Mud Shot", "453": "Aqua Jet", "512": "Acrobatics", "590": "Confide"},
+    "type_18": "Fairy",
+    "route104_fisherman_brian": {
+      "first_magikarp": {"level": 12, "hp": 30, "speed": 27, "moves": ["Bounce"], "observed_effects": ["Bounce charged before Turtwig acted", "Bounce dealt 18 to Turtwig and caused paralysis"]},
+      "second_magikarp": {"level": 12, "hp": 26, "speed": 29, "moves": ["Hydro Pump", "Tackle", "Flail"], "observed_effects": ["Absorb reduced it from 26 to 1 and restored Turtwig to full HP before the finishing turn"]}
+    }
   },
   "confidence": "Verified against Pokemon Run & Bun v1.07 live emulator state; do not assume addresses apply to other versions."
 }
