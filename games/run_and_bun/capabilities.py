@@ -8,8 +8,11 @@ can inspect one capability when they need the complete schema.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import json
+from pathlib import Path
 import re
+import time
 from typing import Any, Callable
 
 
@@ -218,6 +221,12 @@ def _compact_state(state: dict[str, Any], *, include_objects: bool = False) -> d
                 "move_names": mon.get("state", {}).get("move_names"),
                 "pp": mon.get("state", {}).get("pp"),
                 "speed": mon.get("state", {}).get("speed"),
+                "attack": mon.get("state", {}).get("attack"),
+                "defense": mon.get("state", {}).get("defense"),
+                "special_attack": mon.get("state", {}).get("special_attack"),
+                "special_defense": mon.get("state", {}).get("special_defense"),
+                "stat_stages": mon.get("state", {}).get("stat_stages"),
+                "status": mon.get("state", {}).get("status"),
                 "ability": mon.get("state", {}).get("ability"),
             }
             for mon in battle.get("mons", [])
@@ -240,6 +249,8 @@ def _compact_state(state: dict[str, Any], *, include_objects: bool = False) -> d
             for obj in state.get("objects", [])
             if not obj.get("is_player")
         ]
+    canonical = json.dumps(result, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    result["state_hash"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
     return result
 
 
@@ -256,12 +267,158 @@ def _observe(args: dict[str, Any]) -> dict[str, Any]:
 
 
 def _tactical_report(_: dict[str, Any]) -> dict[str, Any]:
-    return _with_adapter(
-        lambda adapter: adapter.explain_battle_action(
-            adapter.observe(),
+    def evaluate(adapter: Any) -> dict[str, Any]:
+        observation = adapter.observe()
+        report = adapter.explain_battle_action(
+            observation,
             damage_memory=adapter._damage_memory,
         )
-    )
+        report["state_hash"] = _compact_state(observation)["state_hash"]
+        return report
+
+    return _with_adapter(evaluate)
+
+
+def _battle_snapshot(_: dict[str, Any]) -> dict[str, Any]:
+    return _with_adapter(lambda adapter: {"snapshot": _compact_state(adapter.observe())})
+
+
+def _battle_evaluate(_: dict[str, Any]) -> dict[str, Any]:
+    return _tactical_report({})
+
+
+def _transaction_path() -> Path:
+    path = Path(__file__).resolve().parents[2] / "runtime" / "session" / "battle_transactions.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _append_transaction(record: dict[str, Any]) -> None:
+    with _transaction_path().open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, separators=(",", ":"), ensure_ascii=False) + "\n")
+
+
+def _find_transaction(action_id: str) -> dict[str, Any] | None:
+    path = _transaction_path()
+    if not path.exists():
+        return None
+    for line in reversed(path.read_text(encoding="utf-8").splitlines()):
+        if not line:
+            continue
+        record = json.loads(line)
+        if record.get("action_id") == action_id:
+            return record
+    return None
+
+
+def _battle_commit(args: dict[str, Any]) -> dict[str, Any]:
+    expected_hash = args.get("state_hash")
+    action = args.get("action")
+    if not isinstance(expected_hash, str) or not isinstance(action, dict):
+        raise CapabilityError("VALIDATION_ERROR", "battle_commit requires state_hash and action")
+
+    def commit(adapter: Any) -> dict[str, Any]:
+        from games.run_and_bun.state import RunBun
+
+        before = adapter.observe()
+        before_compact = _compact_state(before)
+        if before_compact["state_hash"] != expected_hash:
+            raise CapabilityError(
+                "STALE_STATE",
+                f"battle state changed: expected {expected_hash}, got {before_compact['state_hash']}",
+                retryable=True,
+                suggested_capability="game_battle_evaluate",
+            )
+        if not before.get("battle", {}).get("active"):
+            raise CapabilityError("NOT_IN_BATTLE", "battle_commit requires an active battle")
+        kind = action.get("kind")
+        controller = RunBun(adapter.gba)
+        if kind == "move":
+            slot = int(action.get("slot", -1))
+            controller.open_fight_menu()
+            executed = controller.choose_move(slot)
+            value = slot
+        elif kind == "switch":
+            if "species" in action:
+                executed = controller.switch_pokemon(species_id=int(action["species"]))
+                value = int(action["species"])
+            elif "slot" in action:
+                executed = controller.switch_pokemon(slot=int(action["slot"]))
+                value = int(action["slot"])
+            else:
+                raise CapabilityError("VALIDATION_ERROR", "switch action requires species or slot")
+        else:
+            raise CapabilityError("VALIDATION_ERROR", "action.kind must be move or switch")
+        frame = before.get("frame", 0)
+        action_id = f"{frame}:{kind}:{value}:{expected_hash}"
+        _append_transaction({
+            "action_id": action_id,
+            "created_at": time.time(),
+            "pre_state_hash": expected_hash,
+            "action": action,
+            "executed": executed,
+        })
+        return {
+            "action_id": action_id,
+            "pre_state_hash": expected_hash,
+            "action": action,
+            "executed": executed,
+            "observation": _compact_state(adapter.observe()),
+        }
+
+    return _with_adapter(commit)
+
+
+def _battle_verify(args: dict[str, Any]) -> dict[str, Any]:
+    action_id = args.get("action_id")
+    if not isinstance(action_id, str) or not action_id:
+        raise CapabilityError("VALIDATION_ERROR", "battle_verify requires action_id")
+    record = _find_transaction(action_id)
+    if record is None:
+        raise CapabilityError("NOT_FOUND", f"unknown battle action: {action_id}")
+
+    def verify(adapter: Any) -> dict[str, Any]:
+        resolution = adapter.advance_battle_until_menu(
+            max_frames=int(args.get("max_frames", 1200)),
+            visual_fallback=False,
+            after_action=True,
+        )
+        after = _compact_state(adapter.observe())
+        changed = after["state_hash"] != record.get("pre_state_hash")
+        verified = resolution.get("state") in {"command_menu", "move_menu", "party_switch", "battle_end", "not_in_battle"} and changed
+        result = {
+            "action_id": action_id,
+            "verified": verified,
+            "pre_state_hash": record.get("pre_state_hash"),
+            "post_state_hash": after["state_hash"],
+            "resolution": {
+                "state": resolution.get("state"),
+                "frames": resolution.get("frames"),
+                "presses": resolution.get("presses"),
+                "feedback": resolution.get("feedback", "")[-1200:],
+            },
+            "observation": after,
+        }
+        _append_transaction({"action_id": action_id, "verification": result})
+        return result
+
+    return _with_adapter(verify)
+
+
+def _experience_query(args: dict[str, Any]) -> dict[str, Any]:
+    from games.run_and_bun.experience import query_damage
+
+    def integer(name: str) -> int | None:
+        value = args.get(name)
+        return int(value) if value is not None else None
+
+    return {
+        "damage": query_damage(
+            attacker_species=integer("attacker_species"),
+            move_id=integer("move_id"),
+            defender_species=integer("defender_species"),
+        )
+    }
 
 
 def _map_snapshot(args: dict[str, Any]) -> dict[str, Any]:
@@ -313,7 +470,8 @@ def _use_field_item(args: dict[str, Any]) -> dict[str, Any]:
     item = args.get("item")
     if not isinstance(item, str) or not item:
         raise CapabilityError("VALIDATION_ERROR", "use_field_item requires item")
-    targets = {key: args[key] for key in ("target_slot", "target_species", "target_nickname") if key in args}
+    target_keys = ("target_slot", "target_species", "target_nickname")
+    targets = {key: args[key] for key in target_keys if key in args}
     if len(targets) != 1:
         raise CapabilityError("VALIDATION_ERROR", "use_field_item requires exactly one target selector")
 
@@ -416,6 +574,41 @@ def _checkpoint(args: dict[str, Any]) -> dict[str, Any]:
 
 _OBJECT_SCHEMA = {"type": "object", "additionalProperties": False}
 _CAPABILITIES = [
+    Capability(
+        "game_battle_snapshot", "Canonical battle snapshot",
+        "Read the compact authoritative battle state and a short state hash. Use when: starting or checking a battle transaction before selecting an action.",
+        ("snapshot battle", "canonical battle state", "get battle hash"),
+        _OBJECT_SCHEMA, {"type": "object"}, "none", "safe", _battle_snapshot,
+        ("Do not use screenshots as the source of battle facts.",),
+    ),
+    Capability(
+        "game_battle_evaluate", "Bounded battle evaluation",
+        "Enumerate legal battle actions with bounded damage, turn-order evidence, and proof level. Use when: choosing a move or switch before committing an important turn.",
+        ("evaluate battle", "choose safest move", "calculate damage bounds", "compare legal actions"),
+        _OBJECT_SCHEMA, {"type": "object"}, "none", "safe", _battle_evaluate,
+    ),
+    Capability(
+        "game_battle_commit", "Atomic battle action commit",
+        "Execute one move or switch only if the supplied battle state hash is still current. Use when: committing an evaluated battle action without allowing stale decisions.",
+        ("commit battle move", "commit switch", "execute evaluated action"),
+        {"type": "object", "properties": {"state_hash": {"type": "string"}, "action": {"type": "object"}}, "required": ["state_hash", "action"], "additionalProperties": False},
+        {"type": "object"}, "write", "retry only after fresh evaluation", _battle_commit,
+        ("Do not commit from an old tactical report; refresh after STALE_STATE.",),
+    ),
+    Capability(
+        "game_battle_verify", "Battle action verification",
+        "Advance battle text from a committed action and return the predicted-versus-observed transition. Use when: closing the transaction after a move or switch.",
+        ("verify battle move", "check action result", "read battle outcome"),
+        {"type": "object", "properties": {"action_id": {"type": "string"}, "max_frames": {"type": "integer", "minimum": 1, "default": 1200}}, "required": ["action_id"], "additionalProperties": False},
+        {"type": "object"}, "write", "retry after more battle frames", _battle_verify,
+    ),
+    Capability(
+        "game_experience_query", "Relevant battle experience",
+        "Retrieve exact-key damage samples as bounded min/max evidence from the append-only local play ledger. Use when: evaluating a known attacker/move/defender interaction or investigating a surprise.",
+        ("query battle experience", "retrieve damage samples", "check learned damage"),
+        {"type": "object", "properties": {"attacker_species": {"type": "integer"}, "move_id": {"type": "integer"}, "defender_species": {"type": "integer"}}, "additionalProperties": False},
+        {"type": "object"}, "none", "safe", _experience_query,
+    ),
     Capability(
         "game_observe", "RAM gameplay observation",
         "Read compact map, party, battle, menu, task text, and optional NPC state from live RAM. Use when: asking what is happening in the game, before a decision, after an action, or when an image would otherwise be requested.",

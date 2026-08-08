@@ -86,6 +86,14 @@ controller policy hook: it rejects a generic fallback when a native capability
 matches the intent. Outputs stay compact by default; full map tiles and ASCII
 are explicit opt-ins.
 
+Battle decisions use a small transaction boundary: `game_battle_snapshot`
+returns a canonical state hash, `game_battle_evaluate` returns bounded damage
+and turn-order evidence, `game_battle_commit` rejects stale hashes, and
+`game_battle_verify` records the post-action RAM/text result. Exact observed
+damage samples are appended to `runtime/session/runbun_experience.jsonl` and
+loaded on later adapter connections; they are reported as min/max evidence,
+not as optimistic guaranteed KOs.
+
 ## Navigation and progress
 
 `games/run_and_bun/routes.py` contains the verified Route 101 collision/elevation grid and plans paths offline. `games/run_and_bun/live_map.py` handles loaded maps generically from the live runtime grid. `tools/nav_route101_live.py` executes paths as compressed Lua-bridge macros, resolving random battles from RAM and confirming map transitions. `tools/nav_probe.py` remains available for genuinely unknown maps, but it is not part of normal navigation.

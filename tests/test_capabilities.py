@@ -24,6 +24,12 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertIn("target_species", item["inputSchema"]["properties"])
         self.assertIn("Endless Candy", item["inputSchema"]["properties"]["item"]["enum"])
 
+    def test_battle_transaction_capabilities_are_registered(self):
+        for name in ("game_battle_snapshot", "game_battle_evaluate", "game_battle_commit", "game_battle_verify"):
+            self.assertIn(name, self.registry.names())
+        commit = self.registry.inspect("game_battle_commit")
+        self.assertIn("state_hash", commit["inputSchema"]["properties"])
+
     def test_native_first_gate_rejects_shell_when_match_exists(self):
         decision = self.registry.authorize_fallback("find a trainer and walk to it", "shell")
         self.assertFalse(decision["allowed"])

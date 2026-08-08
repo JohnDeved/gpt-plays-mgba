@@ -402,7 +402,20 @@ class RunBun:
         if settle_frames:
             self.gba.wait_frames(settle_frames)
         self._menu_pause_boundary()
-        return action
+        # Do not hand a caller a presumed move menu.  The custom battle UI
+        # can keep the old printer alive for a few frames; verify the live
+        # RAM-backed menu classification before any cursor input is allowed.
+        from games.runbun import RunBunAdapter
+
+        for _ in range(20):
+            observed = RunBunAdapter(self.gba).observe()
+            if observed.get("battle", {}).get("menu", {}).get("state") == "move_menu":
+                return {"action": action, "state": "move_menu"}
+            if observed.get("battle", {}).get("menu", {}).get("state") == "command_menu":
+                self.gba.wait_frames(12)
+                continue
+            self.gba.wait_frames(12)
+        raise RuntimeError("battle_move_menu_not_ready")
 
     def set_move_cursor(self, slot: int, *, press_frames: int = 3) -> int:
         if slot not in (0, 1, 2, 3):
@@ -429,6 +442,12 @@ class RunBun:
         battle = self.battle()
         if battle.player.move_ids[slot] == 0:
             raise ValueError(f"move slot {slot} is empty")
+        from games.runbun import RunBunAdapter
+
+        observed = RunBunAdapter(self.gba).observe()
+        menu_state = observed.get("battle", {}).get("menu", {}).get("state")
+        if menu_state != "move_menu":
+            raise RuntimeError(f"battle_move_menu_not_ready: {menu_state}")
         # The move selector is created by the preceding Fight confirmation;
         # its RAM cursor is not updated until the next few frames.
         self.set_move_cursor(slot, press_frames=press_frames)

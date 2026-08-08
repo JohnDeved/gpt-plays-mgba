@@ -86,21 +86,27 @@ MOVE_TYPE_IDS = {
     33: 0,   # Tackle, Normal
     49: 0,   # Sonic Boom, fixed-damage Normal
     52: 10,  # Ember, Fire
+    75: 12,  # Razor Leaf, Grass
     117: 0,  # Bide, delayed Normal
     183: 1,  # Mach Punch, Fighting
+    229: 0,  # Rapid Spin, Normal (verified from the live move window)
     267: 0,  # Nature Power (terrain-dependent; conservative Normal)
+    340: 2,  # Bounce, Flying
     341: 4,  # Mud Shot, Ground
     453: 11, # Aqua Jet, Water
     512: 2,  # Acrobatics, Flying
+    589: 0,  # Play Nice, Normal status move in this build
 }
 MOVE_POWER = {
     10: 35, 16: 40, 23: 65, 33: 40, 49: 20, 52: 40,
-    183: 40, 267: 80, 341: 55, 453: 40, 512: 60,
+    75: 55, 183: 40, 229: 20, 267: 80, 340: 85, 341: 55, 453: 40, 512: 60,
 }
 MOVE_SPECIAL_IDS = frozenset({16, 49, 52, 267, 341})
 MOVE_PRIORITY_IDS = frozenset({183, 453})
-STATUS_MOVE_IDS = frozenset({28, 43, 117, 150})
+STATUS_MOVE_IDS = frozenset({28, 43, 117, 150, 589})
+PHYSICAL_THREAT_DEBUFF_IDS = frozenset({589})  # Play Nice lowers Attack.
 ABILITY_FLASH_FIRE = 18
+PARALYSIS_STATUS = 0x40
 
 # Species types are only a fallback for party entries: battle entries already
 # carry live type bytes.  Keep this small and verified against this save.
@@ -482,7 +488,25 @@ class RunBunAdapter:
         self._rom_data: BattleRomData | None = None
         # Learned from live HP deltas. Keyed by attacker species, move ID,
         # defender species; values are observed damage samples.
-        self._damage_memory: dict[tuple[int, int, int], list[int]] = {}
+        try:
+            from games.run_and_bun.experience import load_damage_memory
+
+            self._damage_memory = load_damage_memory()
+        except Exception:
+            # Gameplay must remain available if the optional local ledger is
+            # damaged; the current adapter can still learn in memory.
+            self._damage_memory: dict[tuple[int, int, int], list[int]] = {}
+
+    def _remember_damage(self, key: tuple[int, int, int], damage: int, *, feedback: str = "") -> None:
+        self._damage_memory.setdefault(key, []).append(damage)
+        try:
+            from games.run_and_bun.experience import append_damage_sample
+
+            append_damage_sample(key, damage, feedback=feedback)
+        except Exception:
+            # Persistent learning is helpful but never allowed to interrupt
+            # the authoritative emulator action loop.
+            pass
 
     def rom_data(self) -> BattleRomData:
         """Return the cached, header-validated ROM metadata reader."""
@@ -551,7 +575,11 @@ class RunBunAdapter:
         """Recognize the move selector from its RAM-backed type/PP printer."""
         for context in contexts:
             value = (context.get("text") or "").rstrip()
-            if "Type/" in value and "PP" in value:
+            # This hack's custom move window sometimes omits the PP label
+            # while the selector is first being drawn.  ``Type/`` plus a live
+            # active battle printer is already a stronger signal than a
+            # framebuffer guess; PP is still included when present.
+            if "Type/" in value and ("PP" in value or "Normal" in value or "Fire" in value or "Water" in value or "Flying" in value or "Grass" in value or "Fairy" in value):
                 return True
         return False
 
@@ -600,6 +628,97 @@ class RunBunAdapter:
         return types or SPECIES_TYPE_IDS.get(state.get("species"), ())
 
     @classmethod
+    def _stage_multiplier(cls, state: dict[str, Any], stat_key: str) -> float:
+        """Apply the live Gen III stat-stage ratio to a decoded battler stat."""
+        stage_index = {
+            "attack": 0,
+            "defense": 1,
+            "speed": 2,
+            "special_attack": 3,
+            "special_defense": 4,
+        }.get(stat_key)
+        stages = state.get("stat_stages") or ()
+        if stage_index is None or stage_index >= len(stages):
+            return 1.0
+        stage = max(0, min(12, int(stages[stage_index])))
+        if stage >= 6:
+            return (2 + stage - 6) / 2
+        return 2 / (2 + 6 - stage)
+
+    @classmethod
+    def _effective_speed(cls, state: dict[str, Any]) -> float:
+        speed = float(state.get("speed", 0)) * cls._stage_multiplier(state, "speed")
+        if int(state.get("status", 0)) & PARALYSIS_STATUS:
+            speed *= 0.25
+        return speed
+
+    @classmethod
+    def _damage_bounds(
+        cls,
+        move_id: int,
+        attacker: dict[str, Any],
+        defender: dict[str, Any],
+        *,
+        effectiveness_memory: dict[tuple[int, int], float] | None = None,
+        type_chart: dict[int, dict[int, float]] | None = None,
+        damage_memory: dict[tuple[int, int, int], list[int]] | None = None,
+    ) -> tuple[float, float]:
+        """Return a conservative normal-roll damage interval.
+
+        Learned samples are evidence, not a point estimate: the minimum is
+        safe for guaranteed outgoing KOs and the maximum is safe for the
+        normal-hit incoming threat. Static estimates use the Gen III random
+        roll interval; unknown move metadata remains zero and therefore
+        cannot create a false forced KO.
+        """
+        if move_id in STATUS_MOVE_IDS:
+            return (0.0, 0.0)
+        attacker_state = attacker.get("state", attacker)
+        defender_state = defender.get("state", defender)
+        learned = (damage_memory or {}).get(
+            (attacker_state.get("species"), move_id, defender_state.get("species")),
+            (),
+        )
+        if learned:
+            if isinstance(learned, dict):
+                samples = learned.get("samples") or []
+            else:
+                samples = learned
+            if samples:
+                return (float(min(samples)), float(max(samples)))
+        move_type = MOVE_TYPE_IDS.get(move_id)
+        if move_type is None:
+            return (0.0, 0.0)
+        power = MOVE_POWER.get(move_id, 40)
+        if move_id == 49:  # Sonic Boom is fixed 20 damage in this battle.
+            return (20.0, 20.0)
+        attack_key = "special_attack" if move_id in MOVE_SPECIAL_IDS else "attack"
+        defense_key = "special_defense" if move_id in MOVE_SPECIAL_IDS else "defense"
+        attack = attacker_state.get(attack_key, 0)
+        defense = defender_state.get(defense_key, 0)
+        level = attacker_state.get("level", 0)
+        if not attack or not defense or not level:
+            return (0.0, 0.0)
+        attack *= cls._stage_multiplier(attacker_state, attack_key)
+        defense *= cls._stage_multiplier(defender_state, defense_key)
+        defender_types = cls._mon_types(defender)
+        effectiveness = 1.0
+        for defender_type in defender_types:
+            chart = type_chart or TYPE_EFFECTIVENESS
+            effectiveness *= chart.get(move_type, {}).get(defender_type, 1.0)
+        remembered = (effectiveness_memory or {}).get((defender_state.get("species"), move_id))
+        if remembered is not None:
+            effectiveness = remembered
+        if effectiveness <= 0:
+            return (0.0, 0.0)
+        stab = 1.5 if move_type in cls._mon_types(attacker) else 1.0
+        if attacker_state.get("ability") == ABILITY_FLASH_FIRE and move_type == 10:
+            return (0.0, 0.0)
+        base = (((2 * level / 5) + 2) * power * attack / max(defense, 1)) / 50 + 2
+        high = max(1.0, base * effectiveness * stab)
+        return (max(1.0, high * 0.85), high)
+
+    @classmethod
     def _estimated_damage(
         cls,
         move_id: int,
@@ -610,51 +729,16 @@ class RunBunAdapter:
         type_chart: dict[int, dict[int, float]] | None = None,
         damage_memory: dict[tuple[int, int, int], list[int]] | None = None,
     ) -> float:
-        """Rough Gen III damage estimate for tactical ordering.
-
-        It is intentionally a ranking signal, not a simulator.  Live battle
-        feedback still overrides the type chart after a move resolves.
-        """
-        if move_id in STATUS_MOVE_IDS:
-            return 0.0
-        attacker_state = attacker.get("state", attacker)
-        defender_state = defender.get("state", defender)
-        learned = (damage_memory or {}).get(
-            (attacker_state.get("species"), move_id, defender_state.get("species")),
-            (),
+        """Return the midpoint of the bounded interval for ranking only."""
+        low, high = cls._damage_bounds(
+            move_id,
+            attacker,
+            defender,
+            effectiveness_memory=effectiveness_memory,
+            type_chart=type_chart,
+            damage_memory=damage_memory,
         )
-        if learned:
-            # Use the largest observed hit: conservative for deciding whether
-            # a switch-in survives, and still grounded in this exact hack.
-            return float(max(learned))
-        move_type = MOVE_TYPE_IDS.get(move_id)
-        if move_type is None:
-            return 0.0
-        power = MOVE_POWER.get(move_id, 40)
-        if move_id == 49:  # Sonic Boom is fixed 20 damage in this battle.
-            return 20.0
-        attack_key = "special_attack" if move_id in MOVE_SPECIAL_IDS else "attack"
-        defense_key = "special_defense" if move_id in MOVE_SPECIAL_IDS else "defense"
-        attack = attacker_state.get(attack_key, 0)
-        defense = defender_state.get(defense_key, 0)
-        level = attacker_state.get("level", 0)
-        if not attack or not defense or not level:
-            return 0.0
-        defender_types = cls._mon_types(defender)
-        effectiveness = 1.0
-        for defender_type in defender_types:
-            chart = type_chart or TYPE_EFFECTIVENESS
-            effectiveness *= chart.get(move_type, {}).get(defender_type, 1.0)
-        remembered = (effectiveness_memory or {}).get((defender_state.get("species"), move_id))
-        if remembered is not None:
-            effectiveness = remembered
-        if effectiveness <= 0:
-            return 0.0
-        stab = 1.5 if move_type in cls._mon_types(attacker) else 1.0
-        if attacker_state.get("ability") == ABILITY_FLASH_FIRE and move_type == 10:
-            return 0.0
-        base = (((2 * level / 5) + 2) * power * attack / max(defense, 1)) / 50 + 2
-        return max(1.0, base * effectiveness * stab)
+        return (low + high) / 2
 
     @classmethod
     def _tactical_battle_action(
@@ -689,7 +773,7 @@ class RunBunAdapter:
                 pp = state.get("pp", (0, 0, 0, 0))[slot]
                 if not move_id or not pp:
                     continue
-                damage = cls._estimated_damage(
+                damage_min, damage_max = cls._damage_bounds(
                     move_id,
                     attacker,
                     defender,
@@ -697,7 +781,13 @@ class RunBunAdapter:
                     type_chart=type_chart,
                     damage_memory=damage_memory,
                 )
-                result.append({"slot": slot, "move_id": move_id, "damage": damage})
+                result.append({
+                    "slot": slot,
+                    "move_id": move_id,
+                    "damage": (damage_min + damage_max) / 2,
+                    "damage_min": damage_min,
+                    "damage_max": damage_max,
+                })
             return result
 
         active_moves = move_options(player, opponent)
@@ -711,13 +801,36 @@ class RunBunAdapter:
         player_hp = player_state.get("current_hp", 0)
         active_fraction = player_hp / max(player_state.get("max_hp", 1), 1)
         incoming = max(
-            (cls._estimated_damage(move_id, opponent, player, type_chart=type_chart, damage_memory=damage_memory) for move_id in opponent_state.get("moves", ()) if move_id),
+            (cls._damage_bounds(move_id, opponent, player, type_chart=type_chart, damage_memory=damage_memory)[1] for move_id in opponent_state.get("moves", ()) if move_id),
             default=0.0,
         )
-        acts_first = player_state.get("speed", 0) >= opponent_state.get("speed", 0)
-        can_finish = best_move["damage"] >= opponent_hp > 0
+        player_speed = cls._effective_speed(player_state)
+        opponent_speed = cls._effective_speed(opponent_state)
+        speed_order = (
+            "first" if player_speed > opponent_speed
+            else "second" if player_speed < opponent_speed
+            else "tie"
+        )
+        acts_first = speed_order == "first"
+        # If every healthy bench option is also KO'd by the known incoming
+        # hit, switching is not a survival action.  In this build Play Nice
+        # is the one live move that lowers Attack; use it while the opponent
+        # is preparing a physical Bounce instead of throwing away the only
+        # viable battler.
+        defensive_debuff = next(
+            (item for item in active_moves if item["move_id"] in PHYSICAL_THREAT_DEBUFF_IDS),
+            None,
+        )
+        if defensive_debuff and incoming >= max(player_hp, 1) and speed_order != "first":
+            return {
+                "action": "move",
+                "slot": defensive_debuff["slot"],
+                "move_id": defensive_debuff["move_id"],
+                "reason": "defensive_status_vs_physical_threat",
+            }
+        can_finish = best_move["damage_min"] >= opponent_hp > 0
         can_finish_before_hit = can_finish and (acts_first or best_move["move_id"] in MOVE_PRIORITY_IDS)
-        turns_to_ko = int((opponent_hp + max(best_move["damage"], 1) - 1) // max(best_move["damage"], 1))
+        turns_to_ko = int((opponent_hp + max(best_move["damage_min"], 1) - 1) // max(best_move["damage_min"], 1))
         # A live, repeatable two-hit line is often better than a speculative
         # switch: keep the active mon if it can absorb the one intervening hit.
         # Priority means the final hit lands before the opponent's next move.
@@ -740,12 +853,12 @@ class RunBunAdapter:
                     continue
                 best = max(options, key=lambda item: item["damage"])
                 threat = max(
-                    (cls._estimated_damage(move_id, opponent, mon, type_chart=type_chart, damage_memory=damage_memory) for move_id in opponent_state.get("moves", ()) if move_id),
+                    (cls._damage_bounds(move_id, opponent, mon, type_chart=type_chart, damage_memory=damage_memory)[1] for move_id in opponent_state.get("moves", ()) if move_id),
                     default=0.0,
                 )
                 hp_fraction = state.get("current_hp", 0) / max(state.get("max_hp", 1), 1)
-                score = best["damage"] + (100.0 if best["damage"] >= opponent_hp else 0.0)
-                score += hp_fraction * 12.0 + (4.0 if state.get("speed", 0) >= opponent_state.get("speed", 0) else 0.0)
+                score = best["damage"] + (100.0 if best["damage_min"] >= opponent_hp else 0.0)
+                score += hp_fraction * 12.0 + (4.0 if cls._effective_speed(state) > opponent_speed else 0.0)
                 score -= threat * 0.75
                 switch_options.append((score, mon, best))
 
@@ -924,8 +1037,8 @@ class RunBunAdapter:
             allow_switch=allow_switch,
         )
         opponent_hp = opponent.get("current_hp", 0)
-        opponent_speed = opponent.get("speed", 0)
-        player_speed = player.get("speed", 0)
+        opponent_speed = cls._effective_speed(opponent)
+        player_speed = cls._effective_speed(player)
         opponent_key = opponent.get("species")
         player_key = player.get("species")
 
@@ -934,24 +1047,38 @@ class RunBunAdapter:
             return names[slot] if slot < len(names) else str(move_id)
 
         def move_report(state: dict[str, Any], slot: int, move_id: int, defender: dict[str, Any]) -> dict[str, Any]:
-            samples = list(memory.get((state.get("species"), move_id, defender.get("species")), ()))
-            damage = cls._estimated_damage(
+            raw_samples = memory.get((state.get("species"), move_id, defender.get("species")), ())
+            samples = list(raw_samples.get("samples", ())) if isinstance(raw_samples, dict) else list(raw_samples)
+            damage_min, damage_max = cls._damage_bounds(
                 move_id, state, defender,
                 effectiveness_memory=effectiveness_memory,
                 type_chart=type_chart,
                 damage_memory=memory,
             )
-            ko_in = int((defender.get("current_hp", 0) + max(damage, 1) - 1) // max(damage, 1))
+            damage = (damage_min + damage_max) / 2
+            ko_in = int((defender.get("current_hp", 0) + max(damage_max, 1) - 1) // max(damage_max, 1))
+            guaranteed_ko_in = int((defender.get("current_hp", 0) + max(damage_min, 1) - 1) // max(damage_min, 1))
             priority = move_id in MOVE_PRIORITY_IDS
-            first = priority or state.get("speed", 0) >= defender.get("speed", 0)
+            attacker_speed = cls._effective_speed(state)
+            defender_speed = cls._effective_speed(defender)
+            speed_order = (
+                "first" if attacker_speed > defender_speed
+                else "second" if attacker_speed < defender_speed
+                else "tie"
+            )
+            order = "first" if priority else speed_order
+            first = order == "first"
             return {
                 "slot": slot,
                 "move_id": move_id,
                 "move": move_name(state, slot, move_id),
                 "damage_est": round(damage, 2),
+                "damage_range": [round(damage_min, 2), round(damage_max, 2)],
                 "ko_in": ko_in,
+                "guaranteed_ko_in": guaranteed_ko_in,
+                "order": order,
                 "acts_first": first,
-                "ko_before_hit": ko_in == 1 and first,
+                "ko_before_hit": damage_min >= defender.get("current_hp", 0) > 0 and first,
                 "evidence": {"kind": "observed_samples", "samples": samples} if samples else {"kind": "static_model"},
             }
 
@@ -964,7 +1091,7 @@ class RunBunAdapter:
         for slot, move_id in enumerate(opponent.get("moves", ())):
             if move_id:
                 incoming.append(move_report(opponent, slot, move_id, player))
-        incoming_max = max((item["damage_est"] for item in incoming), default=0.0)
+        incoming_max = max((item["damage_range"][1] for item in incoming), default=0.0)
         alternatives = sorted(moves, key=lambda item: (-item["damage_est"], item["slot"]))
         chosen = next(
             (item for item in moves if item["move_id"] == plan.get("move_id") and item["slot"] == plan.get("slot")),
@@ -976,6 +1103,9 @@ class RunBunAdapter:
         elif chosen and plan.get("reason") == "safe_two_turn_finish":
             proof_level = "safe_two_turn_estimate"
             claim = "estimated two-turn finish while surviving the modeled intervening hit"
+        elif chosen and plan.get("reason") == "defensive_status_vs_physical_threat":
+            proof_level = "best_estimate"
+            claim = "only live status line that can reduce the modeled physical KO threat; every switch candidate is also KO'd"
         else:
             proof_level = "best_estimate"
             claim = "highest modeled damage/survival score among legal actions"
@@ -1663,7 +1793,7 @@ class RunBunAdapter:
                     damage = pre_opponent["current_hp"] - post_opponent["current_hp"]
                     if damage > 0:
                         key = (active["species"], active["moves"][plan["slot"]], post_opponent["species"])
-                        self._damage_memory.setdefault(key, []).append(damage)
+                        self._remember_damage(key, damage, feedback=feedback)
             # Learn the opponent's actual hit when its move name appears in the
             # printer feedback and the active identity survived the turn.
             if post_player and post_player["species"] == active["species"]:
@@ -1672,7 +1802,7 @@ class RunBunAdapter:
                     for move_id, move_name in zip(post_opponent["moves"], post_opponent.get("move_names", ())):
                         if move_id and move_name and move_name.lower() in feedback.lower():
                             key = (post_opponent["species"], move_id, active["species"])
-                            self._damage_memory.setdefault(key, []).append(damage)
+                            self._remember_damage(key, damage, feedback=feedback)
             turns += 1
         raise RuntimeError(f"battle exceeded {max_turns} turns")
 
@@ -2115,9 +2245,30 @@ class RunBunAdapter:
         if not target_mon or not target_mon.get("present"):
             raise ValueError(f"field_item_target_slot_invalid: {target_slot}")
 
+        # A prior use can return visually to the overworld one frame before
+        # the Bag task is destroyed. Clear that stale task with B before START
+        # would otherwise be ignored by the field engine.
+        for _ in range(3):
+            try:
+                self._field_bag_task()
+            except RuntimeError:
+                break
+            if self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 0:
+                raise RuntimeError("field_item_menu_already_open")
+            self.gba.press("B", frames=3)
+            self.gba.wait_frames(90)
+
         # Open Start -> Bag. The live menu has three entries and Bag is cursor 2.
-        self.gba.press("START", frames=3)
-        self.gba.wait_frames(60)
+        menu_ready = False
+        for _ in range(2):
+            self.gba.wait_frames(30)
+            self.gba.press("START", frames=3)
+            self.gba.wait_frames(60)
+            if self.gba.read8(FIELD_MESSAGE_BOX_MODE) == 2:
+                menu_ready = True
+                break
+        if not menu_ready:
+            raise RuntimeError("field_start_menu_not_ready")
         self._move_field_cursor(FIELD_MENU_CURSOR, 2, max_steps=4)
         self.gba.press("A", frames=3)
         self.gba.wait_frames(180)
@@ -2161,21 +2312,41 @@ class RunBunAdapter:
         self.gba.wait_frames(300)
         effect_state = self.observe()
         text = ((effect_state.get("text") or {}).get("current") or {}).get("text")
-        # Endless Candy leaves the reusable item on the target screen. B is
-        # the non-destructive close action; A would apply another candy.
-        for _ in range(2):
-            if self.gba.read8(FIELD_MESSAGE_BOX_MODE) == 0:
-                break
+        # Endless Candy leaves a reusable target screen, then the Bag and
+        # Start layers remain stacked behind it. Six B presses close those
+        # layers plus the delayed Bag task deterministically; B is harmless
+        # once overworld is reached.
+        for _ in range(6):
             self.gba.press("B", frames=3)
             self.gba.wait_frames(90)
+        # Field scripts keep a short post-menu lock even after mode returns
+        # to overworld. Let the RAM task settle before handing control back;
+        # otherwise the first navigation chunk can be silently ignored.
+        self.gba.wait_frames(150)
         after = self.observe()
+        compact_party = [
+            {
+                "slot": mon.get("slot"),
+                "species": mon.get("state", {}).get("species"),
+                "level": mon.get("state", {}).get("level"),
+                "hp": mon.get("state", {}).get("current_hp"),
+                "max_hp": mon.get("state", {}).get("max_hp"),
+            }
+            for mon in after.get("party", {}).get("mons", [])
+        ]
         return {
             "item": item_name,
             "target_slot": target_slot,
             "target_species": target_mon.get("state", {}).get("species"),
             "cursor": selected_cursor,
             "text": text,
-            "state": after,
+            "state": {
+                "frame": after.get("frame"),
+                "mode": after.get("mode"),
+                "map": after.get("map"),
+                "field_message_box_mode": after.get("ui", {}).get("field_message_box_mode"),
+                "party": compact_party,
+            },
         }
 
     def progress(self) -> dict[str, Any]:

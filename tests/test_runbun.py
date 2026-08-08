@@ -270,6 +270,40 @@ class RunBunTests(unittest.TestCase):
         self.assertEqual(report["chosen"]["move_id"], 16)
         self.assertTrue(report["proof"]["caveat"])
 
+    def test_learned_damage_is_reported_as_bounds_not_a_forced_max_ko(self):
+        observation = {
+            "battle": {"active": True, "mons": [
+                {"slot": 0, "present": True, "state": {
+                    "species": 390, "current_hp": 32, "max_hp": 32,
+                    "attack": 22, "defense": 14, "speed": 20,
+                    "special_attack": 22, "special_defense": 20, "level": 12,
+                    "types": (10, 10, 9), "moves": (10, 0, 0, 0), "pp": (10, 0, 0, 0),
+                    "stat_stages": (6, 6, 6, 6, 6, 6, 6, 6),
+                }},
+                {"slot": 1, "present": True, "state": {
+                    "species": 54, "current_hp": 19, "max_hp": 19,
+                    "attack": 12, "defense": 12, "speed": 20,
+                    "special_attack": 12, "special_defense": 12, "level": 10,
+                    "types": (11, 11, 9), "moves": (0, 0, 0, 0), "pp": (0, 0, 0, 0),
+                    "stat_stages": (6, 6, 6, 6, 6, 6, 6, 6),
+                }},
+            ]},
+            "party": {"mons": []},
+        }
+        report = RunBunAdapter.explain_battle_action(
+            observation,
+            damage_memory={(390, 10, 54): [17, 18, 19]},
+        )
+        chosen = report["chosen"]
+        self.assertEqual(chosen["damage_range"], [17.0, 19.0])
+        self.assertEqual(chosen["guaranteed_ko_in"], 2)
+        self.assertFalse(chosen["ko_before_hit"])
+        self.assertEqual(chosen["order"], "tie")
+
+    def test_stat_stage_and_speed_tie_are_not_treated_as_first(self):
+        state = {"stat_stages": (5, 6, 6, 6, 6)}
+        self.assertAlmostEqual(RunBunAdapter._stage_multiplier(state, "attack"), 2 / 3)
+
     def test_battle_strategy_keeps_a_finisher_against_faster_threat(self):
         observation = {
             "battle": {"active": True, "mons": [
