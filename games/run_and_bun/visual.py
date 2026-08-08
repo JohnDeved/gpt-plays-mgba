@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import hashlib
+import struct
+import zlib
 
 try:
     from PIL import Image, ImageChops, ImageStat
@@ -33,7 +35,121 @@ def _require_pillow() -> None:
         )
 
 
+def _read_png_rgb(path: str | Path) -> tuple[int, int, list[list[tuple[int, int, int]]]]:
+    """Read mGBA's 8-bit RGB/RGBA PNG without a third-party dependency."""
+    data = Path(path).read_bytes()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError("not a PNG file")
+    width = height = bit_depth = color_type = None
+    compressed: list[bytes] = []
+    offset = 8
+    while offset + 8 <= len(data):
+        length = struct.unpack_from(">I", data, offset)[0]
+        kind = data[offset + 4 : offset + 8]
+        payload = data[offset + 8 : offset + 8 + length]
+        offset += 12 + length
+        if kind == b"IHDR":
+            width, height, bit_depth, color_type, _, _, _ = struct.unpack(">IIBBBBB", payload)
+        elif kind == b"IDAT":
+            compressed.append(payload)
+        elif kind == b"IEND":
+            break
+    if width is None or height is None or bit_depth != 8 or color_type not in (2, 6):
+        raise ValueError("unsupported PNG format")
+    channels = 3 if color_type == 2 else 4
+    stride = width * channels
+    raw = zlib.decompress(b"".join(compressed))
+    rows: list[list[tuple[int, int, int]]] = []
+    cursor = 0
+    previous = bytearray(stride)
+    for _ in range(height):
+        filter_type = raw[cursor]
+        cursor += 1
+        row = bytearray(raw[cursor : cursor + stride])
+        cursor += stride
+        for index in range(stride):
+            left = row[index - channels] if index >= channels else 0
+            up = previous[index]
+            up_left = previous[index - channels] if index >= channels else 0
+            if filter_type == 1:
+                row[index] = (row[index] + left) & 0xFF
+            elif filter_type == 2:
+                row[index] = (row[index] + up) & 0xFF
+            elif filter_type == 3:
+                row[index] = (row[index] + ((left + up) // 2)) & 0xFF
+            elif filter_type == 4:
+                estimate = left + up - up_left
+                distances = (abs(estimate - left), abs(estimate - up), abs(estimate - up_left))
+                predictor = (left, up, up_left)[distances.index(min(distances))]
+                row[index] = (row[index] + predictor) & 0xFF
+            elif filter_type != 0:
+                raise ValueError(f"unsupported PNG filter {filter_type}")
+        rows.append([tuple(row[i : i + channels][:3]) for i in range(0, stride, channels)])
+        previous = row
+    return width, height, rows
+
+
+def _inspect_png_without_pillow(path: str | Path) -> VisualState:
+    width, height, rows = _read_png_rgb(path)
+
+    def pixel(x: int, y: int) -> tuple[int, int, int]:
+        return rows[y][x]
+
+    def crop_counts(x0: int, y0: int, x1: int, y1: int) -> tuple[int, int, int]:
+        white = teal = total = 0
+        for y in range(max(0, y0), min(height, y1)):
+            for x in range(max(0, x0), min(width, x1)):
+                r, g, b = pixel(x, y)
+                white += r > 220 and g > 220 and b > 220
+                teal += 80 <= r <= 140 and 130 <= g <= 190 and 130 <= b <= 190
+                total += 1
+        return white, teal, total
+
+    white, _, total = crop_counts(0, height - 50, width, height)
+    prompt_red = sum(
+        pixel(x, y)[0] > 150 and pixel(x, y)[1] < 100 and pixel(x, y)[2] < 100
+        for y in range(max(0, height - 46), max(0, height - 1))
+        for x in range(3, max(3, width - 3))
+    )
+    _, battle_teal, battle_total = crop_counts(2, height - 44, width - 2, height - 1)
+
+    def white_ratio(box: tuple[int, int, int, int]) -> float:
+        w, _, n = crop_counts(*box)
+        return w / n if n else 0.0
+
+    enemy = white_ratio((10, 15, min(110, width), min(45, height))) > 0.25
+    player = white_ratio((130, 70, min(232, width), min(115, height))) > 0.25
+    teal_ratio = battle_teal / battle_total if battle_total else 0.0
+    white_ratio_bottom = white / total if total else 0.0
+    battle_hud = (enemy and player) or (teal_ratio > 0.25 and (enemy or player))
+    battle_textbox = battle_hud and teal_ratio > 0.25
+    battle_menu_like = battle_hud and white_ratio_bottom > 0.50 and teal_ratio < 0.10
+    _, left_teal, left_total = crop_counts(2, height - 44, min(122, width), height - 1)
+    right_white, right_teal, right_total = crop_counts(min(122, width), height - 44, max(123, width - 2), height - 1)
+    command = (
+        battle_hud
+        and left_teal / left_total > 0.55
+        and right_white / right_total > 0.55
+        and right_teal / right_total < 0.05
+    ) if left_total and right_total else False
+    return VisualState(
+        path=str(path),
+        sha1=hashlib.sha1(Path(path).read_bytes()).hexdigest(),
+        bottom_white_ratio=white_ratio_bottom,
+        bottom_textbox=white_ratio_bottom > 0.45,
+        battle_teal_ratio=teal_ratio,
+        battle_hud=battle_hud,
+        battle_textbox=battle_textbox,
+        battle_menu_like=battle_menu_like,
+        battle_command_menu=command,
+        prompt_red_pixels=prompt_red,
+        dialogue_ready=white_ratio_bottom > 0.45 and prompt_red >= 15,
+    )
+
+
 def inspect_png(path: str | Path) -> VisualState:
+    if Image is None:
+        return _inspect_png_without_pillow(path)
     _require_pillow()
     path = str(path)
     im = Image.open(path).convert("RGB")

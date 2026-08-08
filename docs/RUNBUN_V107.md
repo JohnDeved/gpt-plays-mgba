@@ -20,7 +20,7 @@ For the current save, SaveBlock1 begins with the standard positional fields:
 - `+0x05`: map number
 - `+0x06`: warp ID
 
-SaveBlock2 begins with the player name and gender. The current player is `GPT`, male.
+SaveBlock2 begins with the player name and gender. The current player is `Ac`, male.
 
 ## UI cursors
 
@@ -33,6 +33,40 @@ SaveBlock2 begins with the player name and gender. The current player is `GPT`, 
 
 Each cursor address was isolated with same-savestate, same-final-frame atomic experiments where the only difference between branches was a D-pad input.
 
+## Live map grid
+
+The loaded map collision buffer is available without framebuffer probing:
+
+- `0x03005DD0` stores a runtime map header: width `u32`, height `u32`, grid pointer `u32` at `+0x08`.
+- In the local run the grid pointer was `0x020318DC`; each cell is a `u16` word.
+- The active map begins after a seven-cell border. Collision bits are `10..11`; elevation bits are `12..15`.
+- A cell is treated as statically walkable when collision is `0`; elevation is
+  retained as a routing preference because bridges and connected-map tiles use
+  elevations `0`, `1`, and `4` while still accepting movement.
+
+The grid is read in one `memory.read_range` call and solved locally. This is
+the preferred navigation source for maps that are loaded in the emulator,
+because it reflects Run & Bun's modified geometry rather than vanilla map data.
+
+## Live object events
+
+The active overworld object table was verified at `0x02036914` for this ROM.
+It contains 16 records with a `0x24`-byte stride. The layout follows the
+Emerald object-event structure closely enough for the following fields to be
+decoded directly:
+
+- `+0x00`: flags (`active` bit 0, `isPlayer` bit 16, `invisible` bit 13)
+- `+0x04..0x0A`: sprite, graphics, movement, trainer, local ID, map number/group
+- `+0x0C`: initial X/Y, `+0x10`: current X/Y, `+0x14`: previous X/Y
+- `+0x18`: facing and movement direction nibbles
+- `+0x1A..0x23`: movement range and runtime movement/behavior fields
+
+Runtime coordinates include the seven-tile camera origin, so the adapter
+subtracts seven to expose map-local positions matching SaveBlock1. The
+object-event seeker uses local ID, graphics ID, or slot as identity, blocks
+currently occupied tiles, and re-plans after short movement chunks so a
+wandering NPC is followed instead of treated as a fixed coordinate.
+
 ## Player party
 
 - `gPlayerPartyCount`: `0x02023A95`
@@ -41,7 +75,12 @@ Each cursor address was isolated with same-savestate, same-final-frame atomic ex
 
 The party structure uses Gen III's encrypted 48-byte secure region. Decryption with `personality ^ otId`, the standard `personality % 24` substructure permutation, and the stored checksum has been verified against the live starter.
 
-Current persistent party state after the Birch rescue:
+The local playthrough's current party after training for the first rival battle:
+
+- Chimchar, Lv10, Scratch / Leer / Ember
+- 29 / 29 HP at the Mom recovery checkpoint
+
+The earlier remote handoff recorded this persistent party state after the Birch rescue:
 
 - Turtwig, Lv5
 - 22 / 22 HP
@@ -67,6 +106,7 @@ Verified useful offsets inside one battler:
 | `0x06` | Speed, u16 |
 | `0x08` | Sp. Atk, u16 |
 | `0x0A` | Sp. Def, u16 |
+| `0x18` | 8 stat-stage bytes; neutral stage is `6` |
 | `0x0C` | 4 × move IDs, u16 |
 | `0x20` | ability ID, u16 |
 | `0x22` | 3 × type IDs, u8 |
@@ -80,11 +120,27 @@ Verified useful offsets inside one battler:
 | `0x4C` | personality, u32 |
 | `0x50` | primary status, u32 |
 
+## Inventory evidence
+
+The berry-tree script explicitly reports “Bag's Berries Pocket” and writes
+item `520` (Oran Berry) with its encrypted quantity at SaveBlock1 `+0x900`.
+The vanilla-looking `+0x740` region is therefore not the authoritative
+Run & Bun berries pocket.
+
+The expanded Bag UI was isolated by placing the same encrypted slot in
+candidate regions: its visible Items pocket begins at `+0x560`, and its
+Poké Balls pocket begins at `+0x650`. The UI ignored the legacy shop slot at
+`+0x7A4`; compact telemetry now reports both legacy forensics and `usable`
+UI-pocket aliases.
+
 The first rescue battle validated this parser against the framebuffer:
 
 - Player: Turtwig Lv5, Shell Armor (ability ID 75), Grass / Grass / Mystery, 22/22 HP initially, Bite/Growl/Absorb.
 - Opponent: Zigzagoon Lv2, internal species ID 987, Dark / Normal / Mystery, ability ID 82, 13/13 HP initially, Tackle/Sand-Attack.
 - Bite dealt 6 HP per hit. The rescue battle ended with Turtwig at 20/22 HP before Birch healed the party.
+
+The local Route 103 rival battle was then completed against May's Lv5 Mudkip
+(species ID 258, 21/21 HP) using the semantic battle controller and Scratch.
 
 Battle structs retain stale data after battle. The adapter therefore does **not** infer battle activity merely because `gBattleMons` contains plausible values. The current runtime uses framebuffer HUD recognition to gate battle observations until a dedicated battle-active RAM signal is verified.
 

@@ -10,6 +10,11 @@ import time
 from dataclasses import asdict, dataclass
 from typing import Any
 
+try:
+    from games.run_and_bun.visual import inspect_png
+except ImportError:  # Pillow remains optional for RAM-only clients.
+    inspect_png = None
+
 
 ROM_TITLE = "POKEMON EMER"
 ROM_CODE = "BPEE"
@@ -46,8 +51,66 @@ FIELD_MESSAGE_MODE_NAMES = {
     3: "auto_scroll",
     10: "nickname_screen",
     16: "battle_intro",
+    34: "battle_text",
+    38: "battle_intro",
     42: "battle_text",
+    46: "battle_text",
     50: "battle_text_prompt",
+    54: "battle_text_prompt",
+    55: "battle_post",
+    59: "battle_text",
+}
+BATTLE_FIELD_MESSAGE_MODES = {16, 34, 38, 42, 46, 50, 54, 55, 59}
+BATTLE_KO_FIELD_MESSAGE_MODES = BATTLE_FIELD_MESSAGE_MODES
+
+# The move IDs below are the ones observed in this Run & Bun save.  The hack
+# keeps the familiar Gen III move numbering for these entries, but battle
+# feedback remains authoritative because abilities and custom encounter data
+# can change the result of an otherwise reasonable type-chart choice.
+MOVE_TYPE_IDS = {
+    10: 0,   # Scratch, Normal
+    43: 0,   # Leer, Normal (status)
+    16: 2,   # Gust, Flying
+    23: 0,   # Stomp, Normal
+    28: 0,   # Sand-Attack, status
+    33: 0,   # Tackle, Normal
+    49: 0,   # Sonic Boom, fixed-damage Normal
+    52: 10,  # Ember, Fire
+    117: 0,  # Bide, delayed Normal
+    183: 1,  # Mach Punch, Fighting
+    267: 0,  # Nature Power (terrain-dependent; conservative Normal)
+    341: 4,  # Mud Shot, Ground
+    453: 11, # Aqua Jet, Water
+    512: 2,  # Acrobatics, Flying
+}
+MOVE_POWER = {
+    10: 35, 16: 40, 23: 65, 33: 40, 49: 20, 52: 40,
+    183: 40, 267: 80, 341: 55, 453: 40, 512: 60,
+}
+MOVE_SPECIAL_IDS = frozenset({16, 49, 52, 267, 341})
+MOVE_PRIORITY_IDS = frozenset({183, 453})
+STATUS_MOVE_IDS = frozenset({28, 43, 117, 150})
+ABILITY_FLASH_FIRE = 18
+
+# Species types are only a fallback for party entries: battle entries already
+# carry live type bytes.  Keep this small and verified against this save.
+SPECIES_TYPE_IDS = {
+    16: (0, 2), 98: (11,), 193: (6, 2), 273: (12,),
+    390: (10,), 761: (12,), 987: (17, 0),
+}
+
+# Only the interactions needed by the currently observed party/moves are
+# listed here.  Unknown types are neutral rather than guessed, and the
+# post-move battle message can refine the score for a species/ability pair.
+TYPE_EFFECTIVENESS = {
+    0: {7: 0.0},                         # Normal -> Ghost
+    1: {0: 2.0, 2: 0.5, 3: 0.5, 5: 2.0, 6: 0.5, 8: 2.0, 11: 1.0, 14: 0.5, 15: 2.0, 17: 2.0},
+    2: {1: 2.0, 6: 2.0, 12: 2.0, 10: 0.5, 11: 1.0},
+    4: {10: 2.0, 11: 2.0, 12: 0.5, 2: 0.0, 6: 0.5, 13: 2.0},
+    6: {12: 2.0, 10: 0.5, 1: 0.5, 2: 0.5, 17: 2.0, 18: 0.5},
+    10: {12: 2.0, 6: 2.0, 10: 0.5, 11: 0.5, 5: 0.5, 15: 2.0, 8: 2.0},
+    11: {10: 2.0, 4: 2.0, 12: 0.5, 11: 0.5},
+    12: {11: 2.0, 4: 2.0, 10: 0.5, 12: 0.5, 2: 0.5, 6: 0.5},
 }
 
 CHAR_PROMPT_SCROLL = 0xFA
@@ -265,6 +328,7 @@ class BattleMon:
     speed: int
     special_attack: int
     special_defense: int
+    stat_stages: tuple[int, int, int, int, int, int, int, int]
     moves: tuple[int, int, int, int]
     ability: int
     types: tuple[int, int, int]
@@ -287,6 +351,7 @@ def decode_battle_mon(data: bytes, offset: int = 0) -> BattleMon:
         speed=_u16(data, offset + 0x06),
         special_attack=_u16(data, offset + 0x08),
         special_defense=_u16(data, offset + 0x0A),
+        stat_stages=tuple(data[offset + 0x18 : offset + 0x20]),
         moves=tuple(_u16(data, offset + 0x0C + 2 * i) for i in range(4)),
         ability=_u16(data, offset + 0x20),
         types=tuple(data[offset + 0x22 + i] for i in range(3)),
@@ -405,6 +470,365 @@ class RunBunAdapter:
     def __init__(self, gba):
         self.gba = gba
 
+    def _battle_printer_contexts(self, printers: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Decode the transient battle-text buffers behind active printers.
+
+        Field dialogue uses ``gStringVar4`` and is covered by the bridge's
+        normal text observation. Battle messages use short transient buffers
+        elsewhere in EWRAM; the printer's current-character pointer is the
+        stable handle to those buffers. Keeping a small context window here
+        exposes battle messages and the ``0x70`` command-menu marker without
+        requiring a framebuffer read.
+        """
+        contexts: list[dict[str, Any]] = []
+        for printer in printers:
+            if not printer.get("active"):
+                continue
+            current_char = int(printer.get("current_char", 0))
+            if not 0x02000000 <= current_char < 0x02040000:
+                continue
+            start = max(0x02000000, current_char - 128)
+            length = min(256, 0x02040000 - start)
+            try:
+                raw = self.gba.read_range(start, length)
+            except Exception:
+                # Minimal fake clients and older bridge versions may expose
+                # printer metadata without range reads; retain the metadata.
+                contexts.append(
+                    {
+                        "printer_address": printer.get("address"),
+                        "current_char": current_char,
+                        "text": None,
+                    }
+                )
+                continue
+            contexts.append(
+                {
+                    "printer_address": printer.get("address"),
+                    "current_char": current_char,
+                    "start": start,
+                    "end": start + len(raw),
+                    "text": decode_gen3_text(raw),
+                }
+            )
+        return contexts
+
+    @staticmethod
+    def _battle_command_prompt(contexts: list[dict[str, Any]]) -> bool:
+        """Recognize the battle command prompt from transient printer RAM."""
+        for context in contexts:
+            value = (context.get("text") or "").rstrip()
+            # The command selector in this ROM is rendered from a transient
+            # printer buffer. Its prompt survives the field-mode transition as
+            # the exact localized string below, while ordinary move messages
+            # do not contain this question.
+            if "What will" in value and "do?" in value:
+                return True
+        return False
+
+    @staticmethod
+    def _battle_move_prompt(contexts: list[dict[str, Any]]) -> bool:
+        """Recognize the move selector from its RAM-backed type/PP printer."""
+        for context in contexts:
+            value = (context.get("text") or "").rstrip()
+            if "Type/" in value and "PP" in value:
+                return True
+        return False
+
+    @staticmethod
+    def _battle_party_switch_prompt(contexts: list[dict[str, Any]]) -> bool:
+        """Recognize the forced party choice after a battler faints."""
+        for context in contexts:
+            value = (context.get("text") or "").rstrip()
+            if "Choose a Pokémon." in value or "Use next Pokémon?" in value:
+                return True
+        return False
+
+    @staticmethod
+    def _battle_printer_text(contexts: list[dict[str, Any]]) -> str:
+        return "\n".join(
+            (context.get("text") or "").strip()
+            for context in contexts
+            if context.get("text")
+        )
+
+    @classmethod
+    def _battle_kind(cls, contexts: list[dict[str, Any]]) -> str | None:
+        """Classify a live fight from RAM text when the ROM exposes it."""
+        text = cls._battle_printer_text(contexts).lower()
+        if "trainer battle" in text or "trainer sent" in text:
+            return "trainer"
+        if "wild" in text:
+            return "wild"
+        return None
+
+    @staticmethod
+    def _battle_effectiveness(text: str) -> float | None:
+        lowered = text.lower()
+        if "doesn't affect" in lowered or "no effect" in lowered:
+            return 0.0
+        if "super effective" in lowered:
+            return 2.0
+        if "not very effective" in lowered:
+            return 0.5
+        return None
+
+    @classmethod
+    def _mon_types(cls, mon: dict[str, Any]) -> tuple[int, ...]:
+        state = mon.get("state", mon)
+        types = tuple(type_id for type_id in state.get("types", ()) if type_id != 9)
+        return types or SPECIES_TYPE_IDS.get(state.get("species"), ())
+
+    @classmethod
+    def _estimated_damage(
+        cls,
+        move_id: int,
+        attacker: dict[str, Any],
+        defender: dict[str, Any],
+        *,
+        effectiveness_memory: dict[tuple[int, int], float] | None = None,
+    ) -> float:
+        """Rough Gen III damage estimate for tactical ordering.
+
+        It is intentionally a ranking signal, not a simulator.  Live battle
+        feedback still overrides the type chart after a move resolves.
+        """
+        if move_id in STATUS_MOVE_IDS:
+            return 0.0
+        move_type = MOVE_TYPE_IDS.get(move_id)
+        if move_type is None:
+            return 0.0
+        power = MOVE_POWER.get(move_id, 40)
+        if move_id == 49:  # Sonic Boom is fixed 20 damage in this battle.
+            return 20.0
+        attacker_state = attacker.get("state", attacker)
+        defender_state = defender.get("state", defender)
+        attack_key = "special_attack" if move_id in MOVE_SPECIAL_IDS else "attack"
+        defense_key = "special_defense" if move_id in MOVE_SPECIAL_IDS else "defense"
+        attack = attacker_state.get(attack_key, 0)
+        defense = defender_state.get(defense_key, 0)
+        level = attacker_state.get("level", 0)
+        if not attack or not defense or not level:
+            return 0.0
+        defender_types = cls._mon_types(defender)
+        effectiveness = 1.0
+        for defender_type in defender_types:
+            effectiveness *= TYPE_EFFECTIVENESS.get(move_type, {}).get(defender_type, 1.0)
+        remembered = (effectiveness_memory or {}).get((defender_state.get("species"), move_id))
+        if remembered is not None:
+            effectiveness = remembered
+        if effectiveness <= 0:
+            return 0.0
+        stab = 1.5 if move_type in cls._mon_types(attacker) else 1.0
+        if attacker_state.get("ability") == ABILITY_FLASH_FIRE and move_type == 10:
+            return 0.0
+        base = (((2 * level / 5) + 2) * power * attack / max(defense, 1)) / 50 + 2
+        return max(1.0, base * effectiveness * stab)
+
+    @classmethod
+    def _tactical_battle_action(
+        cls,
+        player: dict[str, Any],
+        opponent: dict[str, Any],
+        party: list[dict[str, Any]],
+        *,
+        effectiveness_memory: dict[tuple[int, int], float] | None,
+        low_hp_fraction: float,
+        allow_switch: bool,
+    ) -> dict[str, Any] | None:
+        """Plan one turn using KO timing and the next incoming hit.
+
+        Return ``None`` when a test/minimal observation lacks live stats; the
+        older conservative scorer below remains the compatibility fallback.
+        """
+        player_state = player.get("state", player)
+        opponent_state = opponent.get("state", opponent)
+        required = ("attack", "defense", "speed", "special_attack", "special_defense", "level")
+        if not all(player_state.get(key) is not None for key in required):
+            return None
+        if not all(opponent_state.get(key) is not None for key in required):
+            return None
+
+        def move_options(attacker: dict[str, Any], defender: dict[str, Any]) -> list[dict[str, Any]]:
+            state = attacker.get("state", attacker)
+            result = []
+            for slot, move_id in enumerate(state.get("moves", ())):
+                pp = state.get("pp", (0, 0, 0, 0))[slot]
+                if not move_id or not pp:
+                    continue
+                damage = cls._estimated_damage(
+                    move_id, attacker, defender, effectiveness_memory=effectiveness_memory
+                )
+                result.append({"slot": slot, "move_id": move_id, "damage": damage})
+            return result
+
+        active_moves = move_options(player, opponent)
+        if not active_moves:
+            return None
+        best_move = max(
+            active_moves,
+            key=lambda item: (item["damage"], item["move_id"] not in STATUS_MOVE_IDS, -item["slot"]),
+        )
+        opponent_hp = opponent_state.get("current_hp", 0)
+        player_hp = player_state.get("current_hp", 0)
+        active_fraction = player_hp / max(player_state.get("max_hp", 1), 1)
+        incoming = max(
+            (cls._estimated_damage(move_id, opponent, player) for move_id in opponent_state.get("moves", ()) if move_id),
+            default=0.0,
+        )
+        acts_first = player_state.get("speed", 0) >= opponent_state.get("speed", 0)
+        can_finish = best_move["damage"] >= opponent_hp > 0
+        can_finish_before_hit = can_finish and (acts_first or best_move["move_id"] in MOVE_PRIORITY_IDS)
+
+        switch_options: list[tuple[float, dict[str, Any], dict[str, Any]]] = []
+        if allow_switch:
+            for mon in party:
+                state = mon.get("state", {})
+                if not mon.get("present") or state.get("current_hp", 0) <= 0:
+                    continue
+                if state.get("species") == player_state.get("species"):
+                    continue
+                options = move_options(mon, opponent)
+                if not options:
+                    continue
+                best = max(options, key=lambda item: item["damage"])
+                threat = max(
+                    (cls._estimated_damage(move_id, opponent, mon) for move_id in opponent_state.get("moves", ()) if move_id),
+                    default=0.0,
+                )
+                hp_fraction = state.get("current_hp", 0) / max(state.get("max_hp", 1), 1)
+                score = best["damage"] + (100.0 if best["damage"] >= opponent_hp else 0.0)
+                score += hp_fraction * 12.0 + (4.0 if state.get("speed", 0) >= opponent_state.get("speed", 0) else 0.0)
+                score -= threat * 0.75
+                switch_options.append((score, mon, best))
+
+        best_switch = max(switch_options, key=lambda item: item[0], default=None)
+        # A guaranteed KO wins over a switch.  If the active mon is slower and
+        # cannot survive the incoming hit, a safer teammate gets the turn.
+        if can_finish_before_hit or (
+            can_finish and best_switch is None
+        ):
+            return {
+                "action": "move",
+                "slot": best_move["slot"],
+                "move_id": best_move["move_id"],
+                "reason": "finish_before_switch",
+            }
+        if best_switch is not None and (
+            active_fraction <= low_hp_fraction
+            or incoming >= max(player_hp, 1) * 0.9
+            or (not acts_first and best_switch[2]["damage"] > best_move["damage"])
+        ):
+            mon = best_switch[1]
+            species = mon["state"].get("species")
+            return {
+                "action": "switch",
+                "slot": mon["slot"],
+                "species": species,
+                "reason": "matchup_survival_and_turn_order",
+            }
+        return {
+            "action": "move",
+            "slot": best_move["slot"],
+            "move_id": best_move["move_id"],
+            "reason": "best_damage_while_surviving",
+        }
+
+    @classmethod
+    def choose_battle_action(
+        cls,
+        observation: dict[str, Any],
+        *,
+        effectiveness_memory: dict[tuple[int, int], float] | None = None,
+        low_hp_fraction: float = 0.25,
+        allow_switch: bool = True,
+    ) -> dict[str, Any]:
+        """Choose a safe move or a switch using the current RAM observation.
+
+        This is deliberately conservative for an unfamiliar hack: known move
+        types get ordinary Gen III effectiveness scores, Flash Fire blocks an
+        Ember-like choice, and observed battle feedback overrides the static
+        chart for a particular opponent.  A teammate switch is preferred over
+        gambling with a critically low active Pokémon.
+        """
+        if not observation.get("battle", {}).get("active"):
+            return {"action": "none", "reason": "not_in_battle"}
+        mons = observation["battle"].get("mons", [])
+        player = next((m["state"] for m in mons if m.get("slot") == 0 and m.get("present")), None)
+        opponent = next((m["state"] for m in mons if m.get("slot") == 1 and m.get("present")), None)
+        if player is None or opponent is None:
+            return {"action": "none", "reason": "battle_mons_incomplete"}
+
+        party = observation.get("party", {}).get("mons", [])
+        tactical = cls._tactical_battle_action(
+            player,
+            opponent,
+            party,
+            effectiveness_memory=effectiveness_memory,
+            low_hp_fraction=low_hp_fraction,
+            allow_switch=allow_switch,
+        )
+        if tactical is not None:
+            return tactical
+        if allow_switch and player["max_hp"] and player["current_hp"] / player["max_hp"] <= low_hp_fraction:
+            healthy = [
+                mon for mon in party
+                if mon.get("present") and mon["state"].get("current_hp", 0) > 0
+                and mon["slot"] != 0
+            ]
+            if healthy:
+                best = max(healthy, key=lambda mon: (mon["state"].get("level", 0), mon["state"].get("current_hp", 0)))
+                plan = {
+                    "action": "switch",
+                    "slot": best["slot"],
+                    "reason": "active_hp_low",
+                }
+                species = best["state"].get("species", best["state"].get("species_id"))
+                if species is not None:
+                    plan["species"] = species
+                return plan
+
+        remembered = effectiveness_memory or {}
+        defender_types = {type_id for type_id in opponent.get("types", ()) if type_id != 9}
+        candidates: list[tuple[float, int]] = []
+        for slot, move_id in enumerate(player.get("moves", ())):
+            pp = player.get("pp", (0, 0, 0, 0))[slot]
+            if not move_id or not pp:
+                continue
+            move_type = MOVE_TYPE_IDS.get(move_id)
+            if move_type is None:
+                score = 1.0
+            else:
+                score = max(
+                    (TYPE_EFFECTIVENESS.get(move_type, {}).get(defender, 1.0) for defender in defender_types),
+                    default=1.0,
+                )
+            score *= MOVE_POWER.get(move_id, 1)
+            if move_type is not None and move_type in {
+                type_id for type_id in player.get("types", ()) if type_id != 9
+            }:
+                score *= 1.5
+            if opponent.get("ability") == ABILITY_FLASH_FIRE and move_type == 10:
+                score = -1000.0
+            observed = remembered.get((opponent["species"], move_id))
+            if observed is not None:
+                score = observed
+            if move_id in STATUS_MOVE_IDS:
+                score -= 0.25
+            # Prefer the earlier move on exact ties so the controller stays
+            # deterministic and does not burn time changing cursors.
+            candidates.append((score, -slot))
+        if not candidates:
+            return {"action": "none", "reason": "no_usable_move"}
+        _, neg_slot = max(candidates)
+        selected = -neg_slot
+        return {
+            "action": "move",
+            "slot": selected,
+            "move_id": player["moves"][selected],
+            "reason": "effectiveness_and_pp",
+        }
+
     def observe(self, screenshot: str | bool = False) -> dict[str, Any]:
         scalar_reads = [
             {"name": "save_block1_ptr", "address": SAVE_BLOCK1_PTR, "width": 32},
@@ -484,23 +908,56 @@ class RunBunAdapter:
             opponent
             and opponent["present"]
             and opponent["state"]["current_hp"] == 0
-            and battle_mode not in {16, 42, 50}
+            and battle_mode not in BATTLE_FIELD_MESSAGE_MODES
         ):
+            battle_active = False
+        # A faint/escape can leave non-zero gBattleMons behind while the
+        # engine has already restored the overworld (and may have warped the
+        # player home).  All live battle UI states in this ROM use a non-zero
+        # field message mode, so a clean field mode is a stronger signal than
+        # stale battler structs here.
+        if battle_mode == 0:
             battle_active = False
         text = decode_text_observation(base.get("text"))
         tasks = base.get("tasks")
         if text is not None:
+            text["battle_printers"] = self._battle_printer_contexts(text.get("printers", []))
+            # ``pages`` intentionally retains the last few decoded printers
+            # for battle/text forensics.  A page's old window_id is not proof
+            # that a message box is still on screen: after a Mart interaction
+            # the renderer can be blank while the history still contains a
+            # window-5 page.  Only live printers (or the authoritative field
+            # message mode) may keep the game in dialogue mode.
             text["visible"] = (
                 values["field_message_box_mode"] != 0
                 or text["active"]
                 or any(
-                    page["printer"].get("window_id", 0) != 0
-                    for page in text.get("pages", [])
+                    # Run & Bun's field/battle message window is 5.  The
+                    # other live printers (notably window 1) are renderer
+                    # bookkeeping and remain active in a blank overworld.
+                    printer.get("active") and printer.get("window_id", 0) == 5
+                    for printer in text.get("printers", [])
                 )
             )
             text["last_page"] = text.get("current")
             if not text["visible"] and not text["active"]:
                 text["current"] = None
+            command_prompt = self._battle_command_prompt(text.get("battle_printers", []))
+            battle_kind = self._battle_kind(text.get("battle_printers", []))
+            party_switch_prompt = self._battle_party_switch_prompt(text.get("battle_printers", []))
+        else:
+            command_prompt = False
+            battle_kind = None
+            party_switch_prompt = False
+        # gBattleMons remains populated after battles and during ordinary NPC
+        # dialogue. Require a battle-specific field mode or the RAM printer's
+        # exact command prompt; this keeps stale May/Mudkip data from blocking
+        # dialogue advancement while still recognizing the ROM's field-mode-0
+        # command menu without a screenshot.
+        if battle_mode not in BATTLE_FIELD_MESSAGE_MODES and not command_prompt and not party_switch_prompt:
+            battle_active = False
+        elif command_prompt or party_switch_prompt:
+            battle_active = True
         if text and text["visible"]:
             mode = "dialogue"
         elif values["field_message_box_mode"] != 0:
@@ -509,7 +966,18 @@ class RunBunAdapter:
             mode = "overworld"
         else:
             mode = "unknown"
-        return {
+        objects: list[dict[str, Any]] = []
+        objects_error: str | None = None
+        try:
+            from games.run_and_bun.objects import read_live_objects
+
+            objects = [obj.as_dict() for obj in read_live_objects(self.gba)]
+        except Exception as error:
+            # Minimal fake clients and non-overworld ROM states may not expose
+            # the object table. Keep the rest of the semantic observation
+            # useful while surfacing the missing capability to the caller.
+            objects_error = f"{type(error).__name__}: {error}"
+        result = {
             "frame": base["frame"],
             "title": base["title"],
             "code": base["code"],
@@ -526,14 +994,28 @@ class RunBunAdapter:
                 ),
             },
             "save": save,
+            "map": (
+                {
+                    "group": save["block1"]["map_group"],
+                    "number": save["block1"]["map_number"],
+                    "x": save["block1"]["x"],
+                    "y": save["block1"]["y"],
+                    "warp_id": save["block1"]["warp_id"],
+                }
+                if save["block1"] is not None
+                else None
+            ),
             "player": player,
             "mode": mode,
+            "objects": objects,
             "text": text,
             "party": party,
             "tasks": tasks,
             "battle": {
                 "active": battle_active,
-                "activity_detection": "battle_mons_species_nonzero",
+                "party_switch_required": party_switch_prompt,
+                "kind": battle_kind,
+                "activity_detection": "battle_mons_species_and_battle_field_mode_or_command_prompt",
                 "menu": {
                     "command": values["battle_command_cursor"] if battle_active else None,
                     "move": values["battle_move_cursor"] if battle_active else None,
@@ -546,6 +1028,20 @@ class RunBunAdapter:
                 "mons": battle_mons,
             },
         }
+        if objects_error is not None:
+            result["objects_error"] = objects_error
+        if screenshot and inspect_png is not None:
+            try:
+                screenshot_path = base.get("screenshot") or (
+                    screenshot if isinstance(screenshot, str) else None
+                )
+                if screenshot_path:
+                    result["visual"] = asdict(inspect_png(screenshot_path))
+            except Exception:
+                # Framebuffer classification is diagnostic; it must not make
+                # a RAM-only observation fail.
+                result["visual"] = None
+        return result
 
     def advance_dialogue(self, max_pages: int = 32, timeout: float = 10.0) -> list[str]:
         """Advance visible dialogue pages using RAM state as the stop signal."""
@@ -572,6 +1068,19 @@ class RunBunAdapter:
             text = state.get("text") or {}
             current = text.get("current")
             if not current:
+                # A text buffer can be between printers for a few frames even
+                # though the message box is still open. Keep sampling the RAM
+                # printer state instead of returning an empty result and
+                # forcing the caller back to screenshots.
+                if (
+                    text.get("visible")
+                    or text.get("active")
+                    or field_mode not in (0, None)
+                ):
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("dialogue printer did not expose a current page")
+                    time.sleep(0.01)
+                    continue
                 return pages
             signature = (
                 current.get("start"),
@@ -620,6 +1129,8 @@ class RunBunAdapter:
         *,
         sample_frames: int = 24,
         max_frames: int = 900,
+        visual_fallback: bool = False,
+        after_action: bool = False,
     ) -> dict[str, Any]:
         """Advance battle text from RAM until a command menu or battle end.
 
@@ -633,19 +1144,126 @@ class RunBunAdapter:
             raise ValueError("sample_frames and max_frames must be positive")
         elapsed = 0
         presses = 0
+        visual_path = "/tmp/runbun-battle-ui.png"
+        feedback_parts: list[str] = []
+        # After a move or a rejected menu action the old transient printer can
+        # retain the command marker for a few frames.  A caller that just made
+        # an action must observe one non-identical printer state before the
+        # next command prompt is accepted; otherwise the controller can queue
+        # a second move into the previous turn.
+        initial_prompt_marker = None
+        prompt_transition_seen = not after_action
         while elapsed <= max_frames:
             state = self.observe()
             battle = state["battle"]
+            visual = None
+            if visual_fallback and inspect_png is not None:
+                try:
+                    self.gba.screenshot(visual_path)
+                    visual = inspect_png(visual_path)
+                except Exception:
+                    # A headless/minimal client can still use all RAM signals.
+                    visual = None
             opponent = next(
                 (item for item in battle["mons"] if item["slot"] == 1),
                 None,
             )
-            if opponent and opponent["present"] and opponent["state"]["current_hp"] == 0:
-                return {"state": "battle_end", "frames": elapsed, "presses": presses}
-            if not battle["active"]:
-                return {"state": "not_in_battle", "frames": elapsed, "presses": presses}
-            field_mode = state["ui"].get("field_message_box_mode", 0)
             text = state.get("text") or {}
+            battle_contexts = text.get("battle_printers", [])
+            for context in battle_contexts:
+                value = (context.get("text") or "").strip()
+                if value and value not in feedback_parts[-4:]:
+                    feedback_parts.append(value)
+            command_prompt = self._battle_command_prompt(battle_contexts)
+            move_prompt = self._battle_move_prompt(battle_contexts)
+            party_switch_prompt = self._battle_party_switch_prompt(battle_contexts)
+            prompt_marker = tuple(
+                (context.get("printer_address"), context.get("current_char"), context.get("text"))
+                for context in battle_contexts
+            )
+            if after_action and initial_prompt_marker is None:
+                initial_prompt_marker = prompt_marker
+            if after_action and prompt_marker != initial_prompt_marker:
+                prompt_transition_seen = True
+            field_mode = state["ui"].get("field_message_box_mode", 0)
+            # A stale Type/PP printer can survive the transition back to the
+            # command selector.  When both markers are present, the live
+            # ``What will ... do?`` command prompt wins; otherwise open_fight
+            # can skip Fight and spend a turn pressing into an old move menu.
+            if move_prompt and not command_prompt:
+                return {
+                    "state": "move_menu",
+                    "frames": elapsed,
+                    "presses": presses,
+                    "feedback": "\n".join(feedback_parts),
+                }
+            if party_switch_prompt:
+                return {
+                    "state": "party_switch",
+                    "frames": elapsed,
+                    "presses": presses,
+                    "feedback": "\n".join(feedback_parts),
+                }
+            battle_hud = bool(visual and visual.battle_hud)
+            if (
+                opponent
+                and opponent["present"]
+                and opponent["state"]["current_hp"] == 0
+                and (battle["active"] or battle_hud or field_mode in BATTLE_KO_FIELD_MESSAGE_MODES)
+            ):
+                # A trainer can immediately send out another Pokémon.  Keep
+                # advancing the RAM-backed battle printer until the new
+                # command prompt appears instead of treating the first KO as
+                # the end of the whole battle.
+                if field_mode != 0:
+                    if text.get("active"):
+                        self.gba.wait_frames(sample_frames)
+                    else:
+                        self.gba.press("A")
+                        presses += 1
+                        self.gba.wait_frames(sample_frames)
+                    elapsed += sample_frames
+                    continue
+                if not battle["active"] and not battle_hud:
+                    return {
+                        "state": "battle_end",
+                        "frames": elapsed,
+                        "presses": presses,
+                        "feedback": "\n".join(feedback_parts),
+                    }
+            # The command menu can be rendered with field mode 0, which is
+            # indistinguishable from stale post-battle structs in RAM alone.
+            # A battle HUD is the only case where the narrow visual fallback
+            # can promote that ambiguous state back to an active battle.
+            battle_active = battle["active"] or battle_hud or command_prompt or party_switch_prompt
+            if not battle_active:
+                return {
+                    "state": "not_in_battle",
+                    "frames": elapsed,
+                    "presses": presses,
+                    "feedback": "\n".join(feedback_parts),
+                }
+            if (command_prompt or (visual and visual.battle_command_menu)) and prompt_transition_seen:
+                return {
+                    "state": "command_menu",
+                    "frames": elapsed,
+                    "presses": presses,
+                    "feedback": "\n".join(feedback_parts),
+                }
+            # Run & Bun leaves the battle text mode latched at 50 while both
+            # battle messages and the command selector are on screen.  The
+            # text buffer is a different runtime buffer here, but the live
+            # printer layout is stable: the command selector is ready only
+            # when one printer remains active at its cleared (0, 1) cursor.
+            # This avoids treating "Go! ..." or a fainting message as a move
+            # menu and sending an accidental input too early.
+            if field_mode == 50 and self._battle_command_prompt(battle_contexts) and prompt_transition_seen:
+                return {
+                    "state": "command_menu",
+                    "frames": elapsed,
+                    "presses": presses,
+                    "feedback": "\n".join(feedback_parts),
+                }
             if field_mode != 0:
                 if text.get("active"):
                     self.gba.wait_frames(sample_frames)
@@ -658,7 +1276,147 @@ class RunBunAdapter:
             else:
                 return {"state": "command_menu", "frames": elapsed, "presses": presses}
             elapsed += sample_frames
-            return {"state": "timeout", "frames": elapsed, "presses": presses}
+        return {
+            "state": "timeout",
+            "frames": elapsed,
+            "presses": presses,
+            "feedback": "\n".join(feedback_parts),
+        }
+
+    def resolve_battle(
+        self,
+        *,
+        move_slot: int | None = None,
+        max_turns: int = 24,
+        sample_frames: int = 24,
+        allow_switch: bool = True,
+        low_hp_fraction: float = 0.25,
+        item_index: int | None = None,
+        item_hp_fraction: float = 0.35,
+    ) -> dict[str, Any]:
+        """Finish the current battle with RAM-only menu and party feedback.
+
+        The helper handles both wild battles and trainer send-outs.  It uses
+        the compatibility state decoder only for cursor-safe Fight/move input;
+        all stop conditions remain the local adapter's RAM-backed battle and
+        text-printer observations.
+        """
+        if max_turns < 1:
+            raise ValueError("max_turns must be >= 1")
+        from games.run_and_bun.state import RunBun
+
+        state = RunBun(self.gba)
+        turns = 0
+        effectiveness_memory: dict[tuple[int, int], float] = {}
+        while turns <= max_turns:
+            observation = self.observe()
+            if not observation["battle"]["active"]:
+                return {"state": "overworld", "turns": turns, "observation": observation}
+            status = self.advance_battle_until_menu(
+                sample_frames=sample_frames,
+                max_frames=1800,
+                visual_fallback=False,
+            )
+            if status["state"] == "battle_end":
+                drained = self.finish_battle_after_ko(max_frames=1800)
+                if drained["state"] == "overworld":
+                    return {"state": "overworld", "turns": turns, "drain": drained}
+                continue
+            if status["state"] not in {"command_menu", "move_menu"}:
+                return {"state": status["state"], "turns": turns, "status": status}
+
+            observation = self.observe()
+            active = next(
+                (mon["state"] for mon in observation["battle"]["mons"] if mon.get("slot") == 0 and mon.get("present")),
+                None,
+            )
+            if active is None:
+                return {"state": "battle_party_transition", "turns": turns}
+
+            # Items are opt-in because some challenge battles explicitly reject
+            # Bag actions.  A rejected item is treated as a normal lost menu
+            # action; the printer is drained before the next decision.
+            if (
+                item_index is not None
+                and active["max_hp"]
+                and active["current_hp"] / active["max_hp"] <= item_hp_fraction
+            ):
+                plan = {"action": "item", "item_index": item_index}
+                state.use_battle_item(item_index)
+            else:
+                plan = self.choose_battle_action(
+                    observation,
+                    effectiveness_memory=effectiveness_memory,
+                    low_hp_fraction=low_hp_fraction,
+                    allow_switch=allow_switch,
+                )
+                if move_slot is not None and plan.get("action") == "move":
+                    plan["slot"] = move_slot
+                if plan.get("action") == "switch":
+                    if plan.get("species") is not None:
+                        state.switch_pokemon(species_id=plan["species"])
+                    else:
+                        state.switch_pokemon(plan["slot"])
+                elif plan.get("action") == "move":
+                    state.open_fight_menu()
+                    state.choose_move(plan["slot"])
+                else:
+                    raise RuntimeError(f"battle strategy produced no action: {plan}")
+            # Do not accept the old prompt marker left by the selected action.
+            resolved = self.advance_battle_until_menu(
+                sample_frames=sample_frames,
+                max_frames=1800,
+                visual_fallback=False,
+                after_action=True,
+            )
+            if resolved["state"] not in {"command_menu", "battle_end", "not_in_battle"}:
+                return {"state": resolved["state"], "turns": turns, "status": resolved}
+            if resolved["state"] == "not_in_battle" and not self.observe()["battle"]["active"]:
+                return {"state": "overworld", "turns": turns + 1, "status": resolved}
+            feedback = resolved.get("feedback", "")
+            if plan.get("action") == "move":
+                opponent = next(
+                    (mon["state"] for mon in self.observe()["battle"]["mons"] if mon.get("slot") == 1 and mon.get("present")),
+                    None,
+                )
+                if opponent:
+                    effectiveness = self._battle_effectiveness(feedback)
+                    if effectiveness is not None:
+                        effectiveness_memory[(opponent["species"], active["moves"][plan["slot"]])] = effectiveness
+            turns += 1
+        raise RuntimeError(f"battle exceeded {max_turns} turns")
+
+    def escape_battle(
+        self,
+        *,
+        max_attempts: int = 6,
+        sample_frames: int = 60,
+    ) -> dict[str, Any]:
+        """Attempt to flee a random encounter using RAM-backed cursors."""
+        if max_attempts < 1:
+            raise ValueError("max_attempts must be >= 1")
+        from games.run_and_bun.state import RunBun
+
+        state = RunBun(self.gba)
+        attempts = 0
+        while attempts < max_attempts:
+            observation = self.observe()
+            if not observation["battle"]["active"]:
+                return {"state": "overworld", "attempts": attempts}
+            status = self.advance_battle_until_menu(
+                sample_frames=sample_frames,
+                max_frames=1200,
+                visual_fallback=False,
+            )
+            if status["state"] != "command_menu":
+                if status["state"] in {"not_in_battle", "battle_end"}:
+                    return {"state": "overworld", "attempts": attempts, "status": status}
+                raise RuntimeError(f"escape controller stopped in {status['state']}")
+            state.set_action_cursor(3)
+            self.gba.press("A", frames=3)
+            self.gba.wait_frames(sample_frames)
+            attempts += 1
+        raise RuntimeError(f"failed to escape battle after {max_attempts} attempts")
 
     def finish_battle_after_ko(
         self,
@@ -674,9 +1432,14 @@ class RunBunAdapter:
         while elapsed <= max_frames:
             state = self.observe()
             field_mode = state["ui"].get("field_message_box_mode", 0)
-            if not state["battle"]["active"] and field_mode == 0:
-                return {"state": "overworld", "frames": elapsed, "presses": presses}
             text = state.get("text") or {}
+            if not state["battle"]["active"] and field_mode == 0:
+                # May's post-battle conversation can begin with field mode 0;
+                # hand that semantic dialogue back to the caller instead of
+                # misreporting it as a clean overworld transition.
+                if text.get("visible") or text.get("active"):
+                    return {"state": "dialogue", "frames": elapsed, "presses": presses}
+                return {"state": "overworld", "frames": elapsed, "presses": presses}
             if field_mode != 0:
                 if text.get("active"):
                     self.gba.wait_frames(sample_frames)
@@ -764,3 +1527,610 @@ class RunBunAdapter:
                 f"route ended at {actual_position}, expected {expected_position}"
             )
         return {"action": action, "state": state, "map": actual_map, "position": actual_position}
+
+    def follow_live_path(
+        self,
+        target: tuple[int, int],
+        *,
+        expected_map: tuple[int, int] | None = None,
+        transition_frames: int = 30,
+        grass_penalty: int = 100,
+    ) -> dict[str, Any]:
+        """Solve the loaded map from its live collision grid and execute it once."""
+        from games.run_and_bun.live_map import read_live_map
+
+        before = self.observe()
+        map_state = before.get("map")
+        if not map_state:
+            raise RuntimeError("cannot pathfind without a loaded map position")
+        start = (map_state["x"], map_state["y"])
+        path = read_live_map(self.gba).path_to(
+            start,
+            target,
+            allow_nonwalkable_start=True,
+            grass_penalty=grass_penalty,
+        )
+        if not path:
+            return {
+                "action": None,
+                "state": before,
+                "map": (map_state["group"], map_state["number"]),
+                "position": start,
+            }
+        return self.follow_route(
+            path,
+            expected_map=expected_map,
+            expected_position=target,
+            transition_frames=transition_frames,
+        )
+
+    def follow_live_path_adaptive(
+        self,
+        target: tuple[int, int],
+        *,
+        expected_map: tuple[int, int] | None = None,
+        chunk_steps: int = 8,
+        frames: int = 12,
+        settle_frames: int = 4,
+        transition_frames: int = 30,
+        max_replans: int = 32,
+        blocked_wait_frames: int = 12,
+        grass_penalty: int = 100,
+        blocked_edges: set[tuple[tuple[int, int], str]] | None = None,
+    ) -> dict[str, Any]:
+        """Navigate by short compressed chunks and replan around blockers.
+
+        The static runtime grid provides the initial route, while SaveBlock1
+        coordinates provide feedback after each bridge action.  If a moving
+        object prevents the first planned step, that directed edge is avoided
+        for the next local search and the game gets a brief chance to advance
+        the NPC.  This preserves batched input for normal movement while
+        avoiding the brittle behavior of one long macro ending at an NPC.
+        """
+        if chunk_steps < 1:
+            raise ValueError("chunk_steps must be >= 1")
+        if max_replans < 1:
+            raise ValueError("max_replans must be >= 1")
+        if blocked_wait_frames < 0:
+            raise ValueError("blocked_wait_frames must be >= 0")
+
+        from games.run_and_bun.live_map import read_live_map
+
+        persistent_blocked_edges = set(blocked_edges or ())
+        dynamic_blocked_edges: set[tuple[tuple[int, int], str]] = set()
+        stalled: dict[tuple[tuple[int, int], str], int] = {}
+        actions: list[dict[str, Any]] = []
+        last_state = self.observe()
+
+        for replan in range(max_replans):
+            map_state = last_state.get("map") or {}
+            actual_map = (map_state.get("group"), map_state.get("number"))
+            current = (map_state.get("x"), map_state.get("y"))
+            if None in current:
+                raise RuntimeError("cannot adaptively pathfind without a live map position")
+            if expected_map is not None and actual_map != expected_map:
+                raise RuntimeError(f"route ended on map {actual_map}, expected {expected_map}")
+            if current == target:
+                return {
+                    "state": last_state,
+                    "map": actual_map,
+                    "position": current,
+                    "actions": actions,
+                    "replans": replan,
+                    "reason": "target",
+                }
+            if last_state.get("mode") != "overworld":
+                return {
+                    "state": last_state,
+                    "map": actual_map,
+                    "position": current,
+                    "actions": actions,
+                    "replans": replan,
+                    "reason": "interrupted",
+                }
+
+            live = read_live_map(self.gba)
+            if not live.walkable(*target):
+                raise ValueError(f"target is not walkable in live grid: {target!r}")
+            try:
+                path = live.path_to(
+                    current,
+                    target,
+                    blocked_edges=persistent_blocked_edges | dynamic_blocked_edges,
+                    allow_nonwalkable_start=True,
+                    grass_penalty=grass_penalty,
+                )
+            except ValueError as error:
+                if not str(error).startswith("no live-grid path"):
+                    raise
+                # A dynamic obstruction can temporarily make the current tile
+                # look unusable.  Let the map task/NPC advance, then retry the
+                # authoritative read instead of consulting a screenshot.
+                if blocked_wait_frames:
+                    self.gba.wait_frames(blocked_wait_frames)
+                dynamic_blocked_edges.clear()
+                stalled.clear()
+                last_state = self.observe()
+                continue
+
+            if not path:
+                continue
+            first_edge = (current, path[0])
+            chunk = path[:chunk_steps]
+            result = self.follow_route(
+                chunk,
+                frames=frames,
+                settle_frames=settle_frames,
+                transition_frames=transition_frames,
+            )
+            actions.append(result["action"])
+            next_state = result["state"]
+            next_map_state = next_state.get("map") or {}
+            next_map = (next_map_state.get("group"), next_map_state.get("number"))
+            next_position = (next_map_state.get("x"), next_map_state.get("y"))
+
+            # A random encounter or scripted battle can become visible during
+            # the bridge transition wait even when the endpoint coordinate did
+            # change.  Return immediately so a macro never keeps feeding
+            # overworld directions into a battle/menu.
+            if next_state.get("battle", {}).get("active") or next_state.get("mode") != "overworld":
+                return {
+                    "state": next_state,
+                    "map": next_map,
+                    "position": next_position,
+                    "actions": actions,
+                    "replans": replan + 1,
+                    "reason": "interrupted",
+                }
+
+            if next_map != actual_map:
+                # A route chunk can legitimately cross a warp.  The caller can
+                # inspect the returned state and continue with a new target.
+                return {
+                    "state": next_state,
+                    "map": next_map,
+                    "position": next_position,
+                    "actions": actions,
+                    "replans": replan + 1,
+                    "reason": "map_transition",
+                }
+            if next_position == current:
+                stalled[first_edge] = stalled.get(first_edge, 0) + 1
+                if stalled[first_edge] >= 3:
+                    raise RuntimeError(
+                        f"adaptive route stalled at {current} on {path[0]} after "
+                        f"{stalled[first_edge]} retries"
+                    )
+                dynamic_blocked_edges.add(first_edge)
+                if blocked_wait_frames:
+                    self.gba.wait_frames(blocked_wait_frames)
+            else:
+                # Dynamic blockers are transient.  Once movement resumes,
+                # discard their directed-edge hints and solve from reality.
+                dynamic_blocked_edges.clear()
+                stalled.clear()
+            last_state = self.observe()
+
+        raise RuntimeError(
+            f"adaptive route exceeded {max_replans} replans at "
+            f"{last_state.get('map')} targeting {target!r}"
+        )
+
+    def live_objects(self, *, include_inactive: bool = False) -> list[dict[str, Any]]:
+        """Return the current runtime object table as semantic dictionaries."""
+        from games.run_and_bun.objects import read_live_objects
+
+        return [
+            object_event.as_dict()
+            for object_event in read_live_objects(self.gba, include_inactive=include_inactive)
+        ]
+
+    def live_map_layout(
+        self,
+        *,
+        include_tiles: bool = True,
+        include_ascii: bool = True,
+    ) -> dict[str, Any]:
+        """Discover the currently loaded map directly from the RAM tile buffer."""
+        from games.run_and_bun.live_map import read_live_map
+
+        return read_live_map(self.gba).layout(
+            include_tiles=include_tiles,
+            include_ascii=include_ascii,
+        )
+
+    def live_warps(self) -> list[dict[str, Any]]:
+        """Return loaded-map warp destinations from the runtime event table."""
+        from games.run_and_bun.live_map import read_live_warps
+
+        return [warp.as_dict() for warp in read_live_warps(self.gba)]
+
+    def inventory(self) -> dict[str, Any]:
+        """Decode the current bag pockets directly from SaveBlock1 RAM."""
+        from games.run_and_bun.inventory import read_inventory
+
+        return read_inventory(self.gba)
+
+    def progress(self) -> dict[str, Any]:
+        """Return raw progression flag IDs and non-zero vars from SaveBlock1."""
+        from games.run_and_bun.inventory import read_progress
+
+        return read_progress(self.gba)
+
+    def find_npc(
+        self,
+        *,
+        slot: int | None = None,
+        local_id: int | None = None,
+        graphics_id: int | None = None,
+        predicate: Any = None,
+        nearest: bool = True,
+    ) -> dict[str, Any] | None:
+        """Find an active NPC by runtime identity and current map position.
+
+        ``local_id`` is the strongest map-local identity. ``graphics_id`` is a
+        useful fallback when a target's event ID is not yet known. With no
+        filter this returns the nearest non-player object, which is useful for
+        discovery but intentionally not used by the playthrough controller.
+        """
+        from games.run_and_bun.objects import read_live_objects, select_live_object
+
+        state = self.observe()
+        map_state = state.get("map") or {}
+        map_id = (map_state.get("group"), map_state.get("number"))
+        if None in map_id:
+            raise RuntimeError("cannot seek an NPC without a loaded map")
+        objects = read_live_objects(self.gba)
+        selected = select_live_object(
+            objects,
+            map_id=map_id,  # type: ignore[arg-type]
+            slot=slot,
+            local_id=local_id,
+            graphics_id=graphics_id,
+            predicate=predicate,
+            nearest_to=(map_state.get("x"), map_state.get("y")) if nearest else None,
+        )
+        return selected.as_dict() if selected is not None else None
+
+    @staticmethod
+    def _cardinal_direction(dx: int, dy: int) -> str:
+        """Convert a cardinal delta into the corresponding GBA input key."""
+        unit = (0 if dx == 0 else (1 if dx > 0 else -1), 0 if dy == 0 else (1 if dy > 0 else -1))
+        directions = {
+            (0, -1): "UP",
+            (1, 0): "RIGHT",
+            (0, 1): "DOWN",
+            (-1, 0): "LEFT",
+        }
+        try:
+            return directions[unit]
+        except KeyError as exc:
+            raise ValueError(f"expected a cardinal delta, got {(dx, dy)}") from exc
+
+    @staticmethod
+    def _trainer_facing_delta(direction: int) -> tuple[int, int] | None:
+        # Gen III object-event directions: 1 down, 2 up, 3 left, 4 right.
+        return {1: (0, 1), 2: (0, -1), 3: (-1, 0), 4: (1, 0)}.get(direction)
+
+    @classmethod
+    def _trainer_front_range(cls, current: tuple[int, int], target: Any) -> int | None:
+        """Return range only when a trainer is in its facing ray."""
+        if not getattr(target, "trainer_type", 0):
+            return None
+        facing = cls._trainer_facing_delta(getattr(target, "facing_direction", 0))
+        if facing is None:
+            return None
+        dx = current[0] - target.current_x
+        dy = current[1] - target.current_y
+        if (dx, dy) == (0, 0) or (dx, dy) != (facing[0] * abs(dx or dy), facing[1] * abs(dx or dy)):
+            return None
+        distance = abs(dx) + abs(dy)
+        return distance if 1 <= distance <= 2 else None
+
+    def _npc_approach_target(
+        self,
+        current: tuple[int, int],
+        target: Any,
+        objects: list[Any],
+        *,
+        grass_penalty: int,
+        interaction_gap: int,
+        prefer_open_gap: bool = False,
+    ) -> tuple[tuple[int, int], list[str], int]:
+        """Choose the cheapest reachable tile from which an object can talk.
+
+        Service NPCs such as the Pokémon Center nurse stand behind a
+        one-tile counter. Their event object is two tiles from the player, so
+        requiring direct adjacency would incorrectly declare them unreachable.
+        A gap of two is accepted only when the intervening tile is
+        non-walkable, which preserves ordinary collision safety.
+        """
+        from games.run_and_bun.live_map import read_live_map
+        from games.run_and_bun.objects import object_occupied_edges
+
+        if interaction_gap < 1:
+            raise ValueError("interaction_gap must be >= 1")
+        live = read_live_map(self.gba)
+        blocked = object_occupied_edges(objects)
+        directions = ((0, -1), (1, 0), (0, 1), (-1, 0))
+        candidates: list[tuple[int, int, int, int, tuple[int, int], list[str]]] = []
+        for dx, dy in directions:
+            for gap in range(1, interaction_gap + 1):
+                approach = (target.current_x - dx * gap, target.current_y - dy * gap)
+                if not (0 <= approach[0] < live.active_width and 0 <= approach[1] < live.active_height):
+                    continue
+                if not live.walkable(*approach):
+                    continue
+                through_block = False
+                if gap > 1:
+                    # Only cross a counter/wall gap; a two-tile range through
+                    # open floor could select an unintended nearby object. An
+                    # explicit interaction request may intentionally use the
+                    # open trainer range; prefer that over a sign/counter tile.
+                    between = (target.current_x - dx, target.current_y - dy)
+                    if live.walkable(*between):
+                        if not prefer_open_gap and not getattr(target, "trainer_type", 0):
+                            continue
+                    else:
+                        through_block = True
+                try:
+                    path = live.path_to(
+                        current,
+                        approach,
+                        blocked_edges=blocked,
+                        allow_nonwalkable_start=True,
+                        grass_penalty=grass_penalty,
+                    )
+                except ValueError:
+                    continue
+                # Dijkstra's grass penalty is represented in the path choice,
+                # and Manhattan distance breaks equal-cost ties without
+                # screenshots.
+                if getattr(target, "trainer_type", 0):
+                    facing = self._trainer_facing_delta(getattr(target, "facing_direction", 0))
+                    if facing is not None and (approach[0] - target.current_x, approach[1] - target.current_y) != (facing[0] * gap, facing[1] * gap):
+                        continue
+                candidates.append((int(through_block), len(path), gap, abs(approach[0] - current[0]) + abs(approach[1] - current[1]), approach, path))
+        if not candidates:
+            raise RuntimeError(
+                f"no reachable interaction tile for NPC slot {target.slot} at {target.position}"
+            )
+        _, _, gap, _, approach, path = min(candidates, key=lambda item: (item[0], item[1], item[2], item[3], item[4]))
+        return approach, path, gap
+
+    @staticmethod
+    def _npc_interaction_gap(
+        current: tuple[int, int],
+        target: Any,
+        live: Any,
+        *,
+        max_gap: int,
+        allow_open_gap: bool = False,
+    ) -> int | None:
+        """Return a cardinal interaction range, including a counter gap."""
+        dx = target.current_x - current[0]
+        dy = target.current_y - current[1]
+        distance = abs(dx) + abs(dy)
+        if distance < 1 or distance > max_gap or (dx and dy):
+            return None
+        if distance == 1:
+            return 1
+        step_x = 0 if dx == 0 else (1 if dx > 0 else -1)
+        step_y = 0 if dy == 0 else (1 if dy > 0 else -1)
+        between = (current[0] + step_x, current[1] + step_y)
+        if allow_open_gap or not live.walkable(*between):
+            return distance
+        return None
+
+    def follow_live_path_to_npc(
+        self,
+        *,
+        slot: int | None = None,
+        local_id: int | None = None,
+        graphics_id: int | None = None,
+        predicate: Any = None,
+        expected_map: tuple[int, int] | None = None,
+        interact: bool = False,
+        chunk_steps: int = 6,
+        frames: int = 12,
+        settle_frames: int = 4,
+        transition_frames: int = 20,
+        max_replans: int = 24,
+        grass_penalty: int = 100,
+        blocked_wait_frames: int = 8,
+        interaction_gap: int = 2,
+    ) -> dict[str, Any]:
+        """Seek a live NPC, re-reading its position while walking.
+
+        The target is selected by object-event identity, not by a guessed
+        screen coordinate. Each short movement chunk re-reads the object
+        table, blocks all occupied object tiles, and selects a fresh reachable
+        approach tile. This handles wandering NPCs and scripted movement while
+        retaining the grass-avoidance policy of the normal pathfinder.
+        """
+        from games.run_and_bun.objects import read_live_objects, select_live_object
+
+        if max_replans < 1:
+            raise ValueError("max_replans must be >= 1")
+        if interaction_gap < 1:
+            raise ValueError("interaction_gap must be >= 1")
+        if not any(value is not None for value in (slot, local_id, graphics_id, predicate)):
+            raise ValueError("NPC seeker needs slot, local_id, graphics_id, or predicate")
+
+        actions: list[dict[str, Any]] = []
+        last_state = self.observe()
+        for attempt in range(max_replans):
+            map_state = last_state.get("map") or {}
+            actual_map = (map_state.get("group"), map_state.get("number"))
+            if None in actual_map:
+                raise RuntimeError("cannot seek an NPC without a loaded map")
+            if expected_map is not None and actual_map != expected_map:
+                raise RuntimeError(f"NPC seeker reached map {actual_map}, expected {expected_map}")
+            if last_state.get("mode") != "overworld":
+                return {
+                    "state": last_state,
+                    "target": None,
+                    "actions": actions,
+                    "replans": attempt,
+                    "reason": "interrupted",
+                }
+
+            objects = read_live_objects(self.gba)
+            current = (map_state.get("x"), map_state.get("y"))
+            if None in current:
+                raise RuntimeError("cannot seek an NPC without a player position")
+            target = select_live_object(
+                objects,
+                map_id=actual_map,  # type: ignore[arg-type]
+                slot=slot,
+                local_id=local_id,
+                graphics_id=graphics_id,
+                predicate=predicate,
+                nearest_to=current,  # type: ignore[arg-type]
+            )
+            if target is None:
+                # Map connections can preserve an object's source-map bytes
+                # while the player is already on the connected map.  When
+                # the identity is present, active, visible, and physically
+                # inside this freshly read grid, treat it as current-map
+                # state instead of rejecting a valid trainer/NPC.
+                target = select_live_object(
+                    objects,
+                    slot=slot,
+                    local_id=local_id,
+                    graphics_id=graphics_id,
+                    predicate=predicate,
+                    nearest_to=current,  # type: ignore[arg-type]
+                )
+            if target is None:
+                # If the runtime object array is still from the source map,
+                # use the loaded map's event templates for stationary actors.
+                # This is especially important for trainers immediately after
+                # a route connection, where their battle scripts are already
+                # known even though gObjectEvents has not been rebuilt.
+                from games.run_and_bun.objects import read_live_event_targets
+
+                event_targets = read_live_event_targets(self.gba, map_id=actual_map)  # type: ignore[arg-type]
+                target = select_live_object(  # type: ignore[assignment]
+                    event_targets,
+                    slot=slot,
+                    local_id=local_id,
+                    graphics_id=graphics_id,
+                    predicate=predicate,
+                    nearest_to=current,  # type: ignore[arg-type]
+                )
+            if target is None:
+                raise RuntimeError(
+                    f"target NPC not present on map {actual_map}: "
+                    f"slot={slot} local_id={local_id} graphics_id={graphics_id}"
+                )
+            from games.run_and_bun.live_map import read_live_map
+
+            live = read_live_map(self.gba)
+            interaction_distance = self._npc_interaction_gap(
+                current, target, live, max_gap=interaction_gap, allow_open_gap=interact
+            )
+            if getattr(target, "trainer_type", 0) and getattr(target, "facing_direction", 0):
+                interaction_distance = self._trainer_front_range(current, target)
+            if interaction_distance is not None:
+                target_dict = target.as_dict()
+                if not interact:
+                    return {
+                        "state": last_state,
+                        "target": target_dict,
+                        "approach": current,
+                        "actions": actions,
+                        "replans": attempt,
+                        "interaction_distance": interaction_distance,
+                        "reason": "in_range",
+                    }
+                # Re-read immediately before interacting. A wandering target
+                # can move during the final observation-to-input round trip.
+                if blocked_wait_frames:
+                    self.gba.wait_frames(blocked_wait_frames)
+                refreshed = read_live_objects(self.gba)
+                refreshed_target = select_live_object(
+                    refreshed,
+                    map_id=actual_map,  # type: ignore[arg-type]
+                    slot=slot,
+                    local_id=local_id,
+                    graphics_id=graphics_id,
+                    predicate=predicate,
+                    nearest_to=current,  # type: ignore[arg-type]
+                )
+                if refreshed_target is None:
+                    from games.run_and_bun.objects import read_live_event_targets
+
+                    refreshed_target = select_live_object(
+                        read_live_event_targets(self.gba, map_id=actual_map),  # type: ignore[arg-type]
+                        slot=slot,
+                        local_id=local_id,
+                        graphics_id=graphics_id,
+                        predicate=predicate,
+                        nearest_to=current,  # type: ignore[arg-type]
+                    )
+                    if refreshed_target is None:
+                        last_state = self.observe()
+                        continue
+                current = ((last_state.get("map") or {}).get("x"), (last_state.get("map") or {}).get("y"))
+                live = read_live_map(self.gba)
+                interaction_distance = self._npc_interaction_gap(
+                    current, refreshed_target, live, max_gap=interaction_gap, allow_open_gap=interact
+                )
+                if getattr(refreshed_target, "trainer_type", 0) and getattr(refreshed_target, "facing_direction", 0):
+                    interaction_distance = self._trainer_front_range(current, refreshed_target)
+                if interaction_distance is None:
+                    last_state = self.observe()
+                    continue
+                dx = refreshed_target.current_x - current[0]
+                dy = refreshed_target.current_y - current[1]
+                direction = self._cardinal_direction(dx, dy)
+                self.gba.press(direction, frames=2)
+                self.gba.press("A", frames=3)
+                self.gba.wait_frames(transition_frames)
+                final = self.observe()
+                return {
+                    "state": final,
+                    "target": refreshed_target.as_dict(),
+                    "approach": current,
+                    "interaction_distance": interaction_distance,
+                    "actions": actions,
+                    "replans": attempt,
+                    "reason": "interacted",
+                }
+
+            approach, path, interaction_distance = self._npc_approach_target(
+                current,
+                target,
+                objects,
+                grass_penalty=grass_penalty,
+                interaction_gap=interaction_gap,
+                prefer_open_gap=interact,
+            )
+            if not path:
+                last_state = self.observe()
+                continue
+            result = self.follow_route(
+                path[:chunk_steps],
+                expected_map=actual_map,  # type: ignore[arg-type]
+                frames=frames,
+                settle_frames=settle_frames,
+                transition_frames=transition_frames,
+            )
+            actions.append(result["action"])
+            last_state = result["state"]
+            if last_state.get("mode") != "overworld":
+                return {
+                    "state": last_state,
+                    "target": target.as_dict(),
+                    "approach": approach,
+                    "interaction_distance": interaction_distance,
+                    "actions": actions,
+                    "replans": attempt + 1,
+                    "reason": "interrupted",
+                }
+
+        raise RuntimeError(
+            f"NPC seeker exceeded {max_replans} replans for "
+            f"slot={slot} local_id={local_id} graphics_id={graphics_id}"
+        )

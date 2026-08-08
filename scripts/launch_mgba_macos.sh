@@ -15,6 +15,8 @@ fi
 
 if [[ -n "${MGBA_BIN:-}" ]]; then
   EMULATOR="$MGBA_BIN"
+elif [[ -x "$PROJECT_ROOT/runtime/mGBA.app/Contents/MacOS/mGBA" ]]; then
+  EMULATOR="$PROJECT_ROOT/runtime/mGBA.app/Contents/MacOS/mGBA"
 elif [[ -x "$PROJECT_ROOT/../runtime/mGBA.app/Contents/MacOS/mGBA" ]]; then
   EMULATOR="$PROJECT_ROOT/../runtime/mGBA.app/Contents/MacOS/mGBA"
 elif [[ -x "/Applications/mGBA.app/Contents/MacOS/mGBA" ]]; then
@@ -31,8 +33,22 @@ if [[ ! -x "$EMULATOR" ]]; then
   exit 1
 fi
 
-RUNTIME_DIR="${MGBA_RUNTIME_DIR:-$PROJECT_ROOT/../runtime/session}"
+RUNTIME_DIR="${MGBA_RUNTIME_DIR:-$PROJECT_ROOT/runtime/session}"
 mkdir -p "$RUNTIME_DIR"
 export MGBA_RUNTIME_DIR="$RUNTIME_DIR"
+FPS_TARGET="${MGBA_FPS_TARGET:-59.7275}"
+START_STATE="${MGBA_START_STATE:-}"
 
-exec "$EMULATOR" --script "$PROJECT_ROOT/scripts/mgba_rpc.lua" "$ROM_PATH"
+ARGS=(
+  -C "fpsTarget=$FPS_TARGET"
+  --script "$PROJECT_ROOT/scripts/mgba_rpc.lua"
+)
+if [[ -n "$START_STATE" ]]; then
+  if [[ ! -f "$START_STATE" ]]; then
+    print -u2 "savestate not found: $START_STATE"
+    exit 1
+  fi
+  ARGS+=( -t "$START_STATE" )
+fi
+
+exec "$EMULATOR" "${ARGS[@]}" "$ROM_PATH"

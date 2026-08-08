@@ -78,6 +78,21 @@ Once state decoding is reliable:
 - `choose_move(slot)` / `switch_pokemon(slot)`
 - Wait for battle/menu/transition completion instead of fixed sleeps
 - Offline Route 101 collision/elevation pathfinding with batched live execution
+- Runtime collision/elevation grid pathfinding for loaded hack-specific maps, with one range read and one compressed input macro
+- Live object-event decoding and identity-based NPC seeking with re-planning around moving actors
+
+The first Route 103 rival battle is complete in the local Chimchar run. The
+battle controller reads battler HP, move cursors, field-message modes,
+transient battle-printer text, and uses the framebuffer only to disambiguate
+the command menu when the ROM leaves the field mode ambiguous.
+
+The default controller is now RAM-only. Framebuffer classification is opt-in
+and retained solely for discovering a missing RAM signal.
+
+The object layer exposes active object-event slots (local ID, graphics ID,
+map-local coordinates, movement direction, and occupancy). NPC navigation can
+target an object identity and approach it from a walkable tile; the target and
+occupied tiles are re-read between short bridge macros.
 
 ## Session layer
 

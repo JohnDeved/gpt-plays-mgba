@@ -40,7 +40,7 @@ def main() -> None:
     parser.add_argument("--save-state", type=Path)
     args = parser.parse_args()
 
-    runtime_dir = Path(os.environ.get("MGBA_RUNTIME_DIR", REPO_ROOT.parent / "runtime" / "session"))
+    runtime_dir = Path(os.environ.get("MGBA_RUNTIME_DIR", REPO_ROOT / "runtime" / "session"))
     start_state = args.start_state
     save_state = args.save_state or runtime_dir / "route101-progress.ss"
 

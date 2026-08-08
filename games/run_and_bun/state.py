@@ -6,7 +6,11 @@ from typing import Any
 from pathlib import Path
 import tempfile
 
-from .visual import inspect_png, image_difference
+try:
+    from .visual import inspect_png, image_difference
+except ImportError:  # RAM/task/text play does not require Pillow or visual.py.
+    inspect_png = None
+    image_difference = None
 
 # Verified against Pokemon Run & Bun v1.07 in the live mGBA session.
 G_SAVE_BLOCK1_PTR = 0x03005D9C
@@ -29,7 +33,7 @@ TYPE_NAMES = {
     0: "Normal", 1: "Fighting", 2: "Flying", 3: "Poison", 4: "Ground",
     5: "Rock", 6: "Bug", 7: "Ghost", 8: "Steel", 9: "Mystery",
     10: "Fire", 11: "Water", 12: "Grass", 13: "Electric", 14: "Psychic",
-    15: "Ice", 16: "Dragon", 17: "Dark",
+    15: "Ice", 16: "Dragon", 17: "Dark", 18: "Fairy",
 }
 
 # Move IDs preserve the standard Gen III numbering for the moves encountered so
@@ -37,16 +41,36 @@ TYPE_NAMES = {
 # before being added rather than assuming an arbitrary expansion revision.
 VERIFIED_MOVE_NAMES = {
     0: None,
+    10: "Scratch",
     1: "Pound",
     28: "Sand-Attack",
+    16: "Gust",
     33: "Tackle",
+    43: "Leer",
     44: "Bite",
     45: "Growl",
+    52: "Ember",
     71: "Absorb",
     150: "Splash",
+    183: "Mach Punch",
+    31: "Double Team",
+    61: "Bubble Beam",
+    64: "Peck",
+    98: "Quick Attack",
+    117: "Bide",
+    267: "Nature Power",
 }
 
 VERIFIED_SPECIES_NAMES = {
+    54: "Psyduck",
+    16: "Pidgey",
+    273: "Seedot",
+    270: "Lotad",
+    390: "Chimchar",
+    396: "Starly",
+    672: "Skiddo",
+    761: "Bounsweet",
+    821: "Rookidee",
     387: "Turtwig",
     987: "Zigzagoon",  # Dark/Normal form encountered in the Route 101 rescue.
 }
@@ -68,6 +92,12 @@ KNOWN_MAPS = {
     (1, 2): "LittlerootTown_RivalHouse_1F",
     (1, 3): "LittlerootTown_RivalHouse_2F",
     (1, 4): "LittlerootTown_ProfessorBirchsLab",
+    (0, 0): "PetalburgCity",
+    (0, 10): "OldaleTown",
+    (0, 17): "Route102",
+    (0, 18): "Route103",
+    (0, 19): "Route104",
+    (8, 4): "PetalburgCity_PokemonCenter_1F",
 }
 
 # Gen III English text encoding, enough for player names and common ASCII-like text.
@@ -157,6 +187,7 @@ class BattleMon:
     speed: int
     sp_attack: int
     sp_defense: int
+    stat_stages: tuple[int, int, int, int, int, int, int, int]
     ability_id: int
     type_ids: tuple[int, int, int]
     types: tuple[str, str, str]
@@ -184,6 +215,18 @@ class RunBun:
 
     def __init__(self, gba):
         self.gba = gba
+
+    def _menu_pause_boundary(self) -> None:
+        """Let a Lua-driven menu task settle without stealing focus."""
+        reconnect = getattr(self.gba, "reconnect_boundary", None)
+        if callable(reconnect):
+            reconnect()
+            return
+        pause = getattr(self.gba, "pause", None)
+        resume = getattr(self.gba, "resume", None)
+        if callable(pause) and callable(resume):
+            pause()
+            resume()
 
     def pointers(self) -> Pointers:
         return Pointers(
@@ -293,6 +336,7 @@ class RunBun:
             speed=speed,
             sp_attack=sp_attack,
             sp_defense=sp_defense,
+            stat_stages=tuple(raw[0x18:0x20]),
             ability_id=ability_id,
             type_ids=type_ids,
             types=tuple(TYPE_NAMES.get(t, f"Type#{t}") for t in type_ids),
@@ -336,20 +380,29 @@ class RunBun:
         target_row, target_col = divmod(slot, 2)
         if row != target_row:
             self.gba.press("DOWN" if target_row > row else "UP", frames=press_frames)
-            self.gba.wait_frames(2)
+            self.gba.wait_frames(120)
         cur = self.gba.read8(G_BATTLE_ACTION_CURSOR)
         row, col = divmod(cur, 2)
         if col != target_col:
             self.gba.press("RIGHT" if target_col > col else "LEFT", frames=press_frames)
-            self.gba.wait_frames(2)
+            self.gba.wait_frames(120)
         final = self.gba.read8(G_BATTLE_ACTION_CURSOR)
         if final != slot:
             raise RuntimeError(f"failed to move battle action cursor to {slot}; got {final}")
         return final
 
-    def open_fight_menu(self, *, press_frames: int = 3):
+    def open_fight_menu(self, *, press_frames: int = 3, settle_frames: int = 30):
+        # Synchronize printer/menu state first.  Battle text can remain visible
+        # after the RAM command cursor has already reset to Fight.
+        ready = self.advance_battle_until_menu(max_frames=600)
+        if ready.get("state") == "move_menu":
+            return {"already_open": True, "state": "move_menu"}
         self.set_action_cursor(0, press_frames=press_frames)
-        return self.gba.press("A", frames=press_frames)
+        action = self.gba.press("A", frames=press_frames)
+        if settle_frames:
+            self.gba.wait_frames(settle_frames)
+        self._menu_pause_boundary()
+        return action
 
     def set_move_cursor(self, slot: int, *, press_frames: int = 3) -> int:
         if slot not in (0, 1, 2, 3):
@@ -361,12 +414,12 @@ class RunBun:
         target_row, target_col = divmod(slot, 2)
         if row != target_row:
             self.gba.press("DOWN" if target_row > row else "UP", frames=press_frames)
-            self.gba.wait_frames(2)
+            self.gba.wait_frames(120)
         cur = self.gba.read8(G_BATTLE_MOVE_CURSOR)
         row, col = divmod(cur, 2)
         if col != target_col:
             self.gba.press("RIGHT" if target_col > col else "LEFT", frames=press_frames)
-            self.gba.wait_frames(2)
+            self.gba.wait_frames(120)
         final = self.gba.read8(G_BATTLE_MOVE_CURSOR)
         if final != slot:
             raise RuntimeError(f"failed to move battle cursor to {slot}; got {final}")
@@ -376,40 +429,165 @@ class RunBun:
         battle = self.battle()
         if battle.player.move_ids[slot] == 0:
             raise ValueError(f"move slot {slot} is empty")
+        # The move selector is created by the preceding Fight confirmation;
+        # its RAM cursor is not updated until the next few frames.
         self.set_move_cursor(slot, press_frames=press_frames)
         before_pp = self.battle().player.pp[slot]
+        self._menu_pause_boundary()
         action = self.gba.press("A", frames=press_frames)
         return {"slot": slot, "move": self.battle().player.moves[slot], "before_pp": before_pp, "action": action}
 
-    def advance_battle_until_menu(self, *, sample_frames: int = 24, max_frames: int = 900, prefix: str = "/mnt/data/.runbun-battle"):
+    def choose_move_id(self, move_id: int, *, press_frames: int = 3):
+        """Choose a move by its decoded ID, avoiding fragile slot guesses."""
+        slots = [slot for slot, value in enumerate(self.battle().player.move_ids) if value == move_id]
+        if not slots:
+            raise ValueError(f"move ID {move_id} is not present on the active Pokémon")
+        if len(slots) > 1:
+            raise ValueError(f"move ID {move_id} appears in multiple move slots: {slots}")
+        return self.choose_move(slots[0], press_frames=press_frames)
+
+    def switch_pokemon(
+        self,
+        slot: int | None = None,
+        *,
+        species_id: int | None = None,
+        press_frames: int = 3,
+        settle_frames: int = 12,
+    ):
+        """Switch to a party slot from the battle Pokémon menu.
+
+        The party list opens with the active slot selected.  Run & Bun then
+        opens a second menu (Send Out/Shift, Summary, Cancel); confirm its
+        default Send Out/Shift entry before verifying the battle RAM.
+        """
+        count = self.party_count()
+        if species_id is not None:
+            matches = [mon.slot for mon in self.party() if mon.species_id == species_id and mon.hp > 0]
+            if not matches:
+                raise ValueError(f"no healthy party Pokémon with species {species_id}")
+            slot = matches[0]
+        if slot is None:
+            raise ValueError("slot or species_id required")
+        if slot < 0 or slot >= count:
+            raise IndexError(f"party slot {slot} outside count {count}")
+        mon = self.party_mon(slot)
+        if mon.hp <= 0:
+            raise ValueError(f"cannot switch to fainted party slot {slot}")
+        active_species = self.battle_mon(0).species_id
+        if mon.species_id == active_species:
+            raise ValueError("switch_failed: target is already active")
+        self.set_action_cursor(2, press_frames=press_frames)
+        self.gba.press("A", frames=press_frames)
+        # The party screen slides in before it accepts directional input.
+        self.gba.wait_frames(max(settle_frames, 120))
+        self._menu_pause_boundary()
+        # The battle party screen displays the active identity first, even
+        # when the persistent party array has not been reordered.  Map the
+        # requested identity to that UI order before moving its two-column
+        # cursor; using the persistent slot directly selects the active mon
+        # after a voluntary switch.
+        party = self.party()
+        active_mons = [m for m in party if m.species_id == active_species and m.personality != mon.personality]
+        if not active_mons:
+            raise RuntimeError("switch_failed: active party identity not found")
+        active_identity = active_mons[0].personality
+        ui_order = [m for m in party if m.personality != active_identity]
+        # Run & Bun lays out active mon on left and every bench mon in one
+        # vertical column on right.  Cursor starts on active mon.
+        target_index = next((i for i, m in enumerate(ui_order) if m.personality == mon.personality), None)
+        if target_index is None:
+            raise RuntimeError("switch_failed: target missing from battle party order")
+        self.gba.press("RIGHT", frames=press_frames)
+        self.gba.wait_frames(max(settle_frames, 120))
+        for _ in range(target_index):
+            self.gba.press("DOWN", frames=press_frames)
+            self.gba.wait_frames(max(settle_frames, 120))
+        self._menu_pause_boundary()
+        action = self.gba.press("A", frames=press_frames)
+        self.gba.wait_frames(settle_frames)
+        # Target selection opens the party action submenu in this ROM.  Its
+        # first entry is the valid switch action; without this second A the
+        # caller can mistake an open submenu for switch_failed.
+        self.gba.wait_frames(max(settle_frames, 120))
+        # This ROM can miss an A sent in the same uninterrupted Lua run that
+        # opened the submenu. A focus-free pause/resume makes it deterministic.
+        self._menu_pause_boundary()
+        action = self.gba.press("A", frames=press_frames)
+        self.gba.wait_frames(settle_frames)
+        # The switch animation and battle text can keep battler 0 stale for
+        # roughly 300 frames. The submenu also occasionally ignores its first
+        # confirmation; retry once, then surface a real rejection.
+        for attempt in range(2):
+            for _ in range(60):
+                if self.battle_mon(0).species_id != active_species:
+                    # Battler RAM updates before the Shift submenu closes.
+                    # Do not hand control back while cursor still says
+                    # Pokemon; caller would press into Summary/Cancel.
+                    self.gba.wait_frames(max(settle_frames, 120))
+                    self._menu_pause_boundary()
+                    if self.gba.read8(G_BATTLE_ACTION_CURSOR) == 2:
+                        action = self.gba.press("A", frames=press_frames)
+                        self.gba.wait_frames(settle_frames)
+                    return {"slot": slot, "species": mon.species, "action": action}
+                self.gba.wait_frames(10)
+            if attempt == 0:
+                self._menu_pause_boundary()
+                action = self.gba.press("A", frames=press_frames)
+                self.gba.wait_frames(settle_frames)
+        raise RuntimeError("switch_failed: battle rejected voluntary switch")
+
+    def use_battle_item(self, item_index: int, *, target_slot: int = 0, press_frames: int = 3, settle_frames: int = 12):
+        """Select a medicine entry in the battle Bag and apply it.
+
+        ``item_index`` is the visible medicine-pocket index, not a raw item
+        ID.  Inventory decoding belongs to the ROM adapter; keeping this
+        primitive index-based makes it safe for hacks that reorder item IDs.
+        """
+        if item_index < 0:
+            raise ValueError("item_index must be non-negative")
+        self.set_action_cursor(1, press_frames=press_frames)
+        self.gba.press("A", frames=press_frames)
+        self.gba.wait_frames(settle_frames)
+        for _ in range(item_index):
+            self.gba.press("DOWN", frames=press_frames)
+            self.gba.wait_frames(2)
+        self.gba.press("A", frames=press_frames)
+        self.gba.wait_frames(settle_frames)
+        # Medicine normally opens a target-Pokémon list.  The active Pokémon
+        # is the first entry, so only move when a caller explicitly requests a
+        # later target.
+        for _ in range(target_slot):
+            self.gba.press("DOWN", frames=press_frames)
+            self.gba.wait_frames(2)
+        action = self.gba.press("A", frames=press_frames)
+        self.gba.wait_frames(settle_frames)
+        return {"item_index": item_index, "target_slot": target_slot, "action": action}
+
+    def advance_battle_until_menu(
+        self,
+        *,
+        sample_frames: int = 24,
+        max_frames: int = 900,
+        prefix: str = "/tmp/.runbun-battle",
+        visual_fallback: bool = False,
+    ):
         """Advance only battle message boxes until the move menu returns.
 
         A is sent only after a framebuffer observation identifies the teal battle
         message window, so the helper cannot accidentally choose a move when the
         white move selector has already returned.
         """
-        elapsed = 0
-        presses = 0
-        path = f"{prefix}.png"
-        while elapsed <= max_frames:
-            self.gba.screenshot(path)
-            visual = inspect_png(path)
-            if visual.battle_menu_like:
-                return {"state": "move_menu", "frames": elapsed, "presses": presses, "visual": visual}
-            if visual.battle_command_menu:
-                return {"state": "command_menu", "frames": elapsed, "presses": presses, "visual": visual}
-            if not visual.battle_hud:
-                try:
-                    if self.battle().opponent.hp == 0:
-                        return {"state": "battle_end", "frames": elapsed, "presses": presses, "visual": visual}
-                except Exception:
-                    pass
-            if visual.battle_textbox:
-                self.gba.press("A", frames=3)
-                presses += 1
-            self.gba.wait_frames(sample_frames)
-            elapsed += sample_frames
-        return {"state": "timeout", "frames": elapsed, "presses": presses, "visual": inspect_png(path)}
+        # The local adapter owns the verified RAM/text-printer controller. Keep
+        # this broader adapter as a compatibility facade without reintroducing
+        # screenshot polling into the normal path.
+        from games.runbun import RunBunAdapter
+
+        result = RunBunAdapter(self.gba).advance_battle_until_menu(
+            sample_frames=sample_frames,
+            max_frames=max_frames,
+            visual_fallback=visual_fallback,
+        )
+        return result
 
     def observe(self, *, screenshot: str | bool = False) -> dict[str, Any]:
         info = self.gba.info()

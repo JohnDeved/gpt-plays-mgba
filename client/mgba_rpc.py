@@ -2,8 +2,12 @@
 from __future__ import annotations
 
 import json
+import os
+import signal
 import socket
+import subprocess
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 
@@ -13,10 +17,14 @@ class MGBAError(RuntimeError):
 
 class MGBA:
     def __init__(self, host: str = "127.0.0.1", port: int = 8765, timeout: float = 3.0):
+        self.host = host
+        self.port = port
+        self._timeout = timeout
         self.sock = socket.create_connection((host, port), timeout=timeout)
         self.sock.settimeout(timeout)
         self.file = self.sock.makefile("rwb", buffering=0)
         self._next_id = 1
+        self._paused_pid: int | None = None
         self.hello = self._read()
         if self.hello.get("type") != "hello":
             raise MGBAError(f"unexpected handshake: {self.hello}")
@@ -62,6 +70,73 @@ class MGBA:
 
     def clear_input(self):
         return self.call("input.clear")
+
+    def _emulator_pid(self) -> int:
+        """Find the mGBA process that owns this bridge listener."""
+        lsof = "/usr/sbin/lsof"
+        result = subprocess.run(
+            [lsof, "-nP", f"-iTCP:{self.port}", "-sTCP:LISTEN", "-Fp"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        pids = [int(line[1:]) for line in result.stdout.splitlines() if line.startswith("p") and line[1:].isdigit()]
+        if len(pids) != 1:
+            raise RuntimeError(f"could not uniquely identify mGBA listener on port {self.port}: {pids!r}")
+        return pids[0]
+
+    def pause(self) -> dict[str, object]:
+        """Suspend the emulator process without changing the user's focus."""
+        if self._paused_pid is not None:
+            return {"state": "paused", "pid": self._paused_pid}
+        pid = self._emulator_pid()
+        os.kill(pid, signal.SIGSTOP)
+        self._paused_pid = pid
+        return {"state": "paused", "pid": pid, "focused": False}
+
+    def resume(self) -> dict[str, object]:
+        """Resume a process previously suspended by :meth:`pause`."""
+        pid = self._paused_pid or self._emulator_pid()
+        os.kill(pid, signal.SIGCONT)
+        self._paused_pid = None
+        return {"state": "running", "pid": pid, "focused": False}
+
+    def reconnect_boundary(self, delay: float = 0.10) -> dict[str, object]:
+        """Reconnect the Lua bridge across a focus-free emulator boundary."""
+        paused = self.pause()
+        pid = int(paused["pid"])
+        host, port, timeout = self.host, self.port, self._timeout
+        self.close()
+        MGBA.resume_process(pid)
+        if delay > 0:
+            time.sleep(delay)
+        replacement = MGBA(host=host, port=port, timeout=timeout)
+        self.sock = replacement.sock
+        self.file = replacement.file
+        self._next_id = replacement._next_id
+        self._paused_pid = None
+        self.hello = replacement.hello
+        return {"state": "running", "pid": pid, "focused": False, "reconnected": True}
+
+    @staticmethod
+    def resume_process(pid: int) -> dict[str, object]:
+        """Resume a SIGSTOP-paused mGBA process without opening the bridge.
+
+        SIGSTOP also stops the Lua socket, so this escape hatch is intentionally
+        process-based and works from a fresh client or a terminal.
+        """
+        os.kill(int(pid), signal.SIGCONT)
+        return {"state": "running", "pid": int(pid), "focused": False}
+
+    @contextmanager
+    def paused_scope(self):
+        """Suspend mGBA for an idle block, restoring it on exit."""
+        self.pause()
+        try:
+            yield {"state": "paused"}
+        finally:
+            self.resume()
 
     def press(self, key: str, frames: int = 2, wait: bool = True):
         action = self.call("input.press", key=key, frames=frames)["action"]

@@ -28,7 +28,7 @@ def main():
     parser.add_argument("--max-expanded", type=int, default=120)
     args = parser.parse_args()
 
-    runtime_dir = Path(os.environ.get("MGBA_RUNTIME_DIR", REPO_ROOT.parent / "runtime" / "session"))
+    runtime_dir = Path(os.environ.get("MGBA_RUNTIME_DIR", REPO_ROOT / "runtime" / "session"))
     start_state = args.start_state or runtime_dir / "nav_probe_start.ss"
     if not start_state.is_absolute():
         start_state = Path.cwd() / start_state
