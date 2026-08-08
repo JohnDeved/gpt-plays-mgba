@@ -67,6 +67,25 @@ The older `scripts/mgba_control.lua` / `client/mgba_client.py` text protocol is 
 
 The preferred observation order is semantic RAM/task/text telemetry, then raw ranges or watches. The local control path does not request screenshots; `visual.py` is retained only as an explicit diagnostic fallback for unresolved ROM states.
 
+### Native capability catalog
+
+`games/run_and_bun/capabilities.py` is the model-facing source of truth for
+task-level game operations. It powers compact search/inspection and the
+optional stdio MCP adapter:
+
+```bash
+python3 tools/capabilities.py --search "find a trainer and walk to it"
+python3 tools/capabilities.py --inspect game_tactical_report
+python3 tools/runbun_mcp.py  # MCP JSON-RPC over stdin/stdout
+```
+
+Use `capability_search` before a generic shell, screenshot, or ad-hoc bridge
+workaround. `capability_inspect` returns the full schema, boundaries,
+side-effect, and retry policy for one match. `authorize_fallback` is the
+controller policy hook: it rejects a generic fallback when a native capability
+matches the intent. Outputs stay compact by default; full map tiles and ASCII
+are explicit opt-ins.
+
 ## Navigation and progress
 
 `games/run_and_bun/routes.py` contains the verified Route 101 collision/elevation grid and plans paths offline. `games/run_and_bun/live_map.py` handles loaded maps generically from the live runtime grid. `tools/nav_route101_live.py` executes paths as compressed Lua-bridge macros, resolving random battles from RAM and confirming map transitions. `tools/nav_probe.py` remains available for genuinely unknown maps, but it is not part of normal navigation.
