@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "source": "RAM-verified traversal and imported furthest-progress checkpoint",
+  "maps": [
+    {"group": 0, "number": 16, "name": "Route101"},
+    {"group": 0, "number": 17, "name": "Route102"},
+    {"group": 0, "number": 18, "name": "Route103"},
+    {"group": 0, "number": 19, "name": "Route104"},
+    {"group": 0, "number": 21, "name": "Route106"},
+    {"group": 0, "number": 24, "name": "Route109"},
+    {"group": 24, "number": 7, "name": "GraniteCave_1F"}
+  ]
+}

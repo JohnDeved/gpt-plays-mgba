@@ -20,14 +20,69 @@ class MGBA:
         self.host = host
         self.port = port
         self._timeout = timeout
+        # An uncapped automation process may be intentionally SIGSTOP'd by
+        # the Lua bridge while idle. Resume the sole local listener before
+        # waiting for its handshake. SIGCONT is harmless if already running.
+        self._process_pid = self._resume_listener_if_present(host, port)
         self.sock = socket.create_connection((host, port), timeout=timeout)
+        if self._process_pid is not None:
+            # Cover the narrow race where the bridge performed its startup
+            # idle stop after the TCP handshake entered the kernel backlog.
+            os.kill(self._process_pid, signal.SIGCONT)
+        self.hello = self._read_handshake(timeout)
         self.sock.settimeout(timeout)
         self.file = self.sock.makefile("rwb", buffering=0)
         self._next_id = 1
         self._paused_pid: int | None = None
-        self.hello = self._read()
         if self.hello.get("type") != "hello":
             raise MGBAError(f"unexpected handshake: {self.hello}")
+
+    def _read_handshake(self, timeout: float) -> dict:
+        """Read hello while repeatedly waking an idle-stopped listener."""
+        deadline = time.monotonic() + timeout
+        payload = bytearray()
+        self.sock.settimeout(min(0.1, timeout))
+        while b"\n" not in payload:
+            try:
+                chunk = self.sock.recv(4096)
+            except socket.timeout:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("mGBA bridge handshake timed out")
+                if self._process_pid is not None:
+                    os.kill(self._process_pid, signal.SIGCONT)
+                continue
+            if not chunk:
+                raise MGBAError("connection closed before handshake")
+            payload.extend(chunk)
+        line, _, remainder = payload.partition(b"\n")
+        if remainder:
+            raise MGBAError("unexpected data after mGBA bridge handshake")
+        return json.loads(line)
+
+    @staticmethod
+    def _listener_pids(host: str, port: int) -> list[int]:
+        if host not in {"127.0.0.1", "localhost", "::1"}:
+            return []
+        result = subprocess.run(
+            ["/usr/sbin/lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-Fp"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        return [
+            int(line[1:])
+            for line in result.stdout.splitlines()
+            if line.startswith("p") and line[1:].isdigit()
+        ]
+
+    @classmethod
+    def _resume_listener_if_present(cls, host: str, port: int) -> int | None:
+        pids = cls._listener_pids(host, port)
+        if len(pids) == 1:
+            os.kill(pids[0], signal.SIGCONT)
+            return pids[0]
+        return None
 
     def _read(self):
         line = self.file.readline()
@@ -36,6 +91,11 @@ class MGBA:
         return json.loads(line)
 
     def call(self, op: str, **params):
+        if self._process_pid is not None:
+            # The bridge stops itself after every completed request unless a
+            # frame-based action is still running. Wake only long enough for
+            # this request (or that queued action) to finish.
+            os.kill(self._process_pid, signal.SIGCONT)
         request_id = self._next_id
         self._next_id += 1
         request = {"id": request_id, "op": op, "params": params}
@@ -45,7 +105,33 @@ class MGBA:
             raise MGBAError(f"RPC id mismatch: {response}")
         if not response.get("ok"):
             raise MGBAError(response.get("error", "unknown RPC error"))
-        return response["result"]
+        result = response["result"]
+        if self._process_pid is not None and self._request_finished(op, result):
+            # Lua has finished serializing the reply. Stop immediately so no
+            # unlocked frame can render while the controller reasons about it.
+            os.kill(self._process_pid, signal.SIGSTOP)
+        return result
+
+    @staticmethod
+    def _request_finished(op: str, result: dict) -> bool:
+        """Whether an RPC response leaves no frame-based work outstanding."""
+        if op in {"input.press", "input.sequence"}:
+            return result.get("action", {}).get("state") in {
+                "done", "error", "cancelled"
+            }
+        if op == "experiment.run":
+            return result.get("experiment", {}).get("state") in {
+                "done", "error", "cancelled"
+            }
+        if op == "wait.until":
+            return result.get("wait", {}).get("state") not in {"waiting", "queued", "running"}
+        if op == "action.status":
+            return result.get("action", {}).get("state") not in {"waiting", "queued", "running"}
+        if op == "experiment.status":
+            return result.get("experiment", {}).get("state") not in {"waiting", "queued", "running"}
+        if op == "wait.status":
+            return result.get("wait", {}).get("state") not in {"waiting", "queued", "running"}
+        return True
 
     def close(self):
         try:
@@ -62,6 +148,10 @@ class MGBA:
     def ping(self):
         return self.call("ping")
 
+    def idle(self):
+        """Ask an idle-stop-enabled Lua bridge to suspend after this reply."""
+        return self.call("runtime.idle")
+
     def info(self):
         return self.call("info")
 
@@ -73,15 +163,7 @@ class MGBA:
 
     def _emulator_pid(self) -> int:
         """Find the mGBA process that owns this bridge listener."""
-        lsof = "/usr/sbin/lsof"
-        result = subprocess.run(
-            [lsof, "-nP", f"-iTCP:{self.port}", "-sTCP:LISTEN", "-Fp"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=2,
-        )
-        pids = [int(line[1:]) for line in result.stdout.splitlines() if line.startswith("p") and line[1:].isdigit()]
+        pids = self._listener_pids(self.host, self.port)
         if len(pids) != 1:
             raise RuntimeError(f"could not uniquely identify mGBA listener on port {self.port}: {pids!r}")
         return pids[0]
@@ -115,6 +197,7 @@ class MGBA:
         self.sock = replacement.sock
         self.file = replacement.file
         self._next_id = replacement._next_id
+        self._process_pid = replacement._process_pid
         self._paused_pid = None
         self.hello = replacement.hello
         return {"state": "running", "pid": pid, "focused": False, "reconnected": True}
@@ -311,7 +394,11 @@ class MGBA:
             return pending
         return self._finish_wait(
             pending,
-            timeout=max(3.0, frames / 30.0),
+            # The Lua wait is frame-synchronised, but after a reconnect the
+            # emulator can take several host seconds to deliver the final
+            # status poll. Keep the margin outside the frame budget so a
+            # healthy wait is not reported as a false timeout.
+            timeout=max(3.0, frames / 30.0 + 5.0),
             timeout_frames=timeout_frames or max(frames + 60, 1),
             condition={"type": "frame", "at_frame": target},
         )

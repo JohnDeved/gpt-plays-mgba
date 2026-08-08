@@ -1,0 +1,4 @@
+interface:
+  display_name: "Resolve Unexpected Tooling Issues"
+  short_description: "Reproduce, fix, and prove tooling failures"
+  default_prompt: "Use $resolve-unexpected-tooling-issues to preserve this failure, reproduce it deterministically, and prove a safe fix."

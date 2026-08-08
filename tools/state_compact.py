@@ -29,7 +29,9 @@ def main() -> None:
             "mode": state.get("mode"),
             "battle": {
                 "active": state["battle"].get("active"),
+                "format": state["battle"].get("format"),
                 "kind": state["battle"].get("kind"),
+                "menu": state["battle"].get("menu"),
                 "mons": [
                     {
                         "slot": mon["slot"],

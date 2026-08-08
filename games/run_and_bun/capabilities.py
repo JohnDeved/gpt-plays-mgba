@@ -503,6 +503,47 @@ def _inventory(_: dict[str, Any]) -> dict[str, Any]:
     return _with_adapter(read)
 
 
+def _trainer_lookup(args: dict[str, Any]) -> dict[str, Any]:
+    required = ("map_group", "map_number", "local_id")
+    if any(key not in args for key in required):
+        raise CapabilityError(
+            "VALIDATION_ERROR",
+            "trainer lookup requires map_group, map_number, and local_id",
+        )
+    from games.run_and_bun.trainer_database import lookup_trainer
+
+    return lookup_trainer(
+        map_group=int(args["map_group"]),
+        map_number=int(args["map_number"]),
+        local_id=int(args["local_id"]),
+        graphics_id=int(args["graphics_id"]) if "graphics_id" in args else None,
+        script_address=args.get("script_address"),
+    )
+
+
+def _wild_encounter_lookup(args: dict[str, Any]) -> dict[str, Any]:
+    def read(adapter: Any) -> dict[str, Any]:
+        from games.run_and_bun.wild_encounters import lookup_catchable
+
+        map_value = args.get("map")
+        locations = lookup_catchable(
+            adapter.gba,
+            species_id=int(args["species_id"]) if "species_id" in args else None,
+            species_name=args.get("species_name"),
+            map_id=tuple(map_value) if map_value is not None else None,
+            methods=set(args["methods"]) if args.get("methods") else None,
+            visited_only=bool(args.get("visited_only", False)),
+        )
+        return {
+            "query": dict(args),
+            "location_count": len(locations),
+            "species_count": len({item["species_id"] for item in locations}),
+            "locations": locations,
+        }
+
+    return _with_adapter(read)
+
+
 def _use_field_item(args: dict[str, Any]) -> dict[str, Any]:
     item = args.get("item")
     if not isinstance(item, str) or not item:
@@ -584,6 +625,7 @@ def _seek_npc(args: dict[str, Any]) -> dict[str, Any]:
         return {
             "reason": result.get("reason"),
             "target": result.get("target"),
+            "preflight": result.get("preflight"),
             "approach": result.get("approach"),
             "replans": result.get("replans"),
             "observation": _compact_state(result.get("state", {})),
@@ -674,6 +716,22 @@ _CAPABILITIES = [
         "Read money and item pockets from SaveBlock1 RAM with compact item IDs and quantities. Use when: deciding whether a medicine, ball, berry, or progression item is available.",
         ("check inventory", "find potion or candy", "read bag"),
         _OBJECT_SCHEMA, {"type": "object"}, "none", "safe", _inventory,
+    ),
+    Capability(
+        "game_trainer_lookup", "Known trainer roster",
+        "Resolve a trainer's complete known roster, held items, moves, stats, and preparation status from stable overworld map/local identity. Use when: a trainer NPC is visible, before entering its sight line, after observing a new trainer, or when planning a rematch.",
+        ("identify trainer roster", "look up trainer by NPC", "prepare for visible trainer", "check rematch team"),
+        {"type": "object", "properties": {"map_group": {"type": "integer", "minimum": 0}, "map_number": {"type": "integer", "minimum": 0}, "local_id": {"type": "integer", "minimum": 0}, "graphics_id": {"type": "integer", "minimum": 0}, "script_address": {"type": "string"}}, "required": ["map_group", "map_number", "local_id"], "additionalProperties": False},
+        {"type": "object"}, "none", "safe", _trainer_lookup,
+        ("Do not key a trainer only by runtime object slot or current coordinates.",),
+    ),
+    Capability(
+        "game_wild_encounter_lookup", "ROM catchable Pokémon index",
+        "Search complete Run & Bun ROM encounter tables by species, map, method, or prior visit. Use when: building a counter-team, deciding where to backtrack, or listing catchable Pokémon before a hard fight.",
+        ("find where a Pokemon is catchable", "list wild Pokemon on a map", "backtrack for a counter", "search visited encounter tables"),
+        {"type": "object", "properties": {"species_id": {"type": "integer", "minimum": 1}, "species_name": {"type": "string"}, "map": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}, "methods": {"type": "array", "items": {"type": "string", "enum": ["land", "water", "rock_smash", "old_rod", "good_rod", "super_rod"]}}, "visited_only": {"type": "boolean", "default": False}}, "additionalProperties": False},
+        {"type": "object"}, "none", "safe", _wild_encounter_lookup,
+        ("Do not use screenshots or external encounter guides while the verified ROM profile succeeds.",),
     ),
     Capability(
         "game_use_field_item", "RAM field-item use",

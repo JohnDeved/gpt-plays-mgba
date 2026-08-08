@@ -6,6 +6,8 @@ docs/RUNBUN_V107.md. They must not be reused for another ROM revision.
 
 from __future__ import annotations
 
+import math
+import re
 import time
 from dataclasses import asdict, dataclass
 from typing import Any
@@ -34,6 +36,9 @@ FIELD_MENU_CURSOR = 0x0203C3C2
 FIELD_PARTY_CURSOR = 0x0203C51D
 BATTLE_COMMAND_CURSOR = 0x02023A1C
 BATTLE_MOVE_CURSOR = 0x02023A20
+# Verified by equal-frame savestate diffs in the Route 109 double battle.
+# 0xFF means no target selector; live battler slots are 0..3.
+BATTLE_TARGET = 0x03005D84
 
 PLAYER_PARTY_COUNT = 0x02023A95
 PLAYER_PARTY = 0x02023A98
@@ -61,16 +66,23 @@ FIELD_MESSAGE_MODE_NAMES = {
     15: "field_item_target",
     10: "nickname_screen",
     16: "battle_intro",
+    19: "party_target_transition",
     34: "battle_text",
+    36: "double_battle_party_transition",
     38: "battle_intro",
     42: "battle_text",
+    44: "double_battle_text",
     46: "battle_text",
+    48: "double_battle_command",
     50: "battle_text_prompt",
+    52: "double_battle_command",
     54: "battle_text_prompt",
     55: "battle_post",
     59: "battle_text",
+    60: "double_battle_move",
+    68: "double_battle_text",
 }
-BATTLE_FIELD_MESSAGE_MODES = {16, 34, 38, 42, 46, 50, 54, 55, 59}
+BATTLE_FIELD_MESSAGE_MODES = {16, 34, 36, 38, 42, 44, 46, 48, 50, 52, 54, 55, 59, 60, 68}
 BATTLE_KO_FIELD_MESSAGE_MODES = BATTLE_FIELD_MESSAGE_MODES
 
 # The move IDs below are the ones observed in this Run & Bun save.  The hack
@@ -82,31 +94,48 @@ MOVE_TYPE_IDS = {
     43: 0,   # Leer, Normal (status)
     16: 2,   # Gust, Flying
     23: 0,   # Stomp, Normal
+    20: 0,   # Bind, Normal residual-damage move
     28: 0,   # Sand-Attack, status
     33: 0,   # Tackle, Normal
+    44: 17,  # Bite, Dark
     49: 0,   # Sonic Boom, fixed-damage Normal
     52: 10,  # Ember, Fire
+    71: 12,  # Absorb, Grass
     75: 12,  # Razor Leaf, Grass
+    88: 5,   # Rock Throw, Rock
+    98: 0,   # Quick Attack, Normal
     117: 0,  # Bide, delayed Normal
+    182: 0,  # Protect, status
     183: 1,  # Mach Punch, Fighting
+    205: 5,  # Rollout, Rock; unsafe for capture because it locks in
     229: 0,  # Rapid Spin, Normal (verified from the live move window)
     267: 0,  # Nature Power (terrain-dependent; conservative Normal)
+    283: 0,  # Endeavor, fixed/conditional; never use for bounded weakening
+    332: 2,  # Aerial Ace, Flying
     340: 2,  # Bounce, Flying
+    342: 3,  # Poison Tail, Poison; residual-status risk for capture
     341: 4,  # Mud Shot, Ground
+    450: 3,  # Venoshock, Poison
     453: 11, # Aqua Jet, Water
     512: 2,  # Acrobatics, Flying
     589: 0,  # Play Nice, Normal status move in this build
 }
 MOVE_POWER = {
-    10: 35, 16: 40, 23: 65, 33: 40, 49: 20, 52: 40,
-    75: 55, 183: 40, 229: 20, 267: 80, 340: 85, 341: 55, 453: 40, 512: 60,
+    10: 35, 16: 40, 20: 15, 23: 65, 33: 40, 44: 60, 49: 20, 52: 40,
+    71: 20, 75: 55, 88: 50, 98: 40, 183: 40, 205: 30, 229: 20,
+    267: 80, 332: 60, 340: 85, 341: 55, 342: 50, 450: 65, 453: 40, 512: 60,
 }
-MOVE_SPECIAL_IDS = frozenset({16, 49, 52, 267, 341})
-MOVE_PRIORITY_IDS = frozenset({183, 453})
-STATUS_MOVE_IDS = frozenset({28, 43, 117, 150, 589})
+MOVE_SPECIAL_IDS = frozenset({16, 49, 52, 71, 267, 341, 450})
+MOVE_PRIORITY_IDS = frozenset({98, 183, 453})
+STATUS_MOVE_IDS = frozenset({28, 43, 117, 150, 182, 283, 589})
 PHYSICAL_THREAT_DEBUFF_IDS = frozenset({589})  # Play Nice lowers Attack.
 ABILITY_FLASH_FIRE = 18
 PARALYSIS_STATUS = 0x40
+
+# These moves can be nonlethal on the immediate roll but create an avoidable
+# later KO (residual poison/bind or Rollout lock-in).  A capture planner must
+# not call them a safe weakening line.
+CAPTURE_UNSAFE_MOVE_IDS = frozenset({20, 205, 342})
 
 # Species types are only a fallback for party entries: battle entries already
 # carry live type bytes.  Keep this small and verified against this save.
@@ -579,9 +608,61 @@ class RunBunAdapter:
             # while the selector is first being drawn.  ``Type/`` plus a live
             # active battle printer is already a stronger signal than a
             # framebuffer guess; PP is still included when present.
-            if "Type/" in value and ("PP" in value or "Normal" in value or "Fire" in value or "Water" in value or "Flying" in value or "Grass" in value or "Fairy" in value):
+            if "Type/" in value:
                 return True
         return False
+
+    @staticmethod
+    def _battle_move_prompt_details(contexts: list[dict[str, Any]]) -> dict[str, Any] | None:
+        """Decode the selected move's type/PP from the live RAM printer."""
+        for context in contexts:
+            value = (context.get("text") or "").rstrip()
+            if "Type/" not in value:
+                continue
+            type_match = re.search(
+                r"Type/(?:<CTRL_[^>]+>)*([A-Za-z]+)", value
+            )
+            pp_match = re.search(r"PP\s*(\d+)\s*/\s*(\d+)", value)
+            return {
+                "type": type_match.group(1) if type_match else None,
+                "pp": int(pp_match.group(1)) if pp_match else None,
+                "max_pp": int(pp_match.group(2)) if pp_match else None,
+                "text": value,
+            }
+        return None
+
+    @staticmethod
+    def _battle_command_subject(contexts: list[dict[str, Any]]) -> str | None:
+        """Return the battler named by the live ``What will … do?`` prompt."""
+        for context in contexts:
+            value = (context.get("text") or "").strip()
+            match = re.search(r"What will\s+(.+?)\s+do\?", value, re.DOTALL)
+            if match:
+                return " ".join(match.group(1).split())
+        return None
+
+    @staticmethod
+    def _battle_menu_state(
+        *,
+        party_switch_prompt: bool,
+        move_prompt: bool,
+        command_prompt: bool,
+        battle_active: bool,
+        battle_format: str,
+        battle_target: int,
+    ) -> str:
+        """Classify battle input state without conflating move and target UI."""
+        if party_switch_prompt:
+            return "party_switch"
+        if move_prompt and battle_format == "double" and battle_target in range(4):
+            return "target_menu"
+        if move_prompt:
+            return "move_menu"
+        if command_prompt:
+            return "command_menu"
+        if battle_active:
+            return "battle_text"
+        return "none"
 
     @staticmethod
     def _battle_party_switch_prompt(contexts: list[dict[str, Any]]) -> bool:
@@ -730,7 +811,14 @@ class RunBunAdapter:
             return (0.0, 0.0)
         base = (((2 * level / 5) + 2) * power * attack / max(defense, 1)) / 50 + 2
         high = max(1.0, base * effectiveness * stab)
-        return (max(1.0, high * 0.85), high)
+        # Cartridge damage is integral. Flooring the low roll avoids claiming
+        # a fractional guaranteed minimum that the game can round below;
+        # ceiling the high roll preserves a conservative nonlethal/threat
+        # bound despite the omitted intermediate integer floors.
+        return (
+            max(1.0, float(math.floor(high * 0.85))),
+            max(1.0, float(math.ceil(high))),
+        )
 
     @classmethod
     def _estimated_damage(
@@ -1169,7 +1257,14 @@ class RunBunAdapter:
             {"name": "new_game_cursor", "address": NEW_GAME_CURSOR, "width": 8},
             {"name": "yes_no_cursor", "address": YES_NO_CURSOR, "width": 8},
             {"name": "battle_command_cursor", "address": BATTLE_COMMAND_CURSOR, "width": 8},
+            {"name": "battle_command_cursor_1", "address": BATTLE_COMMAND_CURSOR + 1, "width": 8},
+            {"name": "battle_command_cursor_2", "address": BATTLE_COMMAND_CURSOR + 2, "width": 8},
+            {"name": "battle_command_cursor_3", "address": BATTLE_COMMAND_CURSOR + 3, "width": 8},
             {"name": "battle_move_cursor", "address": BATTLE_MOVE_CURSOR, "width": 8},
+            {"name": "battle_move_cursor_1", "address": BATTLE_MOVE_CURSOR + 1, "width": 8},
+            {"name": "battle_move_cursor_2", "address": BATTLE_MOVE_CURSOR + 2, "width": 8},
+            {"name": "battle_move_cursor_3", "address": BATTLE_MOVE_CURSOR + 3, "width": 8},
+            {"name": "battle_target", "address": BATTLE_TARGET, "width": 8},
             {"name": "party_count", "address": PLAYER_PARTY_COUNT, "width": 8},
             {"name": "field_message_box_mode", "address": FIELD_MESSAGE_BOX_MODE, "width": 8},
         ]
@@ -1229,6 +1324,11 @@ class RunBunAdapter:
 
         battle_raw = self.gba.read_range(BATTLE_MONS, BATTLE_MON_STRIDE * 4)
         battle_mons = decode_battle_mons(battle_raw)
+        battle_format = (
+            "double"
+            if any(mon.get("present") for mon in battle_mons[2:4])
+            else "single"
+        )
         opponent = next((mon for mon in battle_mons if mon["slot"] == 1), None)
         battle_mode = values["field_message_box_mode"]
         battle_active = any(mon["present"] for mon in battle_mons)
@@ -1275,14 +1375,22 @@ class RunBunAdapter:
             if not text["visible"] and not text["active"]:
                 text["current"] = None
             command_prompt = self._battle_command_prompt(text.get("battle_printers", []))
+            command_subject = self._battle_command_subject(
+                text.get("battle_printers", [])
+            )
             battle_kind = self._battle_kind(text.get("battle_printers", []))
             party_switch_prompt = self._battle_party_switch_prompt(text.get("battle_printers", []))
             move_prompt = self._battle_move_prompt(text.get("battle_printers", []))
+            move_prompt_details = self._battle_move_prompt_details(
+                text.get("battle_printers", [])
+            )
         else:
             command_prompt = False
+            command_subject = None
             battle_kind = None
             party_switch_prompt = False
             move_prompt = False
+            move_prompt_details = None
         # After a send-out this hack can leave the battle message printer
         # empty while the command selector is already live.  A valid battler
         # pair plus a battle field mode and no active text is the RAM-only
@@ -1290,6 +1398,7 @@ class RunBunAdapter:
         # the selector while waiting for a printer string that never arrives.
         if (
             battle_mode in BATTLE_FIELD_MESSAGE_MODES
+            and battle_format == "single"
             and not party_switch_prompt
             and not command_prompt
             and not move_prompt
@@ -1341,6 +1450,28 @@ class RunBunAdapter:
             # the object table. Keep the rest of the semantic observation
             # useful while surfacing the missing capability to the caller.
             objects_error = f"{type(error).__name__}: {error}"
+        command_cursors = [
+            values["battle_command_cursor"],
+            values["battle_command_cursor_1"],
+            values["battle_command_cursor_2"],
+            values["battle_command_cursor_3"],
+        ]
+        command_battler = next(
+            (
+                mon["slot"]
+                for mon in battle_mons
+                if mon.get("present")
+                and command_subject
+                and (mon["state"].get("nickname") or "").strip().casefold()
+                == command_subject.casefold()
+            ),
+            None,
+        )
+        active_command_cursor = (
+            command_cursors[command_battler]
+            if command_battler in range(4)
+            else values["battle_command_cursor"]
+        )
         result = {
             "frame": base["frame"],
             "title": base["title"],
@@ -1350,7 +1481,15 @@ class RunBunAdapter:
                 "new_game_option": values["new_game_cursor"],
                 "yes_no": values["yes_no_cursor"],
                 "battle_command": values["battle_command_cursor"],
+                "battle_command_cursors": command_cursors,
                 "battle_move": values["battle_move_cursor"],
+                "battle_move_cursors": [
+                    values["battle_move_cursor"],
+                    values["battle_move_cursor_1"],
+                    values["battle_move_cursor_2"],
+                    values["battle_move_cursor_3"],
+                ],
+                "battle_target": values["battle_target"],
                 "field_message_box_mode": values["field_message_box_mode"],
                 "field_message_box_mode_name": FIELD_MESSAGE_MODE_NAMES.get(
                     values["field_message_box_mode"],
@@ -1377,6 +1516,7 @@ class RunBunAdapter:
             "tasks": tasks,
             "battle": {
                 "active": battle_active,
+                "format": battle_format,
                 "party_switch_required": party_switch_prompt,
                 "kind": battle_kind,
                 "activity_detection": "battle_mons_species_and_battle_field_mode_or_command_prompt",
@@ -1386,18 +1526,27 @@ class RunBunAdapter:
                     "move_names": "13-byte slots@0x083A4493",
                 } if battle_active and battle_metadata_error is None else None,
                 "menu": {
-                    "state": (
-                        "party_switch" if party_switch_prompt else
-                        "move_menu" if move_prompt else
-                        "command_menu" if command_prompt else
-                        "battle_text" if battle_active else
-                        "none"
+                    "state": self._battle_menu_state(
+                        party_switch_prompt=party_switch_prompt,
+                        move_prompt=move_prompt,
+                        command_prompt=command_prompt,
+                        battle_active=battle_active,
+                        battle_format=battle_format,
+                        battle_target=values["battle_target"],
                     ),
-                    "command": values["battle_command_cursor"] if battle_active else None,
+                    "command": active_command_cursor if battle_active else None,
+                    "command_battler": command_battler if battle_active else None,
+                    "command_subject": command_subject if battle_active else None,
                     "move": values["battle_move_cursor"] if battle_active else None,
+                    "target": (
+                        values["battle_target"]
+                        if battle_active and values["battle_target"] in range(4)
+                        else None
+                    ),
+                    "selected_move": move_prompt_details if battle_active else None,
                     "command_name": (
-                        ("fight", "bag", "pokemon", "run")[values["battle_command_cursor"]]
-                        if battle_active and values["battle_command_cursor"] < 4
+                        ("fight", "bag", "pokemon", "run")[active_command_cursor]
+                        if battle_active and active_command_cursor < 4
                         else None
                     ),
                 },
@@ -1502,6 +1651,334 @@ class RunBunAdapter:
             deadline = time.monotonic() + timeout
         return pages
 
+    @staticmethod
+    def _grid_cursor_keys(current: int, target: int) -> list[str]:
+        """Return the shortest deterministic path on a two-column 2×2 menu."""
+        if current not in range(4) or target not in range(4):
+            raise ValueError("grid cursor slots must be 0..3")
+        row, col = divmod(current, 2)
+        target_row, target_col = divmod(target, 2)
+        keys: list[str] = []
+        if row != target_row:
+            keys.append("DOWN" if target_row > row else "UP")
+        if col != target_col:
+            keys.append("RIGHT" if target_col > col else "LEFT")
+        return keys
+
+    def _battle_menu_tap(
+        self,
+        key: str,
+        *,
+        hold_frames: int = 1,
+        settle_frames: int = 12,
+    ) -> dict[str, Any]:
+        """Send one frame-synchronized menu input with an atomic settle gap."""
+        if hold_frames < 1 or settle_frames < 1:
+            raise ValueError("battle menu hold/settle frames must be positive")
+        return self.gba.sequence(
+            [
+                {"keys": [key], "frames": hold_frames},
+                {"keys": [], "frames": settle_frames},
+            ]
+        )
+
+    @staticmethod
+    def _present_battle_mon(observation: dict[str, Any], slot: int) -> dict[str, Any]:
+        mon = next(
+            (
+                item
+                for item in observation["battle"]["mons"]
+                if item.get("slot") == slot and item.get("present")
+            ),
+            None,
+        )
+        if mon is None:
+            raise RuntimeError(f"battle battler slot {slot} is not present")
+        return mon["state"]
+
+    def select_double_switch(
+        self,
+        battler_slot: int,
+        party_slot: int,
+    ) -> dict[str, Any]:
+        """Queue one voluntary switch from a double-battle command prompt."""
+        if battler_slot not in (0, 2):
+            raise ValueError("allied double-battle battler slot must be 0 or 2")
+        observation = self.observe()
+        battle = observation["battle"]
+        if not battle["active"] or battle.get("format") != "double":
+            raise RuntimeError("double_battle_not_active")
+        if battle["menu"]["state"] != "command_menu":
+            raise RuntimeError(
+                f"double switch requires command_menu, got {battle['menu']['state']}"
+            )
+        acting = self._present_battle_mon(observation, battler_slot)
+        contexts = (observation.get("text") or {}).get("battle_printers", [])
+        subject = self._battle_command_subject(contexts)
+        nickname = (acting.get("nickname") or "").strip()
+        if subject and nickname and subject.casefold() != nickname.casefold():
+            raise RuntimeError(
+                f"command prompt belongs to {subject!r}, not battler {nickname!r}"
+            )
+
+        party = [
+            {**mon["state"], "slot": mon["slot"]}
+            for mon in observation.get("party", {}).get("mons", [])
+            if mon.get("present")
+        ]
+        target = next((mon for mon in party if mon.get("slot") == party_slot), None)
+        if target is None:
+            raise IndexError(f"party slot {party_slot} is not present")
+        if target.get("current_hp", 0) <= 0:
+            raise ValueError(f"party slot {party_slot} is fainted")
+        active_species = {
+            self._present_battle_mon(observation, slot)["species"]
+            for slot in (0, 2)
+        }
+        if target["species"] in active_species:
+            raise ValueError(f"party slot {party_slot} is already active")
+        acting_party_slots = [
+            mon["slot"] for mon in party if mon["species"] == acting["species"]
+        ]
+        if len(acting_party_slots) != 1:
+            raise RuntimeError(
+                f"cannot uniquely map active species {acting['species']} to party"
+            )
+        ui_order = [
+            mon for mon in party if mon["slot"] != acting_party_slots[0]
+        ]
+        target_index = next(
+            (index for index, mon in enumerate(ui_order) if mon["slot"] == party_slot),
+            None,
+        )
+        if target_index is None:
+            raise RuntimeError("switch target missing from battle party UI order")
+
+        command_cursors = observation["ui"].get("battle_command_cursors", [])
+        command_cursor = (
+            command_cursors[battler_slot]
+            if len(command_cursors) > battler_slot
+            else None
+        )
+        if command_cursor not in range(4):
+            raise RuntimeError(f"invalid battler command cursor {command_cursor}")
+        for key in self._grid_cursor_keys(command_cursor, 2):
+            self._battle_menu_tap(key, hold_frames=3)
+        # Party slide-in, target selection, and Shift submenu each have a
+        # verified 120-frame acceptance boundary in this ROM/UI.
+        self._battle_menu_tap("A", hold_frames=3, settle_frames=120)
+        self._battle_menu_tap("RIGHT", hold_frames=3, settle_frames=120)
+        for _ in range(target_index):
+            self._battle_menu_tap("DOWN", hold_frames=3, settle_frames=120)
+        self._battle_menu_tap("A", hold_frames=3, settle_frames=120)
+        self._battle_menu_tap("A", hold_frames=3, settle_frames=120)
+
+        after = self.observe()
+        partner_alive = any(
+            item.get("slot") == (2 if battler_slot == 0 else 0)
+            and item.get("present")
+            and item["state"].get("current_hp", 0) > 0
+            for item in after["battle"]["mons"]
+        )
+        expected_state = (
+            "command_menu"
+            if battler_slot == 0 and partner_alive
+            else "battle_text"
+        )
+        actual_state = after["battle"]["menu"]["state"]
+        if actual_state != expected_state:
+            raise RuntimeError(
+                f"switch queue ended in {actual_state}, expected {expected_state}"
+            )
+        return {
+            "battler_slot": battler_slot,
+            "from_species": acting["species"],
+            "party_slot": party_slot,
+            "to_species": target["species"],
+            "to_hp": target["current_hp"],
+            "ack": actual_state,
+            "next_command_battler": after["battle"]["menu"].get(
+                "command_battler"
+            ),
+        }
+
+    def select_double_move(
+        self,
+        battler_slot: int,
+        move_slot: int,
+        *,
+        expected_type: str,
+        target_slot: int | None = None,
+        visible_cursor: int | None = None,
+        max_attempts: int = 2,
+    ) -> dict[str, Any]:
+        """Queue one allied action in Run & Bun's custom double-battle UI.
+
+        ``gMoveSelectionCursor`` is a four-byte per-battler array. This method
+        uses the acting battler's own byte and independently acknowledges the
+        selected move from the RAM text printer's Type field. Explicit target
+        selection is verified through ``gBattlerTarget``.
+        """
+        if battler_slot not in (0, 2):
+            raise ValueError("allied double-battle battler slot must be 0 or 2")
+        if move_slot not in range(4):
+            raise ValueError("move slot must be 0..3")
+        if target_slot is not None and target_slot not in range(4):
+            raise ValueError("target battler slot must be 0..3")
+        if max_attempts < 1:
+            raise ValueError("max_attempts must be positive")
+
+        observation = self.observe()
+        battle = observation["battle"]
+        if not battle["active"] or battle.get("format") != "double":
+            raise RuntimeError("double_battle_not_active")
+        battler = self._present_battle_mon(observation, battler_slot)
+        move_id = battler["moves"][move_slot]
+        before_pp = battler["pp"][move_slot]
+        if not move_id or before_pp <= 0:
+            raise ValueError(f"battler {battler_slot} move slot {move_slot} is not legal")
+
+        menu_state = battle["menu"]["state"]
+        if menu_state == "command_menu":
+            contexts = (observation.get("text") or {}).get("battle_printers", [])
+            subject = self._battle_command_subject(contexts)
+            nickname = (battler.get("nickname") or "").strip()
+            if subject and nickname and subject.casefold() != nickname.casefold():
+                raise RuntimeError(
+                    f"command prompt belongs to {subject!r}, not battler {nickname!r}"
+                )
+            command_cursors = observation["ui"].get(
+                "battle_command_cursors", []
+            )
+            command_cursor = (
+                command_cursors[battler_slot]
+                if len(command_cursors) > battler_slot
+                else None
+            )
+            if command_cursor not in range(4):
+                raise RuntimeError(f"invalid battle command cursor {command_cursor}")
+            for key in self._grid_cursor_keys(command_cursor, 0):
+                self._battle_menu_tap(key, hold_frames=3)
+            for _ in range(max_attempts):
+                self._battle_menu_tap("A")
+                observation = self.observe()
+                menu_state = observation["battle"]["menu"]["state"]
+                if menu_state == "move_menu":
+                    break
+                if menu_state != "command_menu":
+                    raise RuntimeError(f"Fight opened unexpected state {menu_state}")
+            else:
+                raise RuntimeError("Fight confirmation was not acknowledged")
+            battle = observation["battle"]
+        elif menu_state != "move_menu":
+            raise RuntimeError(f"expected command/move menu, got {menu_state}")
+
+        if visible_cursor is None:
+            selected_cursors = observation["ui"].get(
+                "battle_move_cursors", []
+            )
+            visible_cursor = (
+                selected_cursors[battler_slot]
+                if len(selected_cursors) > battler_slot
+                else None
+            )
+        if visible_cursor not in range(4):
+            raise RuntimeError(f"invalid visible move cursor {visible_cursor}")
+        for key in self._grid_cursor_keys(visible_cursor, move_slot):
+            self._battle_menu_tap(key, hold_frames=3)
+
+        selected = self.observe()
+        selected_menu = selected["battle"]["menu"]
+        if selected_menu["state"] != "move_menu":
+            raise RuntimeError(
+                f"move cursor input left selector in {selected_menu['state']}"
+            )
+        details = selected_menu.get("selected_move") or {}
+        selected_type = details.get("type")
+        if not selected_type or selected_type.casefold() != expected_type.casefold():
+            raise RuntimeError(
+                f"move cursor verification failed: expected Type/{expected_type}, "
+                f"observed {details.get('text')!r}"
+            )
+
+        selection_attempts = 0
+        while selection_attempts < max_attempts:
+            selection_attempts += 1
+            self._battle_menu_tap("A", settle_frames=2)
+            after = self.observe()
+            if (
+                after["battle"]["menu"]["state"] == "move_menu"
+                and after["battle"]["menu"].get("target") is None
+            ):
+                continue
+            break
+        else:
+            raise RuntimeError("move selection was not acknowledged")
+
+        explicit_target = after["battle"]["menu"]["state"] == "target_menu"
+        if explicit_target:
+            current_target = after["battle"]["menu"].get("target")
+            desired_target = current_target if target_slot is None else target_slot
+            if desired_target != current_target:
+                if {desired_target, current_target} != {1, 3}:
+                    raise RuntimeError(
+                        f"cannot move explicit target {current_target} to {desired_target}"
+                    )
+                self._battle_menu_tap("LEFT", settle_frames=2)
+                after = self.observe()
+                if after["battle"]["menu"].get("target") != desired_target:
+                    raise RuntimeError(
+                        f"target verification failed: wanted {desired_target}, "
+                        f"got {after['battle']['menu'].get('target')}"
+                    )
+            for _ in range(max_attempts):
+                self._battle_menu_tap("A", settle_frames=2)
+                after = self.observe()
+                if after["battle"]["menu"]["state"] != "target_menu":
+                    break
+            else:
+                raise RuntimeError("target confirmation was not acknowledged")
+        elif target_slot is not None:
+            automatic_target = after["battle"]["menu"].get("target")
+            if automatic_target != target_slot:
+                raise RuntimeError(
+                    f"automatic target mismatch: wanted {target_slot}, got {automatic_target}"
+                )
+
+        final_menu = after["battle"]["menu"]["state"]
+        partner_alive = any(
+            item.get("slot") == 2
+            and item.get("present")
+            and item["state"].get("current_hp", 0) > 0
+            for item in after["battle"]["mons"]
+        )
+        if battler_slot == 0 and partner_alive and final_menu != "command_menu":
+            raise RuntimeError(f"first allied action ended in {final_menu}, not command_menu")
+        if (
+            battler_slot == 0
+            and not partner_alive
+            and final_menu in {"command_menu", "move_menu", "target_menu"}
+        ):
+            raise RuntimeError(
+                f"sole allied action was not queued after partner faint: {final_menu}"
+            )
+        if battler_slot == 2 and final_menu in {"command_menu", "move_menu", "target_menu"}:
+            raise RuntimeError(f"second allied action was not queued: {final_menu}")
+
+        return {
+            "battler_slot": battler_slot,
+            "species": battler["species"],
+            "move_slot": move_slot,
+            "move_id": move_id,
+            "move_name": self.rom_data().move_name(move_id),
+            "pp_before": before_pp,
+            "selected_type": selected_type,
+            "target": after["battle"]["menu"].get("target"),
+            "explicit_target": explicit_target,
+            "selection_attempts": selection_attempts,
+            "ack": final_menu,
+        }
+
     def advance_battle_until_menu(
         self,
         *,
@@ -1580,6 +2057,15 @@ class RunBunAdapter:
                 prompt_transition_seen = True
             field_mode = state["ui"].get("field_message_box_mode", 0)
             ram_menu_state = battle.get("menu", {}).get("state")
+            if ram_menu_state == "target_menu":
+                # Target choice is a gameplay decision, never battle text to
+                # auto-advance. Hand it back to the tactical controller.
+                return {
+                    "state": "target_menu",
+                    "frames": elapsed,
+                    "presses": presses,
+                    "feedback": "\n".join(feedback_parts),
+                }
             if ram_menu_state == "move_menu" and (not after_action or action_transition_seen):
                 return {
                     "state": "move_menu",
@@ -1605,7 +2091,12 @@ class RunBunAdapter:
             # command selector.  When both markers are present, the live
             # ``What will ... do?`` command prompt wins; otherwise open_fight
             # can skip Fight and spend a turn pressing into an old move menu.
-            if move_prompt and not command_prompt and (not after_action or action_transition_seen):
+            if (
+                move_prompt
+                and ram_menu_state != "target_menu"
+                and not command_prompt
+                and (not after_action or action_transition_seen)
+            ):
                 return {
                     "state": "move_menu",
                     "frames": elapsed,
@@ -1858,6 +2349,13 @@ class RunBunAdapter:
                 max_frames=1200,
                 visual_fallback=False,
             )
+            if status["state"] == "move_menu":
+                # A stale/queued Fight confirmation can leave an otherwise
+                # untouched random encounter in move selection. Back out to
+                # the command grid; never turn a flee request into an attack.
+                self.gba.press("B", frames=3)
+                self.gba.wait_frames(sample_frames)
+                continue
             if status["state"] != "command_menu":
                 if status["state"] in {"not_in_battle", "battle_end"}:
                     return {"state": "overworld", "attempts": attempts, "status": status}
@@ -1867,6 +2365,267 @@ class RunBunAdapter:
             self.gba.wait_frames(sample_frames)
             attempts += 1
         raise RuntimeError(f"failed to escape battle after {max_attempts} attempts")
+
+    @staticmethod
+    def _poke_ball_quantity(inventory: dict[str, Any]) -> int:
+        """Return the verified item-ID 1 quantity across decoded pockets."""
+        return sum(
+            int(item.get("quantity", 0))
+            for entries in inventory.get("pockets", {}).values()
+            if isinstance(entries, list)
+            for item in entries
+            if item.get("item_id") == 1
+        )
+
+    @classmethod
+    def capture_decision_certificate(
+        cls,
+        observation: dict[str, Any],
+        *,
+        poke_balls: int,
+        target_hp_fraction: float = 0.35,
+        type_chart: dict[int, dict[int, float]] | None = None,
+        damage_memory: dict[tuple[int, int, int], list[int]] | None = None,
+    ) -> dict[str, Any]:
+        """Choose a conservative wild-capture action from canonical RAM state.
+
+        A weakening move is legal for this policy only when its modeled normal
+        maximum is strictly below live target HP. Moves with lock-in or
+        residual-KO risk are excluded even if their first hit is nonlethal.
+        Unknown damage is uncertainty, never evidence that a move is safe.
+        """
+        if not 0 < target_hp_fraction < 1:
+            raise ValueError("target_hp_fraction must be between 0 and 1")
+        battle = observation.get("battle", {})
+        if not battle.get("active"):
+            raise RuntimeError("capture_requires_active_battle")
+        # Old allied/enemy slots 2/3 can remain populated after a prior double
+        # battle. A verified Wild printer takes precedence over that stale
+        # struct residue for this single-target helper.
+        menu = battle.get("menu", {})
+        stale_double_slots = (
+            menu.get("state") == "command_menu"
+            and menu.get("command_subject")
+            and menu.get("command_battler") is None
+        )
+        if (
+            battle.get("format") == "double"
+            and battle.get("kind") != "wild"
+            and not stale_double_slots
+        ):
+            raise RuntimeError("capture_helper_does_not_support_double_battles")
+        mons = battle.get("mons", [])
+        player = next(
+            (item for item in mons if item.get("slot") == 0 and item.get("present")),
+            None,
+        )
+        opponent = next(
+            (item for item in mons if item.get("slot") == 1 and item.get("present")),
+            None,
+        )
+        if player is None or opponent is None:
+            raise RuntimeError("capture_requires_live_player_and_wild_target")
+        player_state = player["state"]
+        opponent_state = opponent["state"]
+        target_hp = int(opponent_state.get("current_hp", 0))
+        target_max_hp = max(int(opponent_state.get("max_hp", 0)), 1)
+        if target_hp <= 0:
+            raise RuntimeError("capture_target_is_fainted")
+
+        legal_moves: list[dict[str, Any]] = []
+        unknown_moves: list[int] = []
+        for slot, move_id in enumerate(player_state.get("moves", ())):
+            pp = (player_state.get("pp") or (0, 0, 0, 0))[slot]
+            if not move_id or not pp:
+                continue
+            damage_min, damage_max = cls._damage_bounds(
+                move_id,
+                player,
+                opponent,
+                type_chart=type_chart,
+                damage_memory=damage_memory,
+            )
+            if damage_max <= 0 and move_id not in STATUS_MOVE_IDS:
+                unknown_moves.append(int(move_id))
+            # Gen III criticals can double normal damage. Use that larger
+            # bound even though later-generation mechanics often use 1.5x;
+            # a move is capture-safe only when every modeled crit remains
+            # nonlethal.
+            critical_damage_max = damage_max * 2
+            safe = (
+                damage_min > 0
+                and critical_damage_max < target_hp
+                and move_id not in CAPTURE_UNSAFE_MOVE_IDS
+            )
+            legal_moves.append({
+                "kind": "move",
+                "slot": slot,
+                "move_id": int(move_id),
+                "pp": int(pp),
+                "damage_range": [round(damage_min, 2), round(damage_max, 2)],
+                "critical_damage_max": round(critical_damage_max, 2),
+                "guaranteed_nonlethal": safe,
+                "post_hp_range": [
+                    max(1, round(target_hp - critical_damage_max, 2)),
+                    max(1, round(target_hp - damage_min, 2)),
+                ] if safe else None,
+                "excluded_for_residual_risk": move_id in CAPTURE_UNSAFE_MOVE_IDS,
+            })
+
+        safe_moves = [move for move in legal_moves if move["guaranteed_nonlethal"]]
+        # Maximize the conservative minimum reduction, then the modeled
+        # maximum reduction; this increases catch odds without accepting a KO
+        # roll. Stable slot ordering makes ties deterministic.
+        safest_weaken = max(
+            safe_moves,
+            key=lambda move: (
+                move["damage_range"][0],
+                move["damage_range"][1],
+                -move["slot"],
+            ),
+            default=None,
+        )
+        hp_fraction = target_hp / target_max_hp
+        should_weaken = hp_fraction > target_hp_fraction and safest_weaken is not None
+        if should_weaken:
+            decision = {"kind": "move", **safest_weaken}
+            claim = "expected-best safe weakening line; modeled maximum remains strictly nonlethal"
+        elif poke_balls > 0:
+            decision = {"kind": "throw_ball", "button": "L"}
+            claim = (
+                "expected-best throw after reaching the configured HP threshold"
+                if hp_fraction <= target_hp_fraction
+                else "heuristic throw because no damaging move has a verified nonlethal bound"
+            )
+        else:
+            decision = {"kind": "blocked", "reason": "no_poke_balls"}
+            claim = "capture is impossible with verified inventory"
+        return {
+            "state": {
+                "player": {
+                    "species": player_state.get("species"),
+                    "hp": player_state.get("current_hp"),
+                    "max_hp": player_state.get("max_hp"),
+                },
+                "target": {
+                    "species": opponent_state.get("species"),
+                    "hp": target_hp,
+                    "max_hp": target_max_hp,
+                    "status": opponent_state.get("status", 0),
+                    "hp_fraction": round(hp_fraction, 4),
+                },
+                "poke_balls": int(poke_balls),
+            },
+            "legal_actions": {
+                "moves": legal_moves,
+                "throw_ball": poke_balls > 0,
+                "switch": any(
+                    mon.get("present")
+                    and mon.get("slot") != 0
+                    and mon.get("state", {}).get("current_hp", 0) > 0
+                    for mon in observation.get("party", {}).get("mons", [])
+                ),
+                "run": True,
+            },
+            "decision": decision,
+            "proof": {
+                "level": "expected-best" if decision["kind"] != "blocked" else "forced",
+                "claim": claim,
+                "material_uncertainty": {
+                    "catch_rng": decision["kind"] == "throw_ball",
+                    "unknown_damage_move_ids": sorted(set(unknown_moves)),
+                    "critical_hit_multiplier_bound": 2.0 if decision["kind"] == "move" else None,
+                    "full_paralysis": (
+                        "25% action-failure chance"
+                        if decision["kind"] == "move"
+                        and int(player_state.get("status", 0)) & PARALYSIS_STATUS
+                        else None
+                    ),
+                },
+            },
+        }
+
+    def throw_poke_ball_hotkey(
+        self,
+        *,
+        max_frames: int = 1800,
+    ) -> dict[str, Any]:
+        """Throw the current Poké Ball with L and verify the complete result.
+
+        Run & Bun exposes a battle hotkey on L. This avoids opening the Bag;
+        quantity delta, capture text, and party insertion are the authoritative
+        acknowledgments. The helper currently requires an open party slot so a
+        successful capture can be verified without relying on PC UI state.
+        """
+        from games.run_and_bun.state import RunBun
+
+        state = RunBun(self.gba)
+        before = self.observe()
+        if before.get("battle", {}).get("menu", {}).get("state") != "command_menu":
+            raise RuntimeError("poke_ball_hotkey_requires_command_menu")
+        before_count = state.party_count()
+        if before_count >= 6:
+            raise RuntimeError("poke_ball_hotkey_requires_open_party_slot")
+        before_balls = self._poke_ball_quantity(self.inventory())
+        if before_balls <= 0:
+            raise RuntimeError("no_poke_balls")
+        target = self._present_battle_mon(before, 1)
+        active = self._present_battle_mon(before, 0)
+
+        self.gba.press("L", frames=3)
+        self.gba.wait_frames(180)
+        resolution = self.advance_battle_until_menu(
+            sample_frames=24,
+            max_frames=max_frames,
+            visual_fallback=False,
+            after_action=True,
+        )
+        after_balls = self._poke_ball_quantity(self.inventory())
+        if after_balls != before_balls - 1:
+            raise RuntimeError(
+                f"poke_ball_hotkey_not_acknowledged: balls {before_balls}->{after_balls}"
+            )
+        feedback = resolution.get("feedback", "")
+        caught = "was caught" in feedback or "Gotcha!" in feedback
+        if caught:
+            # A first capture may show Pokédex registration before the naming
+            # question. After catch text is verified, A may only advance that
+            # post-capture flow; B is the deterministic No/cancel shortcut at
+            # the nickname prompt.
+            for _ in range(16):
+                if state.party_count() == before_count + 1:
+                    break
+                observed = self.observe()
+                contexts = (observed.get("text") or {}).get("battle_printers", [])
+                rendered = "\n".join(context.get("text", "") for context in contexts)
+                self.gba.press("B" if "Give a nickname" in rendered else "A", frames=3)
+                self.gba.wait_frames(120)
+            if state.party_count() != before_count + 1:
+                raise RuntimeError("capture_text_seen_but_party_insertion_not_verified")
+            inserted = state.party_mon(before_count)
+            if inserted.species_id != target.get("species"):
+                raise RuntimeError(
+                    f"captured_species_mismatch: expected {target.get('species')} got {inserted.species_id}"
+                )
+            outcome = "caught"
+        elif resolution.get("state") == "command_menu":
+            outcome = "escaped_ball"
+        else:
+            raise RuntimeError(
+                f"poke_ball_outcome_unresolved: state={resolution.get('state')} feedback={feedback!r}"
+            )
+        return {
+            "outcome": outcome,
+            "target_species": target.get("species"),
+            "target_hp": target.get("current_hp"),
+            "active_hp_before": active.get("current_hp"),
+            "active_hp_after": state.party_mon(0).hp,
+            "balls_before": before_balls,
+            "balls_after": after_balls,
+            "party_count_before": before_count,
+            "party_count_after": state.party_count(),
+            "resolution": resolution,
+        }
 
     def finish_battle_after_ko(
         self,
@@ -2236,8 +2995,8 @@ class RunBunAdapter:
             "reason": "ready" if mons and not damaged else "healing_required",
         }
 
-    def trainer_preflight(self) -> dict[str, Any]:
-        """Read health plus the actual medicine pockets before trainer contact."""
+    def trainer_preflight(self, target: Any | None = None) -> dict[str, Any]:
+        """Gate trainer contact on health and any known hard-fight strategy."""
         report = self.health_preflight(self.observe())
         try:
             pockets = self.inventory().get("pockets", {})
@@ -2248,7 +3007,44 @@ class RunBunAdapter:
         except Exception as error:
             report["medicine"] = None
             report["inventory_error"] = f"{type(error).__name__}: {error}"
-        report["action"] = "engage_trainer" if report["ready"] else "heal_before_engaging"
+        if target is not None:
+            try:
+                from games.run_and_bun.trainer_database import lookup_trainer
+
+                map_group, map_number = target.map_id
+                trainer = lookup_trainer(
+                    map_group=map_group,
+                    map_number=map_number,
+                    local_id=target.local_id,
+                    graphics_id=getattr(target, "graphics_id", None),
+                    script_address=getattr(target, "script_address", None),
+                )
+                report["trainer"] = trainer
+                if not trainer["found"]:
+                    report["ready"] = False
+                    report["reason"] = "trainer_database_unknown"
+                elif not trainer["trusted"]:
+                    report["ready"] = False
+                    report["reason"] = "trainer_identity_mismatch"
+                else:
+                    record = trainer["record"] or {}
+                    battle = record.get("battle", {})
+                    strategy = record.get("strategy", {})
+                    if battle.get("hard_fight") and strategy.get("status") != "ready":
+                        report["ready"] = False
+                        report["reason"] = "hard_fight_plan_required"
+            except Exception as error:
+                report["ready"] = False
+                report["reason"] = "trainer_database_error"
+                report["trainer_error"] = f"{type(error).__name__}: {error}"
+        if report["ready"]:
+            report["action"] = "engage_trainer"
+        elif report["reason"] == "healing_required":
+            report["action"] = "heal_before_engaging"
+        elif report["reason"] == "trainer_database_unknown":
+            report["action"] = "checkpoint_then_reconnaissance"
+        else:
+            report["action"] = "prepare_and_validate_strategy"
         return report
 
     def _field_bag_task(self) -> dict[str, Any]:
@@ -2273,6 +3069,13 @@ class RunBunAdapter:
                 return task
         raise RuntimeError("field_bag_not_open: Bag task is not active")
 
+    def _field_start_menu_open(self) -> bool:
+        """Whether the verified Start-menu input owner is still active."""
+        return any(
+            task.get("active") and task.get("function_address") == 0x080BD7B9
+            for task in self.gba.inspect_tasks().get("tasks", [])
+        )
+
     def _move_field_cursor(self, address: int, target: int, *, max_steps: int = 8) -> int:
         """Move a small RAM-backed vertical cursor and verify every step."""
         for _ in range(max_steps):
@@ -2289,6 +3092,26 @@ class RunBunAdapter:
         if final != target:
             raise RuntimeError(f"field_cursor_failed: address={address:#x} target={target} got={final}")
         return final
+
+    @staticmethod
+    def _field_move_learning_pending(observation: dict[str, Any]) -> bool:
+        """Detect move-learning ownership before any automatic menu cleanup."""
+        text = observation.get("text") or {}
+        rendered = "\n".join(
+            [((text.get("current") or {}).get("text") or "")]
+            + [context.get("text", "") for context in text.get("battle_printers", [])]
+        )
+        phrases = (
+            "wants to learn",
+            "already knows four moves",
+            "Should a move be deleted",
+            "Which move should be forgotten",
+            "Stop trying to teach",
+        )
+        # Mode 33 is the verified five-row move-forget summary screen.
+        return observation.get("ui", {}).get("field_message_box_mode") == 33 or any(
+            phrase in rendered for phrase in phrases
+        )
 
     def use_field_item(
         self,
@@ -2351,6 +3174,9 @@ class RunBunAdapter:
                 raise RuntimeError("field_item_menu_already_open")
             self.gba.press("B", frames=3)
             self.gba.wait_frames(90)
+        if self._field_start_menu_open():
+            self.gba.press("B", frames=3)
+            self.gba.wait_frames(90)
 
         # Open Start -> Bag. The live menu has three entries and Bag is cursor 2.
         menu_ready = False
@@ -2401,20 +3227,42 @@ class RunBunAdapter:
         self.gba.wait_frames(30)
         self.gba.press("A", frames=3)
         self.gba.wait_frames(120)
-        if self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 15:
-            raise RuntimeError("field_item_target_prompt_missing")
+        target_mode = self.gba.read8(FIELD_MESSAGE_BOX_MODE)
+        # The same live party target screen rotates through party_menu (11),
+        # party_prompt (13), field_item_target (15), and the five-member party
+        # transition (19) as its printer/task settles. All were verified
+        # against the visible Endless Candy
+        # target screen; requiring only one exact sampling instant is brittle.
+        if target_mode not in {11, 13, 15, 19}:
+            raise RuntimeError(f"field_item_target_prompt_missing: mode={target_mode}")
         selected_cursor = self._move_field_cursor(FIELD_PARTY_CURSOR, target_slot)
         self.gba.press("A", frames=3)
         self.gba.wait_frames(300)
         effect_state = self.observe()
         text = ((effect_state.get("text") or {}).get("current") or {}).get("text")
         # Endless Candy leaves a reusable target screen, then the Bag and
-        # Start layers remain stacked behind it. Six B presses close those
-        # layers plus the delayed Bag task deterministically; B is harmless
-        # once overworld is reached.
+        # Start layers remain stacked behind it. Close one layer at a time and
+        # re-observe after every B. A level-up can branch into move learning;
+        # continuing to spam B there would silently decline a move.
+        move_learning_pending = self._field_move_learning_pending(effect_state)
         for _ in range(6):
+            if move_learning_pending:
+                break
             self.gba.press("B", frames=3)
             self.gba.wait_frames(90)
+            layer_state = self.observe()
+            move_learning_pending = self._field_move_learning_pending(layer_state)
+            bag_open = True
+            try:
+                self._field_bag_task()
+            except RuntimeError:
+                bag_open = False
+            if (
+                layer_state.get("mode") == "overworld"
+                and not bag_open
+                and not self._field_start_menu_open()
+            ):
+                break
         # Field scripts keep a short post-menu lock even after mode returns
         # to overworld. Let the RAM task settle before handing control back;
         # otherwise the first navigation chunk can be silently ignored.
@@ -2436,6 +3284,7 @@ class RunBunAdapter:
             "target_species": target_mon.get("state", {}).get("species"),
             "cursor": selected_cursor,
             "text": text,
+            "move_learning_pending": move_learning_pending,
             "state": {
                 "frame": after.get("frame"),
                 "mode": after.get("mode"),
@@ -2724,7 +3573,7 @@ class RunBunAdapter:
                     f"slot={slot} local_id={local_id} graphics_id={graphics_id}"
                 )
             if interact and require_trainer_ready and getattr(target, "trainer_type", 0):
-                preflight = self.trainer_preflight()
+                preflight = self.trainer_preflight(target)
                 if not preflight["ready"]:
                     return {
                         "state": last_state,

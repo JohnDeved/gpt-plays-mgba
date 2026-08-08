@@ -27,7 +27,14 @@ class FakeMGBA:
             "new_game_cursor": 0,
             "yes_no_cursor": 1,
             "battle_command_cursor": 2,
+            "battle_command_cursor_1": 0,
+            "battle_command_cursor_2": 1,
+            "battle_command_cursor_3": 3,
             "battle_move_cursor": 3,
+            "battle_move_cursor_1": 0,
+            "battle_move_cursor_2": 1,
+            "battle_move_cursor_3": 2,
+            "battle_target": 255,
             "party_count": 1,
             "field_message_box_mode": 0,
         }
@@ -61,13 +68,149 @@ class FakeMGBA:
 
 
 class RunBunTests(unittest.TestCase):
+    @staticmethod
+    def _capture_observation(*, target_hp=30, target_max_hp=30, moves=(44, 342, 0, 0)):
+        return {
+            "battle": {
+                "active": True,
+                "format": "single",
+                "kind": "wild",
+                "menu": {"state": "command_menu", "command_subject": "Grotle", "command_battler": None},
+                "mons": [
+                    {
+                        "slot": 0,
+                        "present": True,
+                        "state": {
+                            "species": 388,
+                            "level": 17,
+                            "current_hp": 57,
+                            "max_hp": 57,
+                            "attack": 32,
+                            "defense": 32,
+                            "speed": 24,
+                            "special_attack": 28,
+                            "special_defense": 30,
+                            "types": [12, 12, 9],
+                            "moves": list(moves),
+                            "pp": [25, 25, 0, 0],
+                            "stat_stages": [6] * 8,
+                            "status": 0,
+                        },
+                    },
+                    {
+                        "slot": 1,
+                        "present": True,
+                        "state": {
+                            "species": 95,
+                            "level": 8,
+                            "current_hp": target_hp,
+                            "max_hp": target_max_hp,
+                            "attack": 16,
+                            "defense": 40,
+                            "speed": 18,
+                            "special_attack": 12,
+                            "special_defense": 18,
+                            "types": [5, 4, 9],
+                            "moves": [33, 20, 88, 0],
+                            "pp": [35, 20, 15, 0],
+                            "stat_stages": [6] * 8,
+                            "status": 0,
+                        },
+                    },
+                ],
+            },
+            "party": {"mons": []},
+        }
+
+    def test_capture_certificate_weakens_only_with_strict_nonlethal_bound(self):
+        report = RunBunAdapter.capture_decision_certificate(
+            self._capture_observation(),
+            poke_balls=24,
+        )
+        self.assertEqual(report["decision"]["kind"], "move")
+        self.assertEqual(report["decision"]["move_id"], 44)
+        self.assertTrue(report["decision"]["guaranteed_nonlethal"])
+        self.assertLess(report["decision"]["critical_damage_max"], 30)
+
+    def test_capture_certificate_treats_wild_printer_as_single_despite_stale_double_slots(self):
+        observation = self._capture_observation()
+        observation["battle"]["format"] = "double"
+        report = RunBunAdapter.capture_decision_certificate(observation, poke_balls=24)
+        self.assertEqual(report["decision"]["kind"], "move")
+
+    def test_capture_certificate_treats_single_command_owner_as_stronger_than_stale_slots(self):
+        observation = self._capture_observation()
+        observation["battle"]["format"] = "double"
+        observation["battle"]["kind"] = None
+        report = RunBunAdapter.capture_decision_certificate(observation, poke_balls=24)
+        self.assertEqual(report["decision"]["kind"], "move")
+
+    def test_capture_certificate_excludes_residual_status_ko_risk(self):
+        report = RunBunAdapter.capture_decision_certificate(
+            self._capture_observation(moves=(342, 0, 0, 0)),
+            poke_balls=24,
+        )
+        self.assertEqual(report["decision"], {"kind": "throw_ball", "button": "L"})
+        self.assertTrue(report["legal_actions"]["moves"][0]["excluded_for_residual_risk"])
+
+    def test_capture_certificate_throws_after_hp_threshold(self):
+        report = RunBunAdapter.capture_decision_certificate(
+            self._capture_observation(target_hp=9),
+            poke_balls=24,
+        )
+        self.assertEqual(report["decision"], {"kind": "throw_ball", "button": "L"})
+
+    def test_capture_certificate_surfaces_full_paralysis_action_failure(self):
+        observation = self._capture_observation()
+        observation["battle"]["mons"][0]["state"]["status"] = 0x40
+        report = RunBunAdapter.capture_decision_certificate(observation, poke_balls=24)
+        self.assertEqual(
+            report["proof"]["material_uncertainty"]["full_paralysis"],
+            "25% action-failure chance",
+        )
+
     def test_battle_prompt_requires_command_text_not_page_control(self):
         self.assertFalse(RunBunAdapter._battle_command_prompt([{"text": "Chimchar used\nEmber!<0x70>"}]))
         self.assertTrue(RunBunAdapter._battle_command_prompt([{"text": "What will\nChimchar do?"}]))
 
     def test_battle_move_prompt_uses_type_and_pp_printer(self):
         self.assertTrue(RunBunAdapter._battle_move_prompt([{"text": "Type/Flying\nPP\n34/35"}]))
+        self.assertTrue(RunBunAdapter._battle_move_prompt([{"text": "Type/Dark"}]))
         self.assertFalse(RunBunAdapter._battle_move_prompt([{"text": "Foe Psyduck used\nBubble Beam!"}]))
+
+    def test_battle_move_prompt_details_decode_control_prefixed_type(self):
+        details = RunBunAdapter._battle_move_prompt_details(
+            [{"text": "<0x40>À   Type/<CTRL_06>Dark\nPP\n24/25"}]
+        )
+        self.assertEqual(details["type"], "Dark")
+        self.assertEqual(details["pp"], 24)
+        self.assertEqual(details["max_pp"], 25)
+
+    def test_double_target_menu_is_distinct_from_move_menu(self):
+        common = {
+            "party_switch_prompt": False,
+            "move_prompt": True,
+            "command_prompt": False,
+            "battle_active": True,
+            "battle_format": "double",
+        }
+        self.assertEqual(
+            RunBunAdapter._battle_menu_state(battle_target=255, **common),
+            "move_menu",
+        )
+        self.assertEqual(
+            RunBunAdapter._battle_menu_state(battle_target=1, **common),
+            "target_menu",
+        )
+
+    def test_double_command_subject_and_cursor_path_are_deterministic(self):
+        self.assertEqual(
+            RunBunAdapter._battle_command_subject(
+                [{"text": "<0xA0> What will\nVenipede do?"}]
+            ),
+            "Venipede",
+        )
+        self.assertEqual(RunBunAdapter._grid_cursor_keys(0, 3), ["DOWN", "RIGHT"])
 
     def test_battle_party_switch_prompt_is_distinct_from_move_text(self):
         self.assertTrue(RunBunAdapter._battle_party_switch_prompt([{"text": "Choose a Pokémon."}]))
@@ -76,6 +219,14 @@ class RunBunTests(unittest.TestCase):
 
     def test_field_mode_54_is_drained_as_post_ko_battle_text(self):
         self.assertIn(54, BATTLE_KO_FIELD_MESSAGE_MODES)
+
+    def test_double_battle_field_modes_are_classified_as_battle_ui(self):
+        for mode in (36, 44, 48, 52, 60, 68):
+            self.assertIn(mode, BATTLE_KO_FIELD_MESSAGE_MODES)
+        self.assertEqual(
+            FIELD_MESSAGE_MODE_NAMES[36], "double_battle_party_transition"
+        )
+        self.assertEqual(FIELD_MESSAGE_MODE_NAMES[60], "double_battle_move")
 
     def test_health_preflight_requires_every_present_mon_at_full_hp(self):
         observation = {
@@ -110,6 +261,34 @@ class RunBunTests(unittest.TestCase):
 
     def test_field_item_target_mode_is_named(self):
         self.assertEqual(FIELD_MESSAGE_MODE_NAMES[15], "field_item_target")
+
+    def test_candy_target_screen_modes_are_all_semantically_named(self):
+        self.assertEqual(
+            {FIELD_MESSAGE_MODE_NAMES[value] for value in (11, 13, 15, 19)},
+            {"party_menu", "party_prompt", "field_item_target", "party_target_transition"},
+        )
+
+    def test_field_item_cleanup_stops_when_move_learning_owns_ui(self):
+        self.assertTrue(RunBunAdapter._field_move_learning_pending({
+            "ui": {"field_message_box_mode": 13},
+            "text": {"battle_printers": [{"text": "Onix wants to learn the move Dragon Breath."}]},
+        }))
+        self.assertTrue(RunBunAdapter._field_move_learning_pending({
+            "ui": {"field_message_box_mode": 33},
+            "text": {},
+        }))
+        self.assertFalse(RunBunAdapter._field_move_learning_pending({
+            "ui": {"field_message_box_mode": 0},
+            "text": {"current": {"text": "Onix was elevated to Lv. 11."}},
+        }))
+
+    def test_start_menu_owner_is_not_mistaken_for_clean_overworld(self):
+        gba = FakeMGBA()
+        gba.inspect_tasks = lambda: {"tasks": [{
+            "active": 1,
+            "function_address": 0x080BD7B9,
+        }]}
+        self.assertTrue(RunBunAdapter(gba)._field_start_menu_open())
 
     def test_npc_interaction_gap_supports_counter_service_range(self):
         class FakeLiveMap:
@@ -179,6 +358,9 @@ class RunBunTests(unittest.TestCase):
 
         self.assertEqual(state["frame"], 42)
         self.assertEqual(state["ui"]["yes_no"], 1)
+        self.assertEqual(state["ui"]["battle_target"], 255)
+        self.assertEqual(state["ui"]["battle_command_cursors"], [2, 0, 1, 3])
+        self.assertEqual(state["ui"]["battle_move_cursors"], [3, 0, 1, 2])
         self.assertEqual(state["ui"]["field_message_box_mode_name"], "none")
         self.assertEqual(state["save"]["block1"]["x"], 5)
         self.assertEqual(state["save"]["block1"]["y"], 7)
@@ -186,6 +368,7 @@ class RunBunTests(unittest.TestCase):
         self.assertEqual(state["map"], {"group": 2, "number": 3, "x": 5, "y": 7, "warp_id": 4})
         self.assertEqual(state["party"]["count"], 1)
         self.assertEqual(len(state["battle"]["mons"]), 4)
+        self.assertEqual(state["battle"]["format"], "single")
         self.assertFalse(state["battle"]["active"])
         self.assertEqual(state["player"]["name"], "Ac")
 

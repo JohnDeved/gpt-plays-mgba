@@ -1,0 +1,4 @@
+interface:
+  display_name: "Track Run & Bun Goals"
+  short_description: "Keep gameplay goals and milestones aligned"
+  default_prompt: "Use $track-runbun-goals-progress to reconcile authoritative game state, select the furthest checkpoint, and set the next verified objective."

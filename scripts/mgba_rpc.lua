@@ -4,6 +4,9 @@ local MAX_RANGE_BYTES = 1024 * 1024
 local MAX_EVENT_QUEUE = 4096
 local RUNTIME_DIR = os.getenv("MGBA_RUNTIME_DIR") or "/tmp"
 local READY_FILE = os.getenv("MGBA_RPC_READY_FILE") or (RUNTIME_DIR.."/mgba_rpc_ready.txt")
+local IDLE_STOP_ENABLED = os.getenv("MGBA_IDLE_STOP") == "1"
+local PROCESS_PID = os.getenv("MGBA_PROCESS_PID")
+if PROCESS_PID and not PROCESS_PID:match("^%d+$") then PROCESS_PID = nil end
 
 -- Optional text-printer inspection defaults for the verified Run & Bun profile.
 -- Clients can override these for another Gen III ROM/profile.
@@ -34,6 +37,8 @@ local watchEvents = {}
 local nextEventId = 1
 local waits = {}
 local nextWaitId = 1
+local idleStopPending = IDLE_STOP_ENABLED and PROCESS_PID~=nil
+local progressStopPending = false
 
 local KEYS = {
   A = C.GBA_KEY.A, B = C.GBA_KEY.B,
@@ -567,7 +572,7 @@ end
 local function capabilities()
   return {
     protocol=PROTOCOL,
-    ops={"ping","info","observe","text.inspect","tasks.inspect","input.press","input.sequence","input.clear","action.status","experiment.run","experiment.status","memory.read","memory.read_batch","memory.read_range","memory.read_range_batch","memory.write","memory.snapshot","memory.diff","watch.add","watch.remove","watch.list","watch.read","events.poll","wait.until","wait.status","wait.cancel","screenshot","state.save","state.load","reset"},
+    ops={"ping","info","observe","text.inspect","tasks.inspect","input.press","input.sequence","input.clear","action.status","experiment.run","experiment.status","memory.read","memory.read_batch","memory.read_range","memory.read_range_batch","memory.write","memory.snapshot","memory.diff","watch.add","watch.remove","watch.list","watch.read","events.poll","wait.until","wait.status","wait.cancel","screenshot","state.save","state.load","runtime.idle","reset"},
     keys={"A","B","SELECT","START","RIGHT","LEFT","UP","DOWN","R","L"},
     memory_widths={8,16,32},
     max_range_bytes=MAX_RANGE_BYTES,
@@ -580,6 +585,7 @@ local function capabilities()
     task_inspection=true,
     screenshot=true,
     savestate=true,
+    idle_stop_on_disconnect=IDLE_STOP_ENABLED and PROCESS_PID~=nil,
   }
 end
 
@@ -588,6 +594,13 @@ local function dispatch(req)
   local p=req.params or {}
   if op=="ping" then return {pong=true, protocol=PROTOCOL} end
   if op=="info" then return {title=emu:getGameTitle() or "", code=emu:getGameCode() or "", frame=frame(), capabilities=capabilities()} end
+  if op=="runtime.idle" then
+    if IDLE_STOP_ENABLED and PROCESS_PID then
+      idleStopPending=true
+      progressStopPending=true
+    end
+    return {idle_stop_scheduled=idleStopPending}
+  end
   if op=="text.inspect" then return inspect_text(p) end
   if op=="tasks.inspect" then return inspect_tasks(p) end
   if op=="reset" then
@@ -823,7 +836,15 @@ local function handle(sock,line)
   if not ok or type(req)~="table" then send(sock,{id=nil,ok=false,frame=frame(),error="invalid json: "..tostring(req)}); return end
   local id=req.id
   local ok2,res=pcall(dispatch,req)
-  if ok2 then send(sock,{id=id,ok=true,frame=frame(),result=res})
+  if ok2 then
+    if IDLE_STOP_ENABLED and PROCESS_PID then
+      idleStopPending=true
+      if req.op=="input.press" or req.op=="input.sequence" or
+          req.op=="experiment.run" or req.op=="wait.until" then
+        progressStopPending=true
+      end
+    end
+    send(sock,{id=id,ok=true,frame=frame(),result=res})
   else send(sock,{id=id,ok=false,frame=frame(),error=tostring(res)}) end
 end
 
@@ -840,7 +861,10 @@ local function on_client_data(id)
       end
       buffers[id]=data
     else
-      if err~=socket.ERRORS.AGAIN then sock:close(); clients[id]=nil; buffers[id]=nil end
+      if err~=socket.ERRORS.AGAIN then
+        sock:close(); clients[id]=nil; buffers[id]=nil
+        if next(clients)==nil then idleStopPending=true end
+      end
       return
     end
   end
@@ -848,10 +872,14 @@ end
 
 local function accept_client()
   local sock=server:accept(); if not sock then return end
+  idleStopPending=false
   local id=nextClientId; nextClientId=nextClientId+1
   clients[id]=sock; buffers[id]=""
   sock:add("received",function() on_client_data(id) end)
-  sock:add("error",function() clients[id]=nil; buffers[id]=nil end)
+  sock:add("error",function()
+    clients[id]=nil; buffers[id]=nil
+    if next(clients)==nil then idleStopPending=true end
+  end)
   send(sock,{type="hello",protocol=PROTOCOL,frame=frame(),title=emu:getGameTitle() or "",code=emu:getGameCode() or "",capabilities=capabilities()})
 end
 
@@ -895,6 +923,26 @@ callbacks:add("frame",function()
   end
   update_watches()
   update_waits()
+  -- While a controller is connected, its Python client performs the stop
+  -- synchronously after the final RPC/status reply. Lua is the startup and
+  -- disconnect fallback; stopping under a live status poll creates a race.
+  local shouldIdleStop = (progressStopPending or idleStopPending) and
+      next(clients)==nil
+  if shouldIdleStop and IDLE_STOP_ENABLED and PROCESS_PID and
+      not activeAction and #actionQueue==0 then
+    local waiting=false
+    for _,wait in pairs(waits) do
+      if wait.state=="waiting" then waiting=true; break end
+    end
+    if not waiting then
+      idleStopPending=false
+      progressStopPending=false
+      -- mGBA 0.10.2 does not expose frontend pause/render controls to Lua.
+      -- Stopping the exact launcher-exported PID blocks both rendering and
+      -- emulation. The next RPC request sends SIGCONT first.
+      os.execute("/bin/kill -STOP "..PROCESS_PID)
+    end
+  end
 end)
 
 server=socket.bind("127.0.0.1",PORT)

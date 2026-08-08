@@ -7,6 +7,7 @@ from games.run_and_bun.objects import (
     OBJECT_FLAG_IS_PLAYER,
     decode_live_objects,
     object_occupied_edges,
+    read_live_event_targets,
     select_live_object,
 )
 
@@ -68,6 +69,31 @@ class ObjectTests(unittest.TestCase):
         blocked = object_occupied_edges([npc])
         self.assertIn(((6, 3), "RIGHT"), blocked)
         self.assertIn(((8, 3), "LEFT"), blocked)
+
+    def test_decodes_stable_event_template_identity(self):
+        class FakeMGBA:
+            def read_range(self, address, length):
+                if address == 0x020368DC:
+                    return b"\0\0\0\0" + (0x02001000).to_bytes(4, "little")
+                if address == 0x02001000:
+                    return bytes((1, 0, 0, 0)) + (0x08002000).to_bytes(4, "little")
+                if address == 0x08002000:
+                    raw = bytearray(0x18)
+                    raw[0:2] = bytes((7, 54))
+                    raw[4:8] = (22).to_bytes(2, "little", signed=True) + (12).to_bytes(2, "little", signed=True)
+                    raw[9] = 7
+                    raw[0x0C:0x10] = (1).to_bytes(2, "little") + (4).to_bytes(2, "little")
+                    raw[0x10:0x14] = (0x08123456).to_bytes(4, "little")
+                    raw[0x14:0x16] = (0x345).to_bytes(2, "little")
+                    return bytes(raw)
+                raise AssertionError((address, length))
+
+        targets = read_live_event_targets(FakeMGBA(), map_id=(0, 24))
+        self.assertEqual(len(targets), 1)
+        self.assertEqual(targets[0].local_id, 7)
+        self.assertEqual(targets[0].script_address, 0x08123456)
+        self.assertEqual(targets[0].flag_id, 0x345)
+        self.assertEqual(targets[0].as_dict()["source"], "map_event_template")
 
 
 if __name__ == "__main__":

@@ -78,6 +78,24 @@ class FakeMGBA(MGBA):
 
 
 class MGBAClientTests(unittest.TestCase):
+    def test_idle_policy_keeps_only_frame_work_running(self):
+        self.assertFalse(
+            MGBA._request_finished(
+                "input.press", {"action": {"state": "queued"}}
+            )
+        )
+        self.assertFalse(
+            MGBA._request_finished(
+                "wait.status", {"wait": {"state": "waiting"}}
+            )
+        )
+        self.assertTrue(
+            MGBA._request_finished(
+                "action.status", {"action": {"state": "done"}}
+            )
+        )
+        self.assertTrue(MGBA._request_finished("memory.read", {"value": 7}))
+
     def test_range_reads_decode_hex_payloads(self):
         gba = FakeMGBA()
 

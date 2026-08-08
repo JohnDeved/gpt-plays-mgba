@@ -495,6 +495,11 @@ class RunBun:
         active_species = self.battle_mon(0).species_id
         if mon.species_id == active_species:
             raise ValueError("switch_failed: target is already active")
+        # The command cursor can be valid in RAM while the prior battle text
+        # task still owns input.  Reconnect/pause at this boundary before
+        # moving the cursor, otherwise a voluntary switch can be rejected or
+        # a stale move cursor can consume the next D-pad input.
+        self._menu_pause_boundary()
         self.set_action_cursor(2, press_frames=press_frames)
         self.gba.press("A", frames=press_frames)
         # The party screen slides in before it accepts directional input.
@@ -539,14 +544,10 @@ class RunBun:
         for attempt in range(2):
             for _ in range(60):
                 if self.battle_mon(0).species_id != active_species:
-                    # Battler RAM updates before the Shift submenu closes.
-                    # Do not hand control back while cursor still says
-                    # Pokemon; caller would press into Summary/Cancel.
-                    self.gba.wait_frames(max(settle_frames, 120))
-                    self._menu_pause_boundary()
-                    if self.gba.read8(G_BATTLE_ACTION_CURSOR) == 2:
-                        action = self.gba.press("A", frames=press_frames)
-                        self.gba.wait_frames(settle_frames)
+                    # The battler identity is the authoritative switch ACK.
+                    # Do not confirm again based only on the command cursor:
+                    # that byte remains on Pokemon after the turn has already
+                    # resolved, so an extra A can queue an unintended action.
                     return {"slot": slot, "species": mon.species, "action": action}
                 self.gba.wait_frames(10)
             if attempt == 0:

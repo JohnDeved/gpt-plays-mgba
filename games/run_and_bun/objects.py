@@ -114,6 +114,8 @@ class LiveEventTarget:
     movement_type: int
     trainer_type: int
     trainer_sight_radius: int
+    script_address: int
+    flag_id: int
     current_x: int
     current_y: int
     map_id: tuple[int, int]
@@ -134,6 +136,8 @@ class LiveEventTarget:
             "movement_type": self.movement_type,
             "trainer_type": self.trainer_type,
             "trainer_sight_radius": self.trainer_sight_radius,
+            "script_address": self.script_address,
+            "flag_id": self.flag_id,
             "position": self.position,
             "map_id": self.map_id,
             "source": "map_event_template",
@@ -172,6 +176,8 @@ def read_live_event_targets(gba: Any, *, map_id: tuple[int, int]) -> list[LiveEv
                 # trainer type and sight radius are u16 values at +0x0C/+0x0E.
                 trainer_type=_u16(raw, offset + 0x0C),
                 trainer_sight_radius=_u16(raw, offset + 0x0E),
+                script_address=struct.unpack_from("<I", raw, offset + 0x10)[0],
+                flag_id=_u16(raw, offset + 0x14),
                 current_x=x,
                 current_y=y,
                 map_id=map_id,

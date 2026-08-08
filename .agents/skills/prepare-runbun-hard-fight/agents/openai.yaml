@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prepare Run & Bun Hard Fight"
+  short_description: "Build and validate a hard-fight game plan"
+  default_prompt: "Use $prepare-runbun-hard-fight to build and validate a preparation plan before the next difficult trainer battle."

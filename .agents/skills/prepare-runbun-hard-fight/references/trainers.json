@@ -1,0 +1,169 @@
+{
+  "schema_version": 1,
+  "game": {
+    "title": "Pokemon Run & Bun",
+    "version": "1.07",
+    "rom_sha256": "68ec5b0c02e6def8da8dc2b1857b269505418803d44cc2b816fb7471587bf89d"
+  },
+  "trainers": {
+    "map:0:24/local:7": {
+      "key": "map:0:24/local:7",
+      "name": null,
+      "overworld": {
+        "map_group": 0,
+        "map_number": 24,
+        "local_id": 7,
+        "graphics_id": 54,
+        "event_template_slot": 6,
+        "initial_position": [22, 12],
+        "trainer_type": 1,
+        "sight_radius": 6,
+        "script_address": "0x08223e3a",
+        "flag_id": 0,
+        "trainer_id": 64,
+        "dialogue_cue": "I'm thirsty... I could go for a Soda Pop at the Seashore House..."
+      },
+      "battle": {
+        "format": "double",
+        "required": true,
+        "hard_fight": true,
+        "roster_complete": true,
+        "roster_count": 6,
+        "identity_source": "rom",
+        "roster_source": "battle_ram_across_verified_savestates"
+      },
+      "roster": [
+        {
+          "send_out_position": 1,
+          "pair": 1,
+          "side": "left",
+          "species_id": 619,
+          "species_name": "Mienfoo",
+          "level": 14,
+          "types": [1],
+          "ability_id": 39,
+          "ability_name": "Inner Focus",
+          "held_item_id": 431,
+          "held_item_name": "Black Belt",
+          "moves": [395, 179, 317, 270],
+          "move_names": ["Force Palm", "Reversal", "Rock Tomb", "Helping Hand"],
+          "stats": {"hp": 40, "attack": 33, "defense": 23, "speed": 29, "special_attack": 21, "special_defense": 23}
+        },
+        {
+          "send_out_position": 2,
+          "pair": 1,
+          "side": "right",
+          "species_id": 190,
+          "species_name": "Aipom",
+          "level": 14,
+          "types": [0],
+          "ability_id": 50,
+          "ability_name": "Run Away",
+          "held_item_id": 425,
+          "held_item_name": "Silk Scarf",
+          "moves": [458, 252, 332, 28],
+          "move_names": ["Double Hit", "Fake Out", "Aerial Ace", "Sand Attack"],
+          "stats": {"hp": 43, "attack": 28, "defense": 24, "speed": 36, "special_attack": 18, "special_defense": 24}
+        },
+        {
+          "send_out_position": 3,
+          "pair": 2,
+          "side": "left",
+          "species_id": 30,
+          "species_name": "Nidorina",
+          "level": 15,
+          "types": [3],
+          "ability_id": 38,
+          "ability_name": "Poison Point",
+          "held_item_id": 522,
+          "held_item_name": "Lum Berry",
+          "moves": [474, 352, 351, 92],
+          "move_names": ["Venoshock", "Water Pulse", "Shock Wave", "Toxic"],
+          "stats": {"hp": 50, "attack": 25, "defense": 29, "speed": 28, "special_attack": 26, "special_defense": 26}
+        },
+        {
+          "send_out_position": 4,
+          "pair": 2,
+          "side": "right",
+          "species_id": 404,
+          "species_name": "Luxio",
+          "level": 14,
+          "types": [13],
+          "ability_id": 22,
+          "ability_name": "Intimidate",
+          "held_item_id": 522,
+          "held_item_name": "Lum Berry",
+          "moves": [209, 24, 44, 336],
+          "move_names": ["Spark", "Double Kick", "Bite", "Howl"],
+          "stats": {"hp": 45, "attack": 33, "defense": 23, "speed": 28, "special_attack": 23, "special_defense": 23}
+        },
+        {
+          "send_out_position": 5,
+          "pair": 3,
+          "side": "left",
+          "species_id": 180,
+          "species_name": "Flaaffy",
+          "level": 14,
+          "types": [13],
+          "ability_id": 9,
+          "ability_name": "Static",
+          "held_item_id": 428,
+          "held_item_name": "Magnet",
+          "moves": [351, 7, 109, 86],
+          "move_names": ["Shock Wave", "Fire Punch", "Confuse Ray", "Thunder Wave"],
+          "stats": {"hp": 47, "attack": 24, "defense": 26, "speed": 18, "special_attack": 31, "special_defense": 26}
+        },
+        {
+          "send_out_position": 6,
+          "pair": 3,
+          "side": "right",
+          "species_id": 33,
+          "species_name": "Nidorino",
+          "level": 15,
+          "types": [3],
+          "ability_id": 38,
+          "ability_name": "Poison Point",
+          "held_item_id": 487,
+          "held_item_name": "Black Sludge",
+          "moves": [474, 342, 24, 28],
+          "move_names": ["Venoshock", "Poison Tail", "Double Kick", "Sand Attack"],
+          "stats": {"hp": 47, "attack": 31, "defense": 26, "speed": 31, "special_attack": 23, "special_defense": 26}
+        }
+      ],
+      "experience": {
+        "outcomes": ["loss_with_three_member_party"],
+        "failure_causes": [
+          "entered_six-on-three",
+          "Staravia entered damaged",
+          "no pre-fight roster plan",
+          "Toxic and Venoshock exhausted limited pivots",
+          "Electric and Fire coverage punished the inherited core"
+        ],
+        "preparation_requirements": [
+          "heal all party members and PP",
+          "fill available party slots with obtainable counters",
+          "use Endless Candy to the verified cap",
+          "plan both allied actions and replacement order"
+        ],
+        "same_plan_failures": 1
+      },
+      "strategy": {
+        "status": "blocked",
+        "reason": "counter-team and validated pre-fight plan not built yet",
+        "plan_path": null,
+        "plan_sha256": null
+      },
+      "evidence": {
+        "npc_checkpoint_sha256": "aa133c8640ef78203a97b66dbad8046fb0ab28d34d8be5d32358888be81178a9",
+        "battle_states": [
+          "r109_double_decision.ss0",
+          "r109_double_luxio_cmd.ss0",
+          "r109_double_flaaffy_cmd.ss0",
+          "r109_double_post_nido_replacements.ss0"
+        ],
+        "held_item_names": "decoded from ROM item table at 0x08678d60 using held-item IDs from battle RAM"
+      },
+      "uncertainties": ["trainer display name not yet ROM-decoded"]
+    }
+  }
+}

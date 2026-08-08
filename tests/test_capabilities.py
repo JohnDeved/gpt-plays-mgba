@@ -24,6 +24,22 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertIn("target_species", item["inputSchema"]["properties"])
         self.assertIn("Endless Candy", item["inputSchema"]["properties"]["item"]["enum"])
 
+    def test_trainer_lookup_uses_stable_overworld_identity(self):
+        item = self.registry.inspect("game_trainer_lookup")
+        self.assertEqual(
+            item["inputSchema"]["required"],
+            ["map_group", "map_number", "local_id"],
+        )
+        self.assertIn("runtime object slot", item["doNotUseWhen"][0])
+
+    def test_wild_lookup_supports_species_map_and_backtracking_filters(self):
+        item = self.registry.inspect("game_wild_encounter_lookup")
+        properties = item["inputSchema"]["properties"]
+        self.assertIn("species_id", properties)
+        self.assertIn("map", properties)
+        self.assertIn("visited_only", properties)
+        self.assertIn("external encounter guides", item["doNotUseWhen"][0])
+
     def test_battle_transaction_capabilities_are_registered(self):
         for name in ("game_battle_snapshot", "game_battle_evaluate", "game_battle_commit", "game_battle_verify"):
             self.assertIn(name, self.registry.names())

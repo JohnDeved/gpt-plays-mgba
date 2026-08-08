@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "game": {
+    "title": "Pokemon Run & Bun",
+    "version": "v1.07",
+    "rom_sha256": "68ec5b0c02e6def8da8dc2b1857b269505418803d44cc2b816fb7471587bf89d"
+  },
+  "global_goal": {
+    "objective": "Complete Pok\u00e9mon Run & Bun and verify the game-completion state from authoritative RAM/emulator state.",
+    "status": "active",
+    "completion_oracle": "ROM-specific postgame/credits/completion flag decoded from RAM or emulator API and final checkpoint hash",
+    "completion_verified": false,
+    "evidence": []
+  },
+  "current_goal": {
+    "id": "capture-phanpy-for-route109",
+    "objective": "Safely capture Phanpy, cap it legally, and validate the Route 109 hard-fight preparation plan.",
+    "status": "active",
+    "parent": "global_goal",
+    "why_now": "The current wild Phanpy is the selected reachable counter candidate and Route 109 remains the next required hard fight.",
+    "created_at": "2026-08-08T22:20:44.746330+00:00",
+    "completion_conditions": [
+      {
+        "claim": "Phanpy is captured in the open sixth party slot, legally leveled to the verified cap, and the validated Route 109 plan records the complete current party.",
+        "oracle": "RAM party decoder, level-cap check, capture acknowledgment, trainer database, and plan validator",
+        "satisfied": false,
+        "evidence": []
+      }
+    ]
+  },
+  "goal_history": [],
+  "milestones": [],
+  "checkpoints": [],
+  "furthest_checkpoint_sha256": null,
+  "next_actions": [
+    {
+      "priority": 1,
+      "kind": "preparation",
+      "action": "Re-read the capture decision certificate and execute exactly one selected action at the command menu.",
+      "advances_goal_id": "capture-phanpy-for-route109",
+      "precondition": "Onix is active at 44/44; Phanpy is active at 22/32; emulator is command-menu stable and OS-stopped between requests.",
+      "expected_postcondition": "RAM verifies either one safe weakening result or one Pok\u00e9 Ball transaction, with no unintended action or resource delta."
+    }
+  ],
+  "blockers": [],
+  "last_reconciled": {
+    "at": "2026-08-08T22:20:44.778594+00:00",
+    "canonical_state_hash": "554bd06f8b58d4fe",
+    "sources": [
+      {
+        "kind": "emulator_api",
+        "source": "RunBunAdapter canonical state hash",
+        "value": "Granite Cave 1F (24,7), command menu, Onix 44/44, Phanpy 22/32"
+      }
+    ]
+  }
+}
