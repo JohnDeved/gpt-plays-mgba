@@ -51,6 +51,8 @@ FIELD_MESSAGE_MODE_NAMES = {
     0: "none",
     2: "ready",
     3: "auto_scroll",
+    11: "party_menu",
+    13: "party_prompt",
     10: "nickname_screen",
     16: "battle_intro",
     34: "battle_text",
@@ -879,6 +881,120 @@ class RunBunAdapter:
             "reason": "effectiveness_and_pp",
         }
 
+    @classmethod
+    def explain_battle_action(
+        cls,
+        observation: dict[str, Any],
+        *,
+        effectiveness_memory: dict[tuple[int, int], float] | None = None,
+        type_chart: dict[int, dict[int, float]] | None = None,
+        damage_memory: dict[tuple[int, int, int], list[int]] | None = None,
+        low_hp_fraction: float = 0.25,
+        allow_switch: bool = True,
+    ) -> dict[str, Any]:
+        """Return a compact, auditable explanation for one battle turn.
+
+        This is deliberately a proof report, not a claim that hidden RNG or
+        trainer AI has been solved.  ``forced_estimate`` means the visible
+        model has a faster KO line; ``best_estimate`` means the choice is a
+        ranking under incomplete damage/AI information.
+        """
+        battle = observation.get("battle", {})
+        if not battle.get("active"):
+            return {"decision": {"action": "none", "reason": "not_in_battle"}, "proof": {"level": "none"}}
+        mons = battle.get("mons", [])
+        player = next((m["state"] for m in mons if m.get("slot") == 0 and m.get("present")), None)
+        opponent = next((m["state"] for m in mons if m.get("slot") == 1 and m.get("present")), None)
+        if player is None or opponent is None:
+            return {"decision": {"action": "none", "reason": "battle_mons_incomplete"}, "proof": {"level": "none"}}
+
+        memory = damage_memory or {}
+        plan = cls.choose_battle_action(
+            observation,
+            effectiveness_memory=effectiveness_memory,
+            type_chart=type_chart,
+            damage_memory=memory,
+            low_hp_fraction=low_hp_fraction,
+            allow_switch=allow_switch,
+        )
+        opponent_hp = opponent.get("current_hp", 0)
+        opponent_speed = opponent.get("speed", 0)
+        player_speed = player.get("speed", 0)
+        opponent_key = opponent.get("species")
+        player_key = player.get("species")
+
+        def move_name(state: dict[str, Any], slot: int, move_id: int) -> str:
+            names = state.get("move_names") or ()
+            return names[slot] if slot < len(names) else str(move_id)
+
+        def move_report(state: dict[str, Any], slot: int, move_id: int, defender: dict[str, Any]) -> dict[str, Any]:
+            samples = list(memory.get((state.get("species"), move_id, defender.get("species")), ()))
+            damage = cls._estimated_damage(
+                move_id, state, defender,
+                effectiveness_memory=effectiveness_memory,
+                type_chart=type_chart,
+                damage_memory=memory,
+            )
+            ko_in = int((defender.get("current_hp", 0) + max(damage, 1) - 1) // max(damage, 1))
+            priority = move_id in MOVE_PRIORITY_IDS
+            first = priority or state.get("speed", 0) >= defender.get("speed", 0)
+            return {
+                "slot": slot,
+                "move_id": move_id,
+                "move": move_name(state, slot, move_id),
+                "damage_est": round(damage, 2),
+                "ko_in": ko_in,
+                "acts_first": first,
+                "ko_before_hit": ko_in == 1 and first,
+                "evidence": {"kind": "observed_samples", "samples": samples} if samples else {"kind": "static_model"},
+            }
+
+        moves = []
+        for slot, move_id in enumerate(player.get("moves", ())):
+            pp = (player.get("pp") or (0, 0, 0, 0))[slot]
+            if move_id and pp:
+                moves.append(move_report(player, slot, move_id, opponent))
+        incoming = []
+        for slot, move_id in enumerate(opponent.get("moves", ())):
+            if move_id:
+                incoming.append(move_report(opponent, slot, move_id, player))
+        incoming_max = max((item["damage_est"] for item in incoming), default=0.0)
+        alternatives = sorted(moves, key=lambda item: (-item["damage_est"], item["slot"]))
+        chosen = next(
+            (item for item in moves if item["move_id"] == plan.get("move_id") and item["slot"] == plan.get("slot")),
+            None,
+        )
+        if chosen and chosen["ko_before_hit"]:
+            proof_level = "forced_estimate"
+            claim = "fastest visible one-turn KO; no slower move can improve the turn"
+        elif chosen and plan.get("reason") == "safe_two_turn_finish":
+            proof_level = "safe_two_turn_estimate"
+            claim = "estimated two-turn finish while surviving the modeled intervening hit"
+        else:
+            proof_level = "best_estimate"
+            claim = "highest modeled damage/survival score among legal actions"
+        return {
+            "state": {
+                "player": {"species": player_key, "hp": player.get("current_hp"), "max_hp": player.get("max_hp"), "speed": player_speed},
+                "opponent": {"species": opponent_key, "hp": opponent_hp, "max_hp": opponent.get("max_hp"), "speed": opponent_speed},
+            },
+            "decision": plan,
+            "chosen": chosen,
+            "alternatives": alternatives,
+            "incoming": {"max_damage_est": round(incoming_max, 2), "moves": incoming},
+            "proof": {
+                "level": proof_level,
+                "claim": claim,
+                "checks": {
+                    "legal_move_count": len(moves),
+                    "opponent_hp": opponent_hp,
+                    "chosen_damage_est": chosen["damage_est"] if chosen else None,
+                    "chosen_acts_first": chosen["acts_first"] if chosen else None,
+                },
+                "caveat": "RNG, hidden AI, and unverified move metadata can invalidate non-forced estimates.",
+            },
+        }
+
     def observe(self, screenshot: str | bool = False) -> dict[str, Any]:
         scalar_reads = [
             {"name": "save_block1_ptr", "address": SAVE_BLOCK1_PTR, "width": 32},
@@ -995,10 +1111,28 @@ class RunBunAdapter:
             command_prompt = self._battle_command_prompt(text.get("battle_printers", []))
             battle_kind = self._battle_kind(text.get("battle_printers", []))
             party_switch_prompt = self._battle_party_switch_prompt(text.get("battle_printers", []))
+            move_prompt = self._battle_move_prompt(text.get("battle_printers", []))
         else:
             command_prompt = False
             battle_kind = None
             party_switch_prompt = False
+            move_prompt = False
+        # After a send-out this hack can leave the battle message printer
+        # empty while the command selector is already live.  A valid battler
+        # pair plus a battle field mode and no active text is the RAM-only
+        # command-menu signature; without it, the controller presses A into
+        # the selector while waiting for a printer string that never arrives.
+        if (
+            battle_mode in BATTLE_FIELD_MESSAGE_MODES
+            and not party_switch_prompt
+            and not command_prompt
+            and not move_prompt
+            and text is not None
+            and not text.get("active")
+            and not text.get("battle_printers")
+            and any(mon.get("present") and mon["state"].get("current_hp", 0) > 0 for mon in battle_mons[:2])
+        ):
+            command_prompt = True
         # gBattleMons remains populated after battles and during ordinary NPC
         # dialogue. Require a battle-specific field mode or the RAM printer's
         # exact command prompt; this keeps stale May/Mudkip data from blocking
@@ -1086,6 +1220,13 @@ class RunBunAdapter:
                     "move_names": "13-byte slots@0x083A4493",
                 } if battle_active and battle_metadata_error is None else None,
                 "menu": {
+                    "state": (
+                        "party_switch" if party_switch_prompt else
+                        "move_menu" if move_prompt else
+                        "command_menu" if command_prompt else
+                        "battle_text" if battle_active else
+                        "none"
+                    ),
                     "command": values["battle_command_cursor"] if battle_active else None,
                     "move": values["battle_move_cursor"] if battle_active else None,
                     "command_name": (
@@ -1224,6 +1365,8 @@ class RunBunAdapter:
         # a second move into the previous turn.
         initial_prompt_marker = None
         prompt_transition_seen = not after_action
+        initial_battle_signature = None
+        action_transition_seen = not after_action
         while elapsed <= max_frames:
             state = self.observe()
             battle = state["battle"]
@@ -1239,6 +1382,19 @@ class RunBunAdapter:
                 (item for item in battle["mons"] if item["slot"] == 1),
                 None,
             )
+            battle_signature = tuple(
+                (item["slot"], item["state"].get("species"), item["state"].get("current_hp"), item["state"].get("pp"))
+                for item in battle["mons"]
+                if item.get("present")
+            )
+            if after_action and initial_battle_signature is None:
+                initial_battle_signature = battle_signature
+            if after_action and battle_signature != initial_battle_signature:
+                # The prompt printer is reused at the same address after a
+                # turn, so its pointer/text tuple can be identical even
+                # though the turn already resolved.  HP/PP/species RAM is the
+                # authoritative transition signal.
+                action_transition_seen = True
             text = state.get("text") or {}
             battle_contexts = text.get("battle_printers", [])
             for context in battle_contexts:
@@ -1257,18 +1413,40 @@ class RunBunAdapter:
             if after_action and prompt_marker != initial_prompt_marker:
                 prompt_transition_seen = True
             field_mode = state["ui"].get("field_message_box_mode", 0)
-            # A stale Type/PP printer can survive the transition back to the
-            # command selector.  When both markers are present, the live
-            # ``What will ... do?`` command prompt wins; otherwise open_fight
-            # can skip Fight and spend a turn pressing into an old move menu.
-            if move_prompt and not command_prompt:
+            ram_menu_state = battle.get("menu", {}).get("state")
+            if ram_menu_state == "move_menu" and (not after_action or action_transition_seen):
                 return {
                     "state": "move_menu",
                     "frames": elapsed,
                     "presses": presses,
                     "feedback": "\n".join(feedback_parts),
                 }
-            if party_switch_prompt:
+            if ram_menu_state == "party_switch" and (not after_action or action_transition_seen):
+                return {
+                    "state": "party_switch",
+                    "frames": elapsed,
+                    "presses": presses,
+                    "feedback": "\n".join(feedback_parts),
+                }
+            if ram_menu_state == "command_menu" and (not after_action or action_transition_seen):
+                return {
+                    "state": "command_menu",
+                    "frames": elapsed,
+                    "presses": presses,
+                    "feedback": "\n".join(feedback_parts),
+                }
+            # A stale Type/PP printer can survive the transition back to the
+            # command selector.  When both markers are present, the live
+            # ``What will ... do?`` command prompt wins; otherwise open_fight
+            # can skip Fight and spend a turn pressing into an old move menu.
+            if move_prompt and not command_prompt and (not after_action or action_transition_seen):
+                return {
+                    "state": "move_menu",
+                    "frames": elapsed,
+                    "presses": presses,
+                    "feedback": "\n".join(feedback_parts),
+                }
+            if party_switch_prompt and (not after_action or action_transition_seen):
                 return {
                     "state": "party_switch",
                     "frames": elapsed,
@@ -1314,7 +1492,9 @@ class RunBunAdapter:
                     "presses": presses,
                     "feedback": "\n".join(feedback_parts),
                 }
-            if (command_prompt or (visual and visual.battle_command_menu)) and prompt_transition_seen:
+            if (command_prompt or (visual and visual.battle_command_menu)) and (
+                prompt_transition_seen or action_transition_seen
+            ):
                 return {
                     "state": "command_menu",
                     "frames": elapsed,
@@ -1328,7 +1508,9 @@ class RunBunAdapter:
             # when one printer remains active at its cleared (0, 1) cursor.
             # This avoids treating "Go! ..." or a fainting message as a move
             # menu and sending an accidental input too early.
-            if field_mode == 50 and self._battle_command_prompt(battle_contexts) and prompt_transition_seen:
+            if field_mode == 50 and self._battle_command_prompt(battle_contexts) and (
+                prompt_transition_seen or action_transition_seen
+            ):
                 return {
                     "state": "command_menu",
                     "frames": elapsed,

@@ -239,6 +239,33 @@ class RunBunTests(unittest.TestCase):
         action = RunBunAdapter.choose_battle_action(observation)
         self.assertEqual(action["slot"], 3)
 
+    def test_tactical_report_exposes_choice_and_uncertainty(self):
+        observation = {
+            "battle": {"active": True, "mons": [
+                {"slot": 0, "present": True, "state": {
+                    "species": 16, "current_hp": 12, "max_hp": 33,
+                    "attack": 19, "defense": 15, "speed": 21,
+                    "special_attack": 17, "special_defense": 16, "level": 12,
+                    "types": (0, 2, 9), "moves": (16, 28, 33, 0),
+                    "pp": (35, 5, 35, 0),
+                }},
+                {"slot": 1, "present": True, "state": {
+                    "species": 193, "current_hp": 15, "max_hp": 33,
+                    "attack": 19, "defense": 15, "speed": 26,
+                    "special_attack": 18, "special_defense": 15, "level": 9,
+                    "types": (6, 2, 9), "moves": (512, 49, 0, 0),
+                    "pp": (20, 20, 0, 0),
+                }},
+            ]},
+            "party": {"mons": []},
+        }
+        report = RunBunAdapter.explain_battle_action(observation)
+        self.assertEqual(report["decision"]["action"], "move")
+        self.assertEqual(report["decision"]["move_id"], 16)
+        self.assertEqual(report["proof"]["level"], "best_estimate")
+        self.assertEqual(report["chosen"]["move_id"], 16)
+        self.assertTrue(report["proof"]["caveat"])
+
     def test_battle_strategy_keeps_a_finisher_against_faster_threat(self):
         observation = {
             "battle": {"active": True, "mons": [
