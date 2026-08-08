@@ -68,6 +68,14 @@ class LiveMapTests(unittest.TestCase):
         words[1 + 1 * 3] = 1 << 12
         live = LiveMap(3, 3, 0x02010000, tuple(words), origin=0, active_width=3, active_height=3)
         self.assertTrue(live.walkable(1, 1))
+        self.assertFalse(live.step_allowed((0, 1), (1, 1)))
+
+    def test_path_does_not_cross_unverified_elevation_layer(self):
+        words = [3 << 12] * 9
+        words[1 + 1 * 3] = 1 << 12
+        live = LiveMap(3, 3, 0x02010000, tuple(words), origin=0, active_width=3, active_height=3)
+        path = live.path_to((0, 1), (2, 1))
+        self.assertEqual(path, ["UP", "RIGHT", "RIGHT", "DOWN"])
 
     def test_path_can_avoid_temporarily_blocked_edge(self):
         words = [3 << 12] * 25

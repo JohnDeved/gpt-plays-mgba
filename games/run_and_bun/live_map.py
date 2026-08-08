@@ -94,6 +94,24 @@ class LiveMap:
         # static obstruction signal.
         return self.collision(x, y) == 0
 
+    def step_allowed(self, start: tuple[int, int], target: tuple[int, int]) -> bool:
+        """Return whether the runtime movement layer permits this edge.
+
+        Collision-free tiles on different elevation layers are not
+        automatically connected.  Run & Bun uses layers 0/1/4 for bridges
+        and connected surfaces, while ordinary route ground is layer 3; the
+        engine rejects a direct 3 -> 1 step even though both tiles have zero
+        collision bits.  Keep the solver conservative until a per-metatile
+        stair table is decoded.
+        """
+        if not self.walkable(*start) or not self.walkable(*target):
+            return False
+        source = self.elevation(*start)
+        destination = self.elevation(*target)
+        if source == destination:
+            return True
+        return source in {0, 1, 4} and destination in {0, 1, 4}
+
     def is_grass(self, x: int, y: int) -> bool:
         """Whether the loaded tile can trigger ordinary land encounters."""
         return self.metatile_id(x, y) in GRASS_METATILE_IDS
@@ -215,6 +233,8 @@ class LiveMap:
                 if not (0 <= nx < width and 0 <= ny < height):
                     continue
                 if not self.walkable(nx, ny):
+                    continue
+                if not self.step_allowed(current, neighbor):
                     continue
                 next_cost = cost + 1 + (grass_penalty if self.is_grass(nx, ny) else 0)
                 if self.elevation(nx, ny) != 3:
