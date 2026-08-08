@@ -1,0 +1,4 @@
+interface:
+  display_name: "Automate Time-Consuming Work"
+  short_description: "Turn repeated manual work into tested reusable interfaces"
+  default_prompt: "Use $automate-time-consuming-work to find or build the smallest reliable helper when manual execution becomes slow, repetitive, or error-prone."
