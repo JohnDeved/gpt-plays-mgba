@@ -216,6 +216,21 @@ class BattleReviewTests(unittest.TestCase):
             ledger.record(review)
             self.assertEqual(ledger.state["streak"], 0)
 
+    def test_postmortem_blocks_qualification_when_loss_is_action_changing(self):
+        review = review_episode([self.transition()], terminal="loss", source="cartridge_clone", opening_state_hash="open", behavior_hash="b" * 64, policy_id="fixture")
+        self.assertEqual(review["postmortem"]["next_step"], "apply every action-changing improvement before retry")
+        self.assertTrue(all("severity" in item for item in review["postmortem"]["what_could_improve"]))
+
+    def test_faint_observation_excludes_foe_faint(self):
+        transition = self.transition()
+        transition["actual"]["resolution"] = {
+            "feedback": "Foe Bibarel fainted!<PROMPT_CLEAR> Foe Ponyta used Flame Wheel! Ohmnomnom fainted!",
+        }
+        review = review_episode([transition], terminal="loss", source="cartridge_clone", opening_state_hash="open", behavior_hash="b" * 64, policy_id="fixture")
+        faints = [item for item in review["observations"] if item["kind"] == "faint_observed"]
+        self.assertEqual(len(faints), 1)
+        self.assertIn("Ohmnomnom", faints[0]["summary"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -113,14 +114,20 @@ def _fight_observations(transitions: list[dict[str, Any]], terminal: str) -> lis
     seen_faints: set[str] = set()
     for transition in transitions:
         feedback = str(((transition.get("actual") or {}).get("resolution") or {}).get("feedback", ""))
-        if "fainted" in feedback.casefold():
+        for faint in re.finditer(r"(?P<actor>[A-Za-z][A-Za-z0-9'’.-]*)\s+fainted!", feedback, re.IGNORECASE):
+            # Battle text can report an enemy faint and an allied faint in the
+            # same transaction. Only the actor immediately preceded by "Foe"
+            # is enemy-side; do not turn that normal event into a false issue.
+            if re.search(r"\bFoe\s+$", feedback[:faint.start()], re.IGNORECASE):
+                continue
             summary = " ".join(feedback.split())[-240:]
-            if summary not in seen_faints:
-                seen_faints.add(summary)
+            key = f"{faint.group('actor').casefold()}:{summary}"
+            if key not in seen_faints:
+                seen_faints.add(key)
                 observations.append({
                     "kind": "faint_observed",
                     "severity": "high",
-                    "summary": f"a party faint was observed; determine whether the earliest causal action was avoidable: {summary}",
+                    "summary": f"allied faint observed ({faint.group('actor')}); determine whether the earliest causal action was avoidable: {summary}",
                     "action_changing": False,
                     "requires_bounded_replay": True,
                 })
@@ -180,6 +187,7 @@ def _postmortem(
             "layer": finding.get("root_layer") or _improvement_layer(str(finding.get("kind"))),
             "state_hash": finding.get("state_hash"),
             "action_id": finding.get("action_id"),
+            "action_changing": finding.get("action_changing", False),
         }
         for finding in findings
     ]
@@ -193,14 +201,18 @@ def _postmortem(
     if counterfactuals:
         improvements.append({
             "kind": "bounded_counterfactual_review",
+            "severity": "high",
             "summary": f"replay {len(counterfactuals)} materially plausible alternative action(s) once before retry",
             "layer": "bounded_counterfactual_or_scorer",
+            "action_changing": True,
         })
     if not findings and not counterfactuals and terminal == "win" and status == "clean":
         improvements.append({
             "kind": "no_action_changing_defect",
+            "severity": "info",
             "summary": "no verified action-changing problem; retain the unchanged bundle for qualification",
             "layer": "none",
+            "action_changing": False,
         })
     return {
         "terminal_authoritative": terminal in {"win", "loss"},

@@ -26,6 +26,18 @@ Build a small evidence-backed toolbelt, not a list of generic Pokémon tips. Que
     - what could improve: assign each item to shared tooling, generic scorer, reusable executable strategy, or genuine trainer exception.
     List every observed item, not only the first causal failure. Assign `critical`, `high`, `medium`, `low`, or `info` severity, sort the ledger highest first, and work the highest-severity reusable cause before lower-severity polish. A terminal loss/whiteout is critical; tooling or action-changing defects are high; verified dominated choices are medium; unverified tempo/resource observations are low/info until replay proves they change the action.
     Persist the complete review, regression state, counterexample, and reusable lesson. Apply every action-changing improvement before retrying; a clean win records that no action-changing defect was found and may count toward qualification, but a win with an unresolved improvement cannot.
+    The runtime script is evidence collection and consistency checking only; its automatic findings are not the strategic postmortem. The agent must personally read the full action sequence and author the strategic list. Each item must include severity, action/turn evidence, why it mattered, the broadest justified fix layer, and the concrete change or test before retry. The list must cover the whole fight, including good-but-risky choices and lower-severity tempo/resource improvements, not just the first causal failure.
+
+### Agent-authored postmortem format
+
+Write the review in this order before selecting another action bundle:
+
+1. `critical`: terminal loss, whiteout, impossible preparation, or a decision that can immediately end the fight.
+2. `high`: avoidable faint, reserve misuse, policy/scorer error, tooling mismatch, or action-changing uncertainty.
+3. `medium`: verified dominated action, unnecessary exposure, or a reusable line that works but wastes a tactical resource.
+4. `low`/`info`: tempo, PP, switch count, or presentation improvements that do not yet change the safest line.
+
+For every entry write: `severity`, `turns/actions`, `observed fact`, `strategic judgment`, `confidence` (`verified`, `bounded`, or `heuristic`), `fix layer`, and `next test`. Explicitly record what was correct so a good opening or properly used Fake Out is not “fixed” accidentally. Do not call the script’s terminal classification a root cause; the agent must explain the earliest causal divergence and decide whether to change preparation, scorer, executable strategy, or trainer exception.
 
 ## Evidence Rules
 

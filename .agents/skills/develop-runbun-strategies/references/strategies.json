@@ -84,22 +84,30 @@
         "complete enemy roster and fresh battle-RAM identity",
         "full HP and PP with the recorded party order",
         "Croagunk with Fake Out, Vacuum Wave, Mud Shot, and Sludge",
-        "identity-based switching because active battlers move to party slot 0"
+        "identity-based switching because active battlers move to party slot 0",
+        "a certified replacement for the burned-Lildozer Ponyta branch",
+        "each named Eelektrik pivot enters above its verified worst-case reply-survival bound"
       ],
       "line": [
         "use the ordinary lead and Electric pivot to remove Bibarel",
         "use the Ground reserve and priority fallback against Ponyta",
+        "if Lildozer is burned, stop the clean two-Bulldoze line and use only a certified replacement",
         "introduce the status-immune converter against Eelektrik, then pivot through expendable resources",
+        "never spend a depleted reserve merely to satisfy its preferred matchup",
         "preserve Croagunk's Sludge for Sunflora and Staravia's Aerial Ace for Dustox"
       ],
       "blockers": [
         "an unknown trainer reserve, ability, held item, move, or send-out branch",
         "Croagunk unavailable for Sunflora with no healthy Flying fallback",
-        "Staravia damaged below a freshly certified Dustox survival bound"
+        "Staravia damaged below a freshly certified Dustox survival bound",
+        "Ponyta burns Lildozer and no healthy replacement survives its verified reply range",
+        "a Fake Out pivot has no verified safe continuation or return target",
+        "a designated pivot is below its verified reply-survival bound"
       ],
       "abort_rules": [
         "actual HP, PP, status, species, or settled battle text differs from the certified result",
         "the fresh certificate no longer offers the recorded action",
+        "a directive names a move absent from the active ROM move list",
         "a no-input observation changes battle state after the verifier returns"
       ],
       "executable": {
@@ -187,6 +195,32 @@
               "opponent_species": [
                 77
               ],
+              "player_status_any": 16,
+              "player_hp_lte": 23
+            },
+            "directives": [
+              {
+                "kind": "prefer",
+                "action": {
+                  "kind": "switch",
+                  "role": "croakatoa"
+                }
+              },
+              {
+                "kind": "forbid",
+                "action": {
+                  "kind": "move",
+                  "move_id": 523
+                }
+              }
+            ]
+          },
+          {
+            "when": {
+              "active_role": "lildozer",
+              "opponent_species": [
+                77
+              ],
               "player_hp_gte": 20
             },
             "directives": [
@@ -213,6 +247,31 @@
                 "action": {
                   "kind": "move",
                   "move_id": 420
+                }
+              }
+            ]
+          },
+          {
+            "when": {
+              "active_role": "bushtank",
+              "opponent_species": [
+                603
+              ],
+              "player_hp_lte": 10
+            },
+            "directives": [
+              {
+                "kind": "prefer",
+                "action": {
+                  "kind": "switch",
+                  "role": "croakatoa"
+                }
+              },
+              {
+                "kind": "forbid",
+                "action": {
+                  "kind": "move",
+                  "move_id": 75
                 }
               }
             ]
@@ -426,14 +485,23 @@
               "active_role": "ohmnomnom",
               "opponent_species": [
                 603
-              ]
+              ],
+              "player_hp_lte": 10,
+              "role_available": "croakatoa"
             },
             "directives": [
               {
                 "kind": "prefer",
                 "action": {
+                  "kind": "switch",
+                  "role": "croakatoa"
+                }
+              },
+              {
+                "kind": "forbid",
+                "action": {
                   "kind": "move",
-                  "move_id": 249
+                  "move_id": 209
                 }
               }
             ]
@@ -609,6 +677,20 @@
             "kind": "tactical_error",
             "summary": "the verified party and policy did not produce a terminal win",
             "state_hash": "bb07b0bd12a5c423",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "8de0316c1bced2b4dea6",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "a87e9487ae64ff9b",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "8de0316c1bced2b4dea6",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "a87e9487ae64ff9b",
             "trainer_key": "map:0:25/local:23"
           }
         ]
