@@ -67,7 +67,7 @@
     {
       "id": "status-immune-converter-preserved-finisher",
       "title": "Use a status-immune converter and preserve the endgame finisher",
-      "status": "tested",
+      "status": "candidate",
       "tags": [
         "pivot",
         "status-immunity",
@@ -215,6 +215,28 @@
             },
             "directives": [
               {
+                "kind": "prefer",
+                "action": {
+                  "kind": "switch",
+                  "role": "ohmnomnom"
+                }
+              }
+            ]
+          },
+          {
+            "when": {
+              "active_role": "bushtank",
+              "opponent_species": [
+                603
+              ],
+              "action_count": {
+                "role": "bushtank",
+                "move_id": 75,
+                "gte": 1
+              }
+            },
+            "directives": [
+              {
                 "kind": "forbid",
                 "action": {
                   "kind": "move",
@@ -341,6 +363,33 @@
           },
           {
             "when": {
+              "active_role": "lildozer",
+              "opponent_species": [
+                269
+              ],
+              "opponent_hp_gte": 8
+            },
+            "directives": [
+              {"kind": "prefer", "action": {"kind": "move", "move_id": 523}},
+              {"kind": "forbid", "action": {"kind": "move", "move_id": 88}}
+            ]
+          },
+          {
+            "when": {
+              "active_role": "lildozer",
+              "opponent_species": [
+                269
+              ],
+              "opponent_hp_lte": 7
+            },
+            "directives": [
+              {"kind": "prefer", "action": {"kind": "move", "move_id": 420}},
+              {"kind": "forbid", "action": {"kind": "move", "move_id": 523}},
+              {"kind": "forbid", "action": {"kind": "move", "move_id": 88}}
+            ]
+          },
+          {
+            "when": {
               "active_role": "bugatti",
               "opponent_species": [
                 192
@@ -391,7 +440,15 @@
         "trainer_keys": [
           "map:0:25/local:23"
         ],
-        "counterexamples": []
+        "counterexamples": [
+          {
+            "review_id": "5eaea6e60b6a3a442ed2",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "3070be2653be18b8",
+            "trainer_key": "map:0:25/local:23"
+          }
+        ]
       }
     }
   ]
