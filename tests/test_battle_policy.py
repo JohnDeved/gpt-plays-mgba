@@ -10,6 +10,7 @@ from games.run_and_bun.battle_policy import (
     BattleHistory,
     BattlePolicy,
     PolicyError,
+    _battle_state,
     policy_bundle_hash,
     validate_profile,
 )
@@ -119,6 +120,10 @@ class BattlePolicyTests(unittest.TestCase):
         self.assertTrue(any("unsupported" in error for error in validate_profile(profile)))
         with self.assertRaises(PolicyError):
             BattlePolicy(profile)
+
+    def test_switch_scorer_fills_party_types_from_species_when_ram_omits_them(self):
+        state = _battle_state({"species": 878, "types": None, "hp": 34, "max_hp": 54})
+        self.assertTrue(state["types"])
 
 
 class BattleReviewTests(unittest.TestCase):

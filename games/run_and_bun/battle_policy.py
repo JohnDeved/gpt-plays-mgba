@@ -71,6 +71,13 @@ def _battle_state(mon: dict[str, Any]) -> dict[str, Any]:
     state = dict(mon.get("state", mon))
     if "current_hp" not in state:
         state["current_hp"] = state.get("hp", 0)
+    if not state.get("types"):
+        try:
+            from games.runbun import RunBunAdapter
+
+            state["types"] = RunBunAdapter._mon_types({"state": {**state, "types": ()}})
+        except (AttributeError, KeyError, TypeError, ValueError):
+            state["types"] = ()
     return state
 
 

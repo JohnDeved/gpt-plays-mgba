@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -157,7 +158,12 @@ def main() -> int:
                 stop = {"error": "battle did not stabilize after five no-input samples"}
                 break
             observation, compact = stable
-            opening_state_hash = opening_state_hash or compact["state_hash"]
+            if opening_state_hash is None:
+                opening_state_hash = (
+                    hashlib.sha256(args.state.read_bytes()).hexdigest()
+                    if not args.live
+                    else compact["state_hash"]
+                )
             terminal = _branch_terminal(observation)
             if terminal:
                 break

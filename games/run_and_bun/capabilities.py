@@ -54,7 +54,7 @@ class CapabilityError(RuntimeError):
 
 # These versions are part of the action-affecting policy bundle. Bump them
 # when canonical observation or verified action postconditions change.
-BATTLE_OBSERVATION_VERSION = "battle-cert-v1"
+BATTLE_OBSERVATION_VERSION = "battle-cert-v2"
 BATTLE_EXECUTION_VERSION = "battle-step-v2"
 
 
