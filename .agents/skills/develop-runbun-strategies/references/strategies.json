@@ -218,7 +218,7 @@
                 "kind": "prefer",
                 "action": {
                   "kind": "switch",
-                  "role": "ohmnomnom"
+                  "role": "croakatoa"
                 }
               }
             ]
@@ -370,8 +370,20 @@
               "opponent_hp_gte": 8
             },
             "directives": [
-              {"kind": "prefer", "action": {"kind": "move", "move_id": 523}},
-              {"kind": "forbid", "action": {"kind": "move", "move_id": 88}}
+              {
+                "kind": "prefer",
+                "action": {
+                  "kind": "move",
+                  "move_id": 523
+                }
+              },
+              {
+                "kind": "forbid",
+                "action": {
+                  "kind": "move",
+                  "move_id": 88
+                }
+              }
             ]
           },
           {
@@ -383,9 +395,27 @@
               "opponent_hp_lte": 7
             },
             "directives": [
-              {"kind": "prefer", "action": {"kind": "move", "move_id": 420}},
-              {"kind": "forbid", "action": {"kind": "move", "move_id": 523}},
-              {"kind": "forbid", "action": {"kind": "move", "move_id": 88}}
+              {
+                "kind": "prefer",
+                "action": {
+                  "kind": "move",
+                  "move_id": 420
+                }
+              },
+              {
+                "kind": "forbid",
+                "action": {
+                  "kind": "move",
+                  "move_id": 523
+                }
+              },
+              {
+                "kind": "forbid",
+                "action": {
+                  "kind": "move",
+                  "move_id": 88
+                }
+              }
             ]
           },
           {
@@ -446,6 +476,13 @@
             "kind": "tactical_error",
             "summary": "the verified party and policy did not produce a terminal win",
             "state_hash": "3070be2653be18b8",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "f13a41701e8e34e6eccd",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "6141c5c364e44cba",
             "trainer_key": "map:0:25/local:23"
           }
         ]
