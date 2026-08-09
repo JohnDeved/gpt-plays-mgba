@@ -16,7 +16,7 @@ from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parents[2]
 STRATEGY_DB = ROOT / ".agents" / "skills" / "develop-runbun-strategies" / "references" / "strategies.json"
-POLICY_ENGINE_VERSION = "hybrid-policy-v3"
+POLICY_ENGINE_VERSION = "hybrid-policy-v4"
 SUPPORTED_PREDICATES = frozenset({
     "active_role",
     "opponent_species",
@@ -465,8 +465,11 @@ class BattlePolicy:
             if move:
                 minimum, estimate = move.get("damage_range", [0, 0])[0], move.get("damage_est", 0)
                 guaranteed = bool(minimum >= opponent_hp > 0)
-                safe = bool(move.get("ko_before_hit") or incoming_max < player_hp)
+                fresh_fake_out = int(action.get("move_id", 0)) == 252 and self.history.fresh_entry
+                safe = bool(move.get("ko_before_hit") or incoming_max < player_hp or fresh_fake_out)
                 proof = move.get("evidence", {}).get("kind")
+                if fresh_fake_out:
+                    proof = "fresh_entry_flinch"
             else:
                 target = next((mon for mon in _party(certificate) if mon.get("slot") == action.get("slot")), {})
                 target_hp = int(target.get("hp", target.get("current_hp", action.get("hp", 0))) or 0)

@@ -144,6 +144,14 @@ class BattlePolicyTests(unittest.TestCase):
         self.assertEqual(first["move_id"], 252)
         self.assertEqual(second["move_id"], 232)
 
+    def test_fresh_gavi_croakatoa_fake_out_is_safe_against_modeled_reply(self):
+        profile = load_profile(Path("games/run_and_bun/policy_profiles/gavi.json"))
+        policy = BattlePolicy(profile, strategies=load_strategies())
+        decision = policy.decide(certificate(player_species=453, opponent_species=603, move_ids=(252, 124)))
+        self.assertEqual(decision["action"]["move_id"], 252)
+        selected = next(item for item in decision["candidates"] if item["action"] == decision["action"])
+        self.assertEqual(selected["evidence"], "fresh_entry_flinch")
+
 
 class BattleReviewTests(unittest.TestCase):
     def transition(self, *, uncertainty=False):
@@ -183,6 +191,17 @@ class BattleReviewTests(unittest.TestCase):
         review = review_episode([self.transition(uncertainty=True), self.transition(uncertainty=True)], terminal="win", source="cartridge_clone", opening_state_hash="open", behavior_hash="b" * 64, policy_id="fixture")
         self.assertEqual(review["status"], "needs_improvement")
         self.assertEqual(len(review["counterfactuals"]), 1)
+
+    def test_postmortem_lists_missed_fresh_fake_out_as_scorer_improvement(self):
+        transition = self.transition()
+        decision = transition["policy_decision"]
+        decision["history"] = {"fresh_entry": True}
+        decision["applied_strategy_ids"] = ["strategy:fixture"]
+        decision["action"] = {"kind": "move", "slot": 0, "move_id": 10}
+        decision["selected"]["action"] = decision["action"]
+        decision["candidates"].append({"action": {"kind": "move", "slot": 0, "move_id": 252}, "score": [0, 0, 0, 0]})
+        review = review_episode([transition], terminal="loss", source="cartridge_clone", opening_state_hash="open", behavior_hash="b" * 64, policy_id="fixture")
+        self.assertEqual(review["postmortem"]["what_could_improve"][0]["layer"], "generic_tactical_scorer")
 
     def test_loss_resets_qualification_and_records_cause(self):
         review = review_episode([self.transition()], terminal="loss", source="cartridge_clone", opening_state_hash="open", behavior_hash="b" * 64, policy_id="fixture")

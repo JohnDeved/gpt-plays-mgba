@@ -147,21 +147,38 @@
           {
             "when": {
               "active_role": "ohmnomnom",
-              "opponent_species": [77, 192],
+              "opponent_species": [
+                77,
+                192
+              ],
               "fresh_entry": true
             },
             "directives": [
-              {"kind": "prefer", "action": {"kind": "move", "move_id": 252}}
+              {
+                "kind": "prefer",
+                "action": {
+                  "kind": "move",
+                  "move_id": 252
+                }
+              }
             ]
           },
           {
             "when": {
               "active_role": "ohmnomnom",
-              "opponent_species": [192],
+              "opponent_species": [
+                192
+              ],
               "fresh_entry": false
             },
             "directives": [
-              {"kind": "prefer", "action": {"kind": "move", "move_id": 232}}
+              {
+                "kind": "prefer",
+                "action": {
+                  "kind": "move",
+                  "move_id": 232
+                }
+              }
             ]
           },
           {
@@ -585,6 +602,13 @@
             "kind": "tactical_error",
             "summary": "the verified party and policy did not produce a terminal win",
             "state_hash": "2abef8b2c49b68e1",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "b564bc8ea3ec52e55c1b",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "bb07b0bd12a5c423",
             "trainer_key": "map:0:25/local:23"
           }
         ]

@@ -114,7 +114,7 @@ def _postmortem(
         {
             "kind": finding.get("kind"),
             "summary": finding.get("summary"),
-            "layer": _improvement_layer(str(finding.get("kind"))),
+            "layer": finding.get("root_layer") or _improvement_layer(str(finding.get("kind"))),
             "state_hash": finding.get("state_hash"),
             "action_id": finding.get("action_id"),
         }
@@ -175,6 +175,21 @@ def review_episode(
         candidates = decision.get("candidates") or []
         selected = decision.get("selected") or {}
         selected_score = selected.get("score")
+        if (
+            (decision.get("history") or {}).get("fresh_entry") is True
+            and any(candidate.get("action", {}).get("move_id") == 252 for candidate in candidates)
+            and selected.get("action", {}).get("move_id") != 252
+            and decision.get("applied_strategy_ids")
+        ):
+            fake_out = next(candidate for candidate in candidates if candidate.get("action", {}).get("move_id") == 252)
+            findings.append(_finding(
+                "tactical_error",
+                "fresh-entry Fake Out was legal and a matched strategy applied, but the scorer selected another action",
+                transition,
+                action_changing=True,
+                root_layer="generic_tactical_scorer",
+                alternative=fake_out.get("action"),
+            ))
         dominated = [
             candidate for candidate in candidates
             if candidate.get("action") != selected.get("action")
