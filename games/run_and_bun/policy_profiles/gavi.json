@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "id": "gavi-hybrid-v1",
+  "trainer_key": "map:0:25/local:23",
+  "tactical_scorer_version": "runbun-tactical-v1",
+  "roles": {
+    "ohmnomnom": {"species": 777},
+    "lildozer": {"species": 231},
+    "bushtank": {"species": 388},
+    "birdlaw": {"species": 397},
+    "croakatoa": {"species": 453},
+    "bugatti": {"species": 543}
+  },
+  "strategy_ids": ["status-immune-converter-preserved-finisher"],
+  "reserve_objectives": [
+    {"role": "lildozer", "for_opponent_species": [77]},
+    {"role": "birdlaw", "for_opponent_species": [192, 269]},
+    {"role": "bugatti", "for_opponent_species": [192]}
+  ],
+  "constraints": [
+    {
+      "id": "gavi-bibarel-first-razor",
+      "when": {
+        "active_role": "bushtank",
+        "opponent_species": [400],
+        "action_count": {"role": "bushtank", "move_id": 75, "equals": 0}
+      },
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 75}}
+      ]
+    },
+    {
+      "id": "gavi-ponyta-lildozer-pivot",
+      "when": {"active_role": "ohmnomnom", "opponent_species": [77]},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "switch", "role": "lildozer"}}
+      ]
+    },
+    {
+      "id": "gavi-dustox-birdlaw-finish",
+      "when": {"active_role": "birdlaw", "opponent_species": [269]},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 332}}
+      ]
+    },
+    {
+      "id": "gavi-sunflora-bugatti-finish",
+      "when": {"active_role": "bugatti", "opponent_species": [192]},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 342}}
+      ]
+    }
+  ]
+}

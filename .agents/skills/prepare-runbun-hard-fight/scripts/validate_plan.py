@@ -22,6 +22,43 @@ def _promotion_errors(evidence: Any) -> list[str]:
     errors: list[str] = []
     if not isinstance(evidence, dict):
         return ["evidence must be an object"]
+    profile_path = evidence.get("policy_profile")
+    if isinstance(profile_path, str):
+        profile = REPO_ROOT / profile_path
+        digest = evidence.get("behavior_hash") or evidence.get("policy_bundle_sha256")
+        if not profile.is_file():
+            errors.append("evidence.policy_profile must name an existing repository file")
+        if not isinstance(digest, str) or not SHA256.fullmatch(digest):
+            errors.append("evidence.behavior_hash must be 64 lowercase hex characters")
+        elif profile.is_file():
+            try:
+                sys.path.insert(0, str(REPO_ROOT))
+                from games.run_and_bun.battle_policy import load_profile, load_strategies, policy_bundle_hash
+
+                actual = policy_bundle_hash(load_profile(profile), load_strategies())
+                if actual != digest:
+                    errors.append("evidence.behavior_hash does not match policy profile and executable strategies")
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                errors.append(f"unable to hash executable policy profile: {error}")
+        opening_digest = evidence.get("opening_checkpoint_sha256")
+        if not isinstance(opening_digest, str) or not SHA256.fullmatch(opening_digest):
+            errors.append("evidence.opening_checkpoint_sha256 must be 64 lowercase hex characters")
+        runs = evidence.get("reproductions")
+        if not isinstance(runs, list) or len(runs) < 3:
+            errors.append("evidence.reproductions must contain three consecutive clean terminal clone wins")
+            return errors
+        streak = runs[-3:]
+        if not all(
+            isinstance(run, dict)
+            and run.get("terminal_win") is True
+            and run.get("clean_review") is True
+            and run.get("source") == "clone"
+            and run.get("behavior_hash") == digest
+            and run.get("opening_checkpoint_sha256") == opening_digest
+            for run in streak
+        ):
+            errors.append("last three reproductions must be clean terminal clone wins for the same behavior bundle and opening checkpoint")
+        return errors
     policy_path = evidence.get("executable_policy")
     policy_digest = evidence.get("policy_sha256")
     opening_digest = evidence.get("opening_checkpoint_sha256")
@@ -51,7 +88,7 @@ def _promotion_errors(evidence: Any) -> list[str]:
 
 def template() -> dict[str, Any]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "fight": {
             "id": "map/local-id-or-trainer-id",
             "required": True,
@@ -107,8 +144,8 @@ def template() -> dict[str, Any]:
             "status": "blocked",
         },
         "evidence": {
-            "executable_policy": "games/run_and_bun/fight_policy.py",
-            "policy_sha256": "",
+            "policy_profile": "games/run_and_bun/policy_profiles/gavi.json",
+            "behavior_hash": "",
             "opening_checkpoint_sha256": "",
             "reproductions": [],
         },
@@ -131,8 +168,8 @@ def validate(data: Any) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     root = _dict(data, "plan", errors)
-    if root.get("schema_version") != 1:
-        errors.append("schema_version must be 1")
+    if root.get("schema_version") not in {1, 2}:
+        errors.append("schema_version must be 1 or 2")
 
     fight = _dict(root.get("fight"), "fight", errors)
     if not isinstance(fight.get("id"), str) or not fight.get("id", "").strip():

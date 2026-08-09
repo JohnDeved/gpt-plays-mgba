@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "rom_sha256": "68ec5b0c02e6def8da8dc2b1857b269505418803d44cc2b816fb7471587bf89d",
   "strategies": [
     {
@@ -38,6 +38,19 @@
         "opponent reveals an unmodeled move, item, ability, or reserve",
         "fresh certificate no longer selects the planned action"
       ],
+      "executable": {
+        "when": {
+          "active_role": "croakatoa",
+          "opponent_species": [603],
+          "fresh_entry": true
+        },
+        "directives": [
+          {
+            "kind": "prefer",
+            "action": {"kind": "move", "move_id": 252}
+          }
+        ]
+      },
       "evidence": {
         "reproductions": [],
         "exhaustive_searches": [],

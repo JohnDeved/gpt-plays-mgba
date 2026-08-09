@@ -23,6 +23,10 @@ from games.run_and_bun.rom_data import BattleRomData, RomMove
 
 ROM_TITLE = "POKEMON EMER"
 ROM_CODE = "BPEE"
+# Bump when the tactical ranking or its evidence semantics change.  The
+# reusable policy qualification hash includes this version, while excluding
+# reporting-only changes from the clone streak.
+BATTLE_SCORER_VERSION = "runbun-tactical-v1"
 
 SAVE_BLOCK1_PTR = 0x03005D9C
 SAVE_BLOCK2_PTR = 0x03005DA0

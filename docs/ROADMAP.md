@@ -33,6 +33,8 @@ session log at lines `26317`, `26483`, and `26523` of
 - [ ] Re-enable `game_battle_branch_search` only after semantic-cycle pruning, losing-terminal classification, and a strict wall-clock budget have objective regressions; use bounded persisted-policy replays until then.
 - [ ] Obtain two terminal winning reproductions for the prepared Gavi build; fixed-checkpoint search still explicitly excludes input-delay RNG variants.
 - [ ] Add canonical legal-action evaluation and certified execution for true double battles.
+- [x] Add a reusable hybrid battle-policy engine with declarative profiles, fixed predicates/directives, transaction-derived history, and behavior-bundle hashing.
+- [x] Add mandatory postmortems and bounded one-replay counterfactual queues after every policy clone attempt; reset qualification on losses or action-affecting changes.
 
 ### Complete team preparation
 
@@ -59,6 +61,7 @@ session log at lines `26317`, `26483`, and `26523` of
 - [ ] Add `game_strategy_query` to match scoped strategies against trainer, party, PC, obtainable counters, and legal build requirements.
 - [ ] Add `game_strategy_validate` to instantiate a strategy through branch search, retain replay hashes, and promote/demote only at the recorded proof threshold.
 - [ ] Add hard preflight enforcement for complete roster/mechanics, exact party build/order hash, zero action-changing uncertainty, two terminal clone wins, and fewer than two failures for the same proof tuple.
+- [x] Enforce three clean clone wins for the same opening and action-affecting behavior bundle before live policy execution; preserve legacy schema-v1 plans while schema-v2 profiles migrate.
 - [ ] Prove every mutating interface in disposable muted clones, with protected checkpoint hashes and full regressions, before live use.
 
 ## Completed milestone: RPC v0.1

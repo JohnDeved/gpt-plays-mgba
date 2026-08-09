@@ -453,6 +453,7 @@
     },
     "map:0:25/local:23": {
       "name": "Camper Gavi",
+      "policy_profile": "games/run_and_bun/policy_profiles/gavi.json",
       "overworld": {
         "map_group": 0,
         "map_number": 25,

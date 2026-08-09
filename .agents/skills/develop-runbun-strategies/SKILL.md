@@ -18,6 +18,7 @@ Build a small evidence-backed toolbelt, not a list of generic Pokémon tips. Que
 6. Test in a disposable muted clone on a unique RPC port. Historical savestates are test fixtures only; hash protected live checkpoints before and after and never load them into the authoritative emulator.
 7. Execute live only after hard-fight readiness validates. Use a fresh battle certificate and `game_battle_step` for every important single-battle action.
 8. Append evidence after each verified result. Run `strategy_db.py promote ID`; let the script enforce proof thresholds. Demote or retire a strategy after a counterexample.
+9. For executable tactics, add the fixed `executable.when` predicates and `directives` block to the strategy record. Use `tools/run_battle_policy.py` for the clone attempt so the postmortem and bounded counterfactual queue are written before the next attempt. Evidence and prose may change without changing the executable behavior hash.
 
 ## Evidence Rules
 

@@ -58,6 +58,8 @@ Keep the fight tied to the active milestone in `$track-runbun-goals-progress`. P
    - Store the populated JSON with the run's durable strategy artifacts.
    - Run `python3 .agents/skills/prepare-runbun-hard-fight/scripts/validate_plan.py PLAN.json`.
    - Promote `readiness.live_execution_allowed` only after the same persisted policy wins three terminal disposable-clone replays consecutively from the same opening checkpoint. Record the policy and checkpoint SHA-256 on every reproduction; any loss, policy gap, mismatch, or artifact change resets the streak.
+   - Run one bounded attempt with `tools/run_battle_policy.py --state CHECKPOINT --profile games/run_and_bun/policy_profiles/PROFILE.json`. The runner persists every verified transition, saves bounded counterfactual probe states when action-changing uncertainty is detected, writes a postmortem, and updates the clone qualification ledger before another attempt is allowed.
+   - Treat a terminal win with an unresolved review finding as an improvement failure, not as qualification evidence. Change the smallest owning layer, recalculate the behavior hash, and restart the streak for the changed bundle.
    - Do not trigger the trainer unless validation returns `"valid": true`.
 
 8. Execute and learn.
@@ -65,6 +67,7 @@ Keep the fight tied to the active milestone in `$track-runbun-goals-progress`. P
    - On any predicted/actual mismatch, unintended extra input, stale state, decoder gap, or unexplained behavior, invoke `$resolve-unexpected-tooling-issues`. Preserve the furthest live savestate, reproduce from a copy, fix the owning layer, replay objectively, and restore live progress before continuing.
    - If the controller itself made the strategic choice that led to a loss, keep the live post-loss state and learn from it. If the loss or regression was caused by an accidental/tooling error outside that choice, the newest verified forward checkpoint may be loaded after the incident is preserved and the restored RAM/hash is verified.
    - Convert every unexpected outcome into roster knowledge, battle experience, a regression case, or a verified tooling defect. Never retry an unexplained action-sensitive failure ad hoc.
+   - After every clone loss or win, inspect `runtime/session/battle_reviews.jsonl` and `runtime/session/policy_qualification.json`; do not launch a second attempt until the review is persisted and the failure/lesson is assigned to tooling, scorer, executable strategy, profile, or preparation.
    - Beat every required fight after correcting reusable causes; preparation is not permission to avoid it.
 
 ## Trainer Database

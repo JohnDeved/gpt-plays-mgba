@@ -52,6 +52,12 @@ class CapabilityError(RuntimeError):
         return result
 
 
+# These versions are part of the action-affecting policy bundle. Bump them
+# when canonical observation or verified action postconditions change.
+BATTLE_OBSERVATION_VERSION = "battle-cert-v1"
+BATTLE_EXECUTION_VERSION = "battle-step-v1"
+
+
 @dataclass(frozen=True)
 class Capability:
     name: str
@@ -381,6 +387,7 @@ def _legal_battle_actions(observation: dict[str, Any]) -> list[dict[str, Any]]:
                     "species": int(state["species"]),
                     "hp": int(state["current_hp"]),
                     "status": int(state.get("status", 0)),
+                    **({"personality": int(state["personality"])} if state.get("personality") is not None else {}),
                 })
     return actions
 
@@ -428,6 +435,7 @@ def _battle_certificate(adapter: Any, observation: dict[str, Any]) -> dict[str, 
     ).hexdigest()[:20]
     return {
         **report,
+        "compact_state": compact,
         "state_hash": compact["state_hash"],
         "legal_actions": legal,
         "boundary": boundary,
@@ -436,10 +444,18 @@ def _battle_certificate(adapter: Any, observation: dict[str, Any]) -> dict[str, 
     }
 
 
-def _battle_evaluate(_: dict[str, Any]) -> dict[str, Any]:
+def _battle_evaluate(args: dict[str, Any]) -> dict[str, Any]:
     def evaluate(adapter: Any) -> dict[str, Any]:
         observation, _ = _stable_battle_observation(adapter)
-        return _battle_certificate(adapter, observation)
+        certificate = _battle_certificate(adapter, observation)
+        profile_path = args.get("profile")
+        if profile_path:
+            from games.run_and_bun.battle_policy import BattlePolicy, load_profile, load_strategies
+
+            policy = BattlePolicy(load_profile(profile_path), strategies=load_strategies())
+            certificate["policy_decision"] = policy.decide(certificate)
+            certificate["behavior_hash"] = policy.behavior_hash
+        return certificate
 
     return _with_adapter(evaluate)
 
@@ -679,6 +695,11 @@ def _battle_step(
             "verified": verified,
             "source": os.environ.get("RUNBUN_SESSION_KIND", "live") if persist else "branch_search",
             "certificate_id": expected_certificate,
+            "certificate": {
+                "state": certificate.get("state"),
+                "compact_state": certificate.get("compact_state"),
+                "boundary": certificate.get("boundary"),
+            },
             "pre_state_hash": expected_hash,
             "post_state_hash": after["state_hash"],
             "action": legal,
@@ -688,6 +709,8 @@ def _battle_step(
                 "chosen": certificate.get("chosen"),
                 "proof": certificate.get("proof"),
             },
+            "policy_decision": args.get("policy_decision"),
+            "battle_id": args.get("battle_id"),
             "actual": {
                 "allied_pp_deltas": final_player_pp,
                 "allied_action_outcome": "prevented_by_status" if status_prevented_execution else "interrupted_before_execution" if fainted_before_execution else "executed",
@@ -2046,13 +2069,13 @@ _CAPABILITIES = [
         "game_battle_evaluate", "Bounded battle evaluation",
         "Enumerate legal battle actions with bounded damage, turn-order evidence, proof level, and a deterministic decision certificate. Use when: choosing a move or switch before committing an important turn.",
         ("evaluate battle", "choose safest move", "calculate damage bounds", "compare legal actions"),
-        _OBJECT_SCHEMA, {"type": "object"}, "none", "safe", _battle_evaluate,
+        {"type": "object", "properties": {"profile": {"type": "string"}}, "additionalProperties": False}, {"type": "object"}, "none", "safe", _battle_evaluate,
     ),
     Capability(
         "game_battle_step", "Certified single battle step",
         "Validate one current decision certificate, execute exactly one legal move or switch, advance to a stable RAM boundary, and audit PP/result deltas. Use when: executing every important single-battle action after game_battle_evaluate.",
         ("execute certified battle move", "commit and verify one battle action", "safe battle step"),
-        {"type": "object", "properties": {"state_hash": {"type": "string"}, "certificate_id": {"type": "string"}, "action": {"type": "object"}, "max_frames": {"type": "integer", "minimum": 1, "default": 1200}}, "required": ["state_hash", "certificate_id", "action"], "additionalProperties": False},
+        {"type": "object", "properties": {"state_hash": {"type": "string"}, "certificate_id": {"type": "string"}, "action": {"type": "object"}, "policy_decision": {"type": "object"}, "battle_id": {"type": "string"}, "max_frames": {"type": "integer", "minimum": 1, "default": 1200}}, "required": ["state_hash", "certificate_id", "action"], "additionalProperties": False},
         {"type": "object"}, "write", "never retry without a fresh evaluation", _battle_step,
         ("Do not use for double battles or with a stale certificate.",),
     ),
