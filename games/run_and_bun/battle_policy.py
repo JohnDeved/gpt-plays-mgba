@@ -16,7 +16,7 @@ from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parents[2]
 STRATEGY_DB = ROOT / ".agents" / "skills" / "develop-runbun-strategies" / "references" / "strategies.json"
-POLICY_ENGINE_VERSION = "hybrid-policy-v2"
+POLICY_ENGINE_VERSION = "hybrid-policy-v3"
 SUPPORTED_PREDICATES = frozenset({
     "active_role",
     "opponent_species",

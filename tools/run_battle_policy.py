@@ -18,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 from client.mgba_clone import disposable_clone
 from client.mgba_rpc import MGBA
 from games.runbun import RunBunAdapter
-from games.run_and_bun.battle_policy import BattlePolicy, PolicyError, load_profile, load_strategies
+from games.run_and_bun.battle_policy import BattleHistory, BattlePolicy, PolicyError, load_profile, load_strategies
 from games.run_and_bun.battle_review import QualificationLedger, persist_review, review_episode
 from games.run_and_bun.capabilities import (
     CapabilityError,
@@ -123,7 +123,9 @@ def main() -> int:
 
     profile = load_profile(args.profile)
     strategies = load_strategies()
-    policy = BattlePolicy(profile, strategies=strategies)
+    history_path = ROOT / "runtime" / "session" / "battle_transactions.jsonl"
+    history = BattleHistory.from_jsonl(history_path, battle_id=args.battle_id) if args.battle_id else BattleHistory()
+    policy = BattlePolicy(profile, strategies=strategies, history=history)
     if args.live:
         plan_data = json.loads(args.plan.read_text(encoding="utf-8"))
         evidence = plan_data.get("evidence", {})
