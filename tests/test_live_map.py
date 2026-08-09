@@ -129,6 +129,16 @@ class LiveMapTests(unittest.TestCase):
         )
         self.assertEqual(path, ["DOWN", "RIGHT", "UP", "RIGHT"])
 
+    def test_path_can_avoid_trainer_sight_tiles(self):
+        words = [3 << 12] * 25
+        live = LiveMap(5, 5, 0x02010000, tuple(words), origin=0, active_width=5, active_height=5)
+        path = live.path_to(
+            (0, 2),
+            (4, 2),
+            blocked_tiles={(1, 2), (2, 2), (3, 2)},
+        )
+        self.assertEqual(path, ["UP", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "DOWN"])
+
     def test_path_prefers_non_grass_route_but_can_cross_grass(self):
         # Direct middle row is grass; the two-step detour is clear.
         words = [3 << 12] * 15
@@ -138,6 +148,17 @@ class LiveMapTests(unittest.TestCase):
         path = live.path_to((0, 1), (4, 1))
         self.assertEqual(path, ["UP", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "DOWN"])
         self.assertEqual(len(live.path_to((0, 1), (4, 1), grass_penalty=0)), 4)
+
+    def test_rom_grass_collision_one_is_walkable_but_other_collision_one_is_not(self):
+        words = [3 << 12] * 9
+        # Run & Bun Granite Cave grass: collision 1, elevation 0, metatile 520.
+        words[1 + 1 * 3] = (1 << 10) | 520
+        # A neighboring non-grass collision-1 tile remains blocked.
+        words[2 + 1 * 3] = (1 << 10) | 521
+        live = LiveMap(3, 3, 0x02010000, tuple(words), origin=0, active_width=3, active_height=3)
+        self.assertTrue(live.walkable(1, 1))
+        self.assertTrue(live.tile(1, 1)["walkable"])
+        self.assertFalse(live.walkable(2, 1))
 
     def test_layout_exposes_raw_tile_fields_and_ascii(self):
         words = [3 << 12] * 9

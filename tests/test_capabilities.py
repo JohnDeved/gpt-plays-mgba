@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from games.run_and_bun.capabilities import default_registry
+from games.run_and_bun.capabilities import _compact_state, default_registry
 
 
 class CapabilityRegistryTests(unittest.TestCase):
@@ -50,6 +50,18 @@ class CapabilityRegistryTests(unittest.TestCase):
             self.assertIn(name, self.registry.names())
         commit = self.registry.inspect("game_battle_commit")
         self.assertIn("state_hash", commit["inputSchema"]["properties"])
+
+    def test_battle_hash_ignores_ephemeral_field_message_mode(self):
+        base = {
+            "frame": 10,
+            "map": {"group": 0, "number": 25},
+            "mode": "dialogue",
+            "ui": {"field_message_box_mode": 13, "field_message_box_mode_name": "party_prompt", "battle_command": 0},
+            "party": {"mons": []},
+            "battle": {"active": True, "kind": None, "menu": {"state": "party_switch"}, "party_switch_required": True, "mons": []},
+        }
+        other = {**base, "ui": {**base["ui"], "field_message_box_mode": 17, "field_message_box_mode_name": "party_menu"}}
+        self.assertEqual(_compact_state(base)["state_hash"], _compact_state(other)["state_hash"])
 
     def test_native_first_gate_rejects_shell_when_match_exists(self):
         decision = self.registry.authorize_fallback("find a trainer and walk to it", "shell")

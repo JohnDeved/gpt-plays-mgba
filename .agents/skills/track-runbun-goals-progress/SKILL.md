@@ -40,6 +40,7 @@ Run `python3 .agents/skills/track-runbun-goals-progress/scripts/progress.py reco
 Rank by the verified completed-milestone set and its highest required order. Use badges, story flags, required trainer flags, key unlocks, and map access only through recorded milestone evidence. Do not rank by file timestamp, current location, party level, HP, inventory value, or convenience. On equal progression, preserve the existing furthest checkpoint unless the new state has a strict evidence-backed progression superset.
 
 Before loading a candidate, validate its file hash and decoded progression vector. After loading, re-read RAM and reconcile; never assume load success from UI appearance.
+Loading is an exception-recovery action, not a retry policy: it is allowed for an accidental or tooling-caused mistake outside the controller's strategic choice, using only the newest verified forward checkpoint. Never load an older state to undo a deliberate strategic loss or to trade away verified progression for better health/resources.
 
 ## Stay on Track
 

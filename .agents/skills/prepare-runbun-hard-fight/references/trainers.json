@@ -15,7 +15,10 @@
         "local_id": 7,
         "graphics_id": 54,
         "event_template_slot": 6,
-        "initial_position": [22, 12],
+        "initial_position": [
+          22,
+          12
+        ],
         "trainer_type": 1,
         "sight_radius": 6,
         "script_address": "0x08223e3a",
@@ -40,14 +43,33 @@
           "species_id": 619,
           "species_name": "Mienfoo",
           "level": 14,
-          "types": [1],
+          "types": [
+            1
+          ],
           "ability_id": 39,
           "ability_name": "Inner Focus",
           "held_item_id": 431,
           "held_item_name": "Black Belt",
-          "moves": [395, 179, 317, 270],
-          "move_names": ["Force Palm", "Reversal", "Rock Tomb", "Helping Hand"],
-          "stats": {"hp": 40, "attack": 33, "defense": 23, "speed": 29, "special_attack": 21, "special_defense": 23}
+          "moves": [
+            395,
+            179,
+            317,
+            270
+          ],
+          "move_names": [
+            "Force Palm",
+            "Reversal",
+            "Rock Tomb",
+            "Helping Hand"
+          ],
+          "stats": {
+            "hp": 40,
+            "attack": 33,
+            "defense": 23,
+            "speed": 29,
+            "special_attack": 21,
+            "special_defense": 23
+          }
         },
         {
           "send_out_position": 2,
@@ -56,14 +78,33 @@
           "species_id": 190,
           "species_name": "Aipom",
           "level": 14,
-          "types": [0],
+          "types": [
+            0
+          ],
           "ability_id": 50,
           "ability_name": "Run Away",
           "held_item_id": 425,
           "held_item_name": "Silk Scarf",
-          "moves": [458, 252, 332, 28],
-          "move_names": ["Double Hit", "Fake Out", "Aerial Ace", "Sand Attack"],
-          "stats": {"hp": 43, "attack": 28, "defense": 24, "speed": 36, "special_attack": 18, "special_defense": 24}
+          "moves": [
+            458,
+            252,
+            332,
+            28
+          ],
+          "move_names": [
+            "Double Hit",
+            "Fake Out",
+            "Aerial Ace",
+            "Sand Attack"
+          ],
+          "stats": {
+            "hp": 43,
+            "attack": 28,
+            "defense": 24,
+            "speed": 36,
+            "special_attack": 18,
+            "special_defense": 24
+          }
         },
         {
           "send_out_position": 3,
@@ -72,14 +113,33 @@
           "species_id": 30,
           "species_name": "Nidorina",
           "level": 15,
-          "types": [3],
+          "types": [
+            3
+          ],
           "ability_id": 38,
           "ability_name": "Poison Point",
           "held_item_id": 522,
           "held_item_name": "Lum Berry",
-          "moves": [474, 352, 351, 92],
-          "move_names": ["Venoshock", "Water Pulse", "Shock Wave", "Toxic"],
-          "stats": {"hp": 50, "attack": 25, "defense": 29, "speed": 28, "special_attack": 26, "special_defense": 26}
+          "moves": [
+            474,
+            352,
+            351,
+            92
+          ],
+          "move_names": [
+            "Venoshock",
+            "Water Pulse",
+            "Shock Wave",
+            "Toxic"
+          ],
+          "stats": {
+            "hp": 50,
+            "attack": 25,
+            "defense": 29,
+            "speed": 28,
+            "special_attack": 26,
+            "special_defense": 26
+          }
         },
         {
           "send_out_position": 4,
@@ -88,14 +148,33 @@
           "species_id": 404,
           "species_name": "Luxio",
           "level": 14,
-          "types": [13],
+          "types": [
+            13
+          ],
           "ability_id": 22,
           "ability_name": "Intimidate",
           "held_item_id": 522,
           "held_item_name": "Lum Berry",
-          "moves": [209, 24, 44, 336],
-          "move_names": ["Spark", "Double Kick", "Bite", "Howl"],
-          "stats": {"hp": 45, "attack": 33, "defense": 23, "speed": 28, "special_attack": 23, "special_defense": 23}
+          "moves": [
+            209,
+            24,
+            44,
+            336
+          ],
+          "move_names": [
+            "Spark",
+            "Double Kick",
+            "Bite",
+            "Howl"
+          ],
+          "stats": {
+            "hp": 45,
+            "attack": 33,
+            "defense": 23,
+            "speed": 28,
+            "special_attack": 23,
+            "special_defense": 23
+          }
         },
         {
           "send_out_position": 5,
@@ -104,14 +183,33 @@
           "species_id": 180,
           "species_name": "Flaaffy",
           "level": 14,
-          "types": [13],
+          "types": [
+            13
+          ],
           "ability_id": 9,
           "ability_name": "Static",
           "held_item_id": 428,
           "held_item_name": "Magnet",
-          "moves": [351, 7, 109, 86],
-          "move_names": ["Shock Wave", "Fire Punch", "Confuse Ray", "Thunder Wave"],
-          "stats": {"hp": 47, "attack": 24, "defense": 26, "speed": 18, "special_attack": 31, "special_defense": 26}
+          "moves": [
+            351,
+            7,
+            109,
+            86
+          ],
+          "move_names": [
+            "Shock Wave",
+            "Fire Punch",
+            "Confuse Ray",
+            "Thunder Wave"
+          ],
+          "stats": {
+            "hp": 47,
+            "attack": 24,
+            "defense": 26,
+            "speed": 18,
+            "special_attack": 31,
+            "special_defense": 26
+          }
         },
         {
           "send_out_position": 6,
@@ -120,14 +218,33 @@
           "species_id": 33,
           "species_name": "Nidorino",
           "level": 15,
-          "types": [3],
+          "types": [
+            3
+          ],
           "ability_id": 38,
           "ability_name": "Poison Point",
           "held_item_id": 487,
           "held_item_name": "Black Sludge",
-          "moves": [474, 342, 24, 28],
-          "move_names": ["Venoshock", "Poison Tail", "Double Kick", "Sand Attack"],
-          "stats": {"hp": 47, "attack": 31, "defense": 26, "speed": 31, "special_attack": 23, "special_defense": 26}
+          "moves": [
+            474,
+            342,
+            24,
+            28
+          ],
+          "move_names": [
+            "Venoshock",
+            "Poison Tail",
+            "Double Kick",
+            "Sand Attack"
+          ],
+          "stats": {
+            "hp": 47,
+            "attack": 31,
+            "defense": 26,
+            "speed": 31,
+            "special_attack": 23,
+            "special_defense": 26
+          }
         }
       ],
       "experience": {
@@ -169,6 +286,485 @@
       "uncertainties": [
         "trainer display name not yet ROM-decoded",
         "historical double-battle evidence conflicts with the current live sequential-single field-mode run; trust live command ownership and field mode until the ROM battle-type branch is reconciled"
+      ]
+    },
+    "map:0:24/local:21": {
+      "key": "map:0:24/local:21",
+      "name": "Tuber Hailey",
+      "overworld": {
+        "map_group": 0,
+        "map_number": 24,
+        "local_id": 21,
+        "graphics_id": 53,
+        "event_template_slot": 20,
+        "initial_position": [
+          19,
+          7
+        ],
+        "trainer_type": 1,
+        "sight_radius": 3,
+        "script_address": "0x08223e10",
+        "flag_id": 0,
+        "trainer_id": 697,
+        "dialogue_cue": "I can't swim, so I'm pretending to swim."
+      },
+      "battle": {
+        "format": "single",
+        "required": true,
+        "hard_fight": true,
+        "roster_complete": true,
+        "roster_count": 3,
+        "identity_source": "rom_script_and_live_battle_ram",
+        "roster_source": "live_battle_ram_with_verified_rom_trainer_records"
+      },
+      "roster": [
+        {
+          "send_out_position": 1,
+          "species_id": 619,
+          "species_name": "Mienfoo",
+          "level": 14,
+          "types": [
+            1
+          ],
+          "ability_id": 39,
+          "ability_name": "Inner Focus",
+          "held_item_id": 431,
+          "held_item_name": "Black Belt",
+          "moves": [
+            395,
+            179,
+            317,
+            270
+          ],
+          "move_names": [
+            "Force Palm",
+            "Reversal",
+            "Rock Tomb",
+            "Helping Hand"
+          ],
+          "stats": {
+            "hp": 40,
+            "attack": 33,
+            "defense": 23,
+            "speed": 29,
+            "special_attack": 21,
+            "special_defense": 23
+          }
+        },
+        {
+          "send_out_position": 2,
+          "species_id": 30,
+          "species_name": "Nidorina",
+          "level": 15,
+          "types": [
+            3
+          ],
+          "ability_id": 38,
+          "ability_name": "Poison Point",
+          "held_item_id": 522,
+          "held_item_name": "Lum Berry",
+          "moves": [
+            474,
+            352,
+            351,
+            92
+          ],
+          "move_names": [
+            "Venoshock",
+            "Water Pulse",
+            "Shock Wave",
+            "Toxic"
+          ],
+          "stats": {
+            "hp": 50,
+            "attack": 25,
+            "defense": 29,
+            "speed": 28,
+            "special_attack": 26,
+            "special_defense": 26
+          }
+        },
+        {
+          "send_out_position": 3,
+          "species_id": 180,
+          "species_name": "Flaaffy",
+          "level": 14,
+          "types": [
+            13
+          ],
+          "ability_id": 9,
+          "ability_name": "Static",
+          "held_item_id": 428,
+          "held_item_name": "Magnet",
+          "moves": [
+            351,
+            7,
+            109,
+            86
+          ],
+          "move_names": [
+            "Shock Wave",
+            "Fire Punch",
+            "Confuse Ray",
+            "Thunder Wave"
+          ],
+          "stats": {
+            "hp": 47,
+            "attack": 24,
+            "defense": 26,
+            "speed": 18,
+            "special_attack": 31,
+            "special_defense": 26
+          }
+        }
+      ],
+      "experience": {
+        "outcomes": [
+          "live_2026-08-09_sequential_single_victory"
+        ],
+        "failure_causes": [
+          "entered with three damaged members and no healing opportunity",
+          "Phanpy was exposed to Nidorina before its queued Bulldoze resolved",
+          "damage model overestimated Bulldoze against Electric/Poison targets"
+        ],
+        "preparation_requirements": [
+          "heal HP, status, and PP at a Pokémon Center before re-engagement",
+          "preserve a Ground/Rock reserve for Flaaffy and a Steel or Ground-safe replacement for Nidorina",
+          "wait for full battle-text resolution before accepting a queued move result"
+        ],
+        "same_plan_failures": 0
+      },
+      "strategy": {
+        "status": "verified_victory",
+        "reason": "live sequential single battle won with Cufant and Onix after adaptive switches",
+        "plan_path": "runtime/session/route109-tuber-hailey-execution-20260809.md",
+        "plan_sha256": "eb46f737ac8cd161757f62430fcc81377a097aa65a4e28f12ffff7747d7fbb94"
+      },
+      "evidence": {
+        "npc_checkpoint_sha256": "e0804eb153db4232092657cfc7044bdb58b100396d4fded101c72aef4ec03a04",
+        "victory_checkpoint_sha256": "4691a9c341663414382753b247886147eb547eaeffde64c9e6c6567625b553fd",
+        "battle_text": "Player defeated Tuber Hailey!",
+        "script_trainerbattle": "0x08223f8d: trainerbattle type 0, trainer_id 0x02b9 (697), pre-battle text 0x082cf347"
+      },
+      "uncertainties": [
+        "Nidorina and Flaaffy held items, abilities, and stats are corroborated from the exact verified ROM trainer roster shared by the live move/level entries; a direct trainer-table decoder should replace this correlated evidence when implemented.",
+        "Live custom damage diverged from the conservative static model on Bulldoze and Rock Tomb; use recorded live samples before future rematches."
+      ]
+    },
+    "map:0:25/local:23": {
+      "name": "Camper Gavi",
+      "overworld": {
+        "map_group": 0,
+        "map_number": 25,
+        "local_id": 23,
+        "graphics_id": 31,
+        "event_template_slot": 22,
+        "initial_position": [
+          14,
+          89
+        ],
+        "trainer_type": 1,
+        "sight_radius": 5,
+        "script_address": "0x082249c7",
+        "flag_id": 0,
+        "trainer_id": 334,
+        "dialogue_cue": null
+      },
+      "battle": {
+        "format": "single",
+        "required": true,
+        "hard_fight": true,
+        "roster_complete": true,
+        "roster_count": 5,
+        "identity_source": "rom_script_and_live_battle_ram",
+        "roster_source": "rom_trainer_party_records_with_live_ability_item_confirmation"
+      },
+      "roster": [
+        {
+          "send_out_position": 1,
+          "species_id": 400,
+          "species_name": "Bibarel",
+          "level": 16,
+          "types": [
+            0,
+            11
+          ],
+          "ability_id": 109,
+          "ability_name": null,
+          "held_item_id": 522,
+          "held_item_name": "Lum Berry",
+          "moves": [
+            29,
+            453,
+            365,
+            162
+          ],
+          "move_names": [
+            "Headbutt",
+            "Aqua Jet",
+            "Pluck",
+            "Super Fang"
+          ]
+        },
+        {
+          "send_out_position": 2,
+          "species_id": 77,
+          "species_name": "Ponyta",
+          "level": 17,
+          "types": [
+            10
+          ],
+          "ability_id": 49,
+          "ability_name": null,
+          "held_item_id": 523,
+          "held_item_name": "Sitrus Berry",
+          "moves": [
+            172,
+            583,
+            24
+          ],
+          "move_names": [
+            "Flame Wheel",
+            "Play Rough",
+            "Double Kick"
+          ]
+        },
+        {
+          "send_out_position": 3,
+          "species_id": 603,
+          "species_name": "Eelektrik",
+          "level": 17,
+          "types": [
+            13
+          ],
+          "ability_id": 26,
+          "ability_name": "Levitate",
+          "held_item_id": 523,
+          "held_item_name": "Sitrus Berry",
+          "moves": [
+            351,
+            72,
+            162,
+            92
+          ],
+          "move_names": [
+            "Shock Wave",
+            "Mega Drain",
+            "Super Fang",
+            "Toxic"
+          ]
+        },
+        {
+          "send_out_position": 4,
+          "species_id": 192,
+          "species_name": "Sunflora",
+          "level": 16,
+          "types": [
+            12
+          ],
+          "ability_id": 0,
+          "ability_name": null,
+          "held_item_id": 522,
+          "held_item_name": "Lum Berry",
+          "moves": [
+            412,
+            188,
+            73,
+            320
+          ],
+          "move_names": [
+            "Energy Ball",
+            "Sludge Bomb",
+            "Leech Seed",
+            "GrassWhistle"
+          ]
+        },
+        {
+          "send_out_position": 5,
+          "species_id": 269,
+          "species_name": "Dustox",
+          "level": 17,
+          "types": [
+            6,
+            3
+          ],
+          "ability_id": 0,
+          "ability_name": null,
+          "held_item_id": 487,
+          "held_item_name": "Black Sludge",
+          "moves": [
+            474,
+            611,
+            355,
+            92
+          ],
+          "move_names": [
+            "Venoshock",
+            "Infestation",
+            "Roost",
+            "Toxic"
+          ]
+        }
+      ],
+      "experience": {
+      "outcomes": [
+      "loss_2026-08-09_after_sequential_single_execution",
+      "loss_2026-08-09_after_sunflora_dustox_endgame",
+      "loss_2026-08-09_accidental_engagement_before_counter_ready",
+      "loss_2026-08-09_eelektrik_attrition_after_revision3",
+      "loss_2026-08-09_eelektrik_attrition_after_revision4"
+        ],
+        "failure_causes": [
+          "current six-member team lacked a safe high-confidence Levitate Eelektrik answer",
+          "controller accepted one move too late while Ponyta acted",
+          "Onix was exposed to Mega Drain despite Electric immunity",
+      "the revised line still entered Sunflora with Staravia at 9 HP and no safe second Aerial Ace turn",
+      "Onix was exposed to Sunflora Energy Ball and Cufant entered the endgame at 3 HP",
+      "Phanpy was the sole survivor against Dustox and Infestation residual KO'd it after priority Ice Shard",
+      "the accidental live engagement entered Sunflora with no full-health answer after Venipede, Onix, and Staravia were expended; Sunflora Energy Ball KO'd 15-HP Grotle and Phanpy was then KO'd",
+      "the live Potion attempt was rejected by the ROM (`Items can't be used now.<CTRL_08>`), so battle-item sustain is unavailable through the current interface",
+      "revision 3 entered Eelektrik with no reliable full-health answer: Cufant fell from 56 to 3 after Rock Smash, Super Fang, and Shock Wave; Staravia's Aerial Ace chip was followed by a Shock Wave KO; Venipede, Phanpy, Grotle, Onix, and Cufant then failed sequentially to Mega Drain/Shock Wave pressure",
+      "Eelektrik's Sitrus threshold converted Poison Tail damage from 28 to 19 into a heal back to 32, so the Venipede line could not finish before the next Shock Wave",
+      "the static evaluator did not model this custom Levitate Eelektrik matchup tightly enough: observed Rock Smash damage was 8 or 14 on a critical, Shock Wave was 22, and Mega Drain could KO Onix; existing generic suggestions were not safe guarantees",
+      "the move interface can report a stale move menu or a queued turn before the intended action is acknowledged; Grotle's final Razor Leaf had unchanged PP and the active battler fainted before execution",
+      "revision 4 still entered Eelektrik with no dedicated Levitate-bypass move: Sandile's Snarl lowered special pressure but Mega Drain attrition consumed Sandile, Phanpy, Cufant, and Staravia before the Sunflora/Dustox endgame"
+        ],
+        "preparation_requirements": [
+          "heal HP, status, and PP at a Pokémon Center before re-engagement",
+          "add a verified Granite Cave counter or establish a fresh minimax line against Levitate Eelektrik",
+          "verify move-command acknowledgement before battle resolution",
+      "obtain and level a dedicated, full-health answer for Sunflora and Dustox before re-engaging",
+      "preserve a full-health Flying/Rock answer through the Eelektrik phase; do not rely on a 9-HP Staravia or 3-HP Cufant",
+      "avoid trainer sight lines while backtracking for the counter; map navigation must detect and route around local 23 before approaching grass",
+      "acquire a dedicated full-health, reliable Levitate-Eelektrik counter from ROM catchable lookup; do not re-enter with the current six alone",
+      "preserve that counter through Bibarel and Ponyta and guarantee its Eelektrik phase entry; one-time Cufant/Staravia chip is insufficient",
+      "do not rely on Ground moves against Eelektrik until Levitate is removed or bypassed; require a strong neutral or super-effective move with enough bulk",
+      "keep the move acknowledgement/verifier regression blocked until command-menu, HP, PP, species, and drained battle-text stability are all verified",
+      "verify Rhyhorn species 111 at Lv17 with Smack Down and Stomp, use Smack Down as the expected-best grounding setup, and stop if the live grounding or survival gate does not hold"
+    ],
+    "same_plan_failures": 3
+  },
+      "strategy": {
+        "status": "ready",
+        "reason": "revision 5 is prepared: healed Lv17 Rhyhorn is the dedicated Smack Down Levitate-bypass counter, Phanpy is the Ponyta Bulldoze pivot, Staravia is preserved for Sunflora/Dustox, and the Eelektrik follow-up remains expected-best pending live grounding/damage/AI verification",
+        "plan_path": "runtime/session/route110-local23-preflight_plan.json",
+        "plan_sha256": "33c5e55cc06fb8ffdfa25585d20964b80ec189dffdf5d278b9db4cec6322ba6b"
+      },
+      "evidence": {
+        "npc_checkpoint_sha256": "bc6d61df9112bac3e598bfaae96b5d7e4053136d8a56dd234e1a63b4e97f6cd0",
+        "preparation_checkpoint_sha256": "8c29e461c306a471a5b24b2295f92f5ebbdd09853de6487e77ffa3aec498b9ed",
+        "prepared_counter": "Rhyhorn species 111 Lv17 full HP; moves [30,479,184,23] (Horn Attack, Smack Down, Scary Face, Stomp), party slot 5",
+        "battle_text": "Camper Gavi sent out Eelektrik; live battle RAM resolved Levitate and the listed held items/moves",
+        "script_trainerbattle": "0x082249c7: trainerbattle type 0, trainer_id 334"
+      },
+      "uncertainties": [
+        "Sunflora and Dustox ability IDs were not exposed before the loss; 0 means unresolved, not no ability.",
+        "Trainer AI send-out order is action-dependent; ROM party order is recorded but live send-outs must remain authoritative.",
+        "Exact damage rolls, critical hits, accuracy, item thresholds, Smack Down grounding, and Eelektrik's first AI move remain runtime facts; stop if Rhyhorn's full-health survival gate fails."
+      ],
+      "key": "map:0:25/local:23"
+    },
+    "map:0:21/local:4": {
+      "key": "map:0:21/local:4",
+      "name": null,
+      "overworld": {
+        "map_group": 0,
+        "map_number": 21,
+        "local_id": 4,
+        "graphics_id": 55,
+        "event_template_slot": 3,
+        "initial_position": [51, 16],
+        "trainer_type": 1,
+        "sight_radius": 4,
+        "script_address": "0x082238bb",
+        "flag_id": 0,
+        "trainer_id": 340,
+        "dialogue_cue": null
+      },
+      "battle": {
+        "format": "single",
+        "required": true,
+        "hard_fight": false,
+        "roster_complete": true,
+        "roster_count": 4,
+        "identity_source": "rom_event_script_and_trainer_table",
+        "roster_source": "rom_trainer_party_records"
+      },
+      "roster": [
+        {
+          "send_out_position": 1,
+          "species_id": 557,
+          "species_name": "Dwebble",
+          "level": 13,
+          "types": [6, 5],
+          "ability_id": 0,
+          "ability_name": null,
+          "held_item_id": 53,
+          "held_item_name": null,
+          "moves": [450, 350, 282, 564],
+          "move_names": ["Bug Bite", "Rock Blast", "Knock Off", "Sticky Web"]
+        },
+        {
+          "send_out_position": 2,
+          "species_id": 769,
+          "species_name": "Sandygast",
+          "level": 14,
+          "types": [7, 4],
+          "ability_id": 0,
+          "ability_name": null,
+          "held_item_id": 522,
+          "held_item_name": "Lum Berry",
+          "moves": [523, 310, 72, 95],
+          "move_names": ["Bulldoze", "Astonish", "Mega Drain", "Hypnosis"]
+        },
+        {
+          "send_out_position": 3,
+          "species_id": 303,
+          "species_name": "Mawile",
+          "level": 13,
+          "types": [8, 18],
+          "ability_id": 0,
+          "ability_name": null,
+          "held_item_id": 472,
+          "held_item_name": null,
+          "moves": [343, 232, 424],
+          "move_names": ["Covet", "Metal Claw", "Fire Fang"]
+        },
+        {
+          "send_out_position": 4,
+          "species_id": 446,
+          "species_name": "Munchlax",
+          "level": 13,
+          "types": [0],
+          "ability_id": 0,
+          "ability_name": null,
+          "held_item_id": 569,
+          "held_item_name": null,
+          "moves": [29, 187],
+          "move_names": ["Headbutt", "Belly Drum"]
+        }
+      ],
+      "experience": {
+        "outcomes": [],
+        "failure_causes": [],
+        "preparation_requirements": [
+          "enter with the currently verified full-health level-17 party",
+          "preserve a healthy Ground or Steel answer for Sandygast and Mawile",
+          "re-read battle RAM after every text phase; ability and held-item names remain unresolved until live confirmation"
+        ],
+        "same_plan_failures": 0
+      },
+      "strategy": {
+        "status": "ready",
+        "reason": "ROM roster is complete and the healed level-17 party has a substantial level and resource margin; live battle RAM remains authoritative for unresolved abilities/items"
+      },
+      "evidence": {
+        "script_trainerbattle": "0x082238bb: trainerbattle type 0, trainer_id 340",
+        "trainer_record": "ROM file offset 0x39bdbc; party pointer 0x0837bee0; four 0x2c-byte party records"
+      },
+      "uncertainties": [
+        "Dwebble, Sandygast, Mawile, and Munchlax ability IDs are unresolved until battle RAM confirms them",
+        "held-item IDs 53, 472, and 569 are ROM-authoritative but their display names are not yet decoded"
       ]
     }
   }

@@ -251,8 +251,15 @@ def _compact_state(state: dict[str, Any], *, include_objects: bool = False) -> d
         ]
     # Frame count is telemetry, not decision state. Excluding it makes a hash
     # stable while the emulator waits on the same command prompt, yet still
-    # changes when map/battle/UI facts or party resources change.
+    # changes when map/battle/UI facts or party resources change. The battle
+    # party selector oscillates its field message-box mode while the same
+    # RAM-backed selector remains open; that printer implementation detail is
+    # not a legal-action change, so omit only those two ephemeral fields.
     canonical_payload = {key: value for key, value in result.items() if key != "frame"}
+    hash_ui = dict(canonical_payload.get("ui") or {})
+    hash_ui.pop("field_message_box_mode", None)
+    hash_ui.pop("field_message_box_mode_name", None)
+    canonical_payload["ui"] = hash_ui
     canonical = json.dumps(canonical_payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     result["state_hash"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
     return result
@@ -685,13 +692,18 @@ def _use_field_item(args: dict[str, Any]) -> dict[str, Any]:
 
     def use(adapter: Any) -> dict[str, Any]:
         result = adapter.use_field_item(item, **targets)
+        # RunBun.use_field_item deliberately returns a small field-state
+        # payload whose party is already a list. It is not the full adapter
+        # observation shape consumed by _compact_state; passing it through
+        # that decoder caused a post-write formatter crash after a valid UI
+        # transaction.
         return {
             "item": result.get("item"),
             "target_slot": result.get("target_slot"),
             "target_species": result.get("target_species"),
             "cursor": result.get("cursor"),
             "text": result.get("text"),
-            "observation": _compact_state(result.get("state", {})),
+            "observation": result.get("state", {}),
         }
 
     return _with_adapter(use)
@@ -750,6 +762,7 @@ def _navigate(args: dict[str, Any]) -> dict[str, Any]:
             grass_penalty=int(args.get("grass_penalty", 100)),
             chunk_steps=int(args.get("chunk_steps", 6)),
             max_replans=int(args.get("max_replans", 32)),
+            avoid_trainer_sight_lines=bool(args.get("avoid_trainer_sight_lines", True)),
         )
         return {
             "reason": result.get("reason"),
@@ -944,7 +957,7 @@ _CAPABILITIES = [
         "game_navigate_live", "Adaptive RAM pathfinding",
         "Navigate to a map coordinate using the live collision grid, dynamic object occupancy, short input chunks, replanning, and a high grass penalty. Use when: walking to a coordinate or warp without image steering.",
         ("walk to coordinate", "navigate map", "avoid grass", "route around moving NPC"),
-        {"type": "object", "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}, "expected_map": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}, "grass_penalty": {"type": "integer", "minimum": 0, "default": 100}, "chunk_steps": {"type": "integer", "minimum": 1, "default": 6}, "max_replans": {"type": "integer", "minimum": 1, "default": 32}}, "required": ["x", "y"], "additionalProperties": False},
+        {"type": "object", "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}, "expected_map": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}, "grass_penalty": {"type": "integer", "minimum": 0, "default": 100}, "chunk_steps": {"type": "integer", "minimum": 1, "default": 6}, "max_replans": {"type": "integer", "minimum": 1, "default": 32}, "avoid_trainer_sight_lines": {"type": "boolean", "default": True}}, "required": ["x", "y"], "additionalProperties": False},
         {"type": "object"}, "write", "safe", _navigate,
         ("Do not use for selecting an NPC by identity; use game_seek_npc.",),
     ),

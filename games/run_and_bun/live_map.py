@@ -104,8 +104,13 @@ class LiveMap:
         # Elevation is a movement layer, not a blocking flag.  Run & Bun's
         # bridges and connected-map tiles use elevations 0/1/4 while still
         # accepting ordinary movement; collision bits are the authoritative
-        # static obstruction signal.
-        return self.collision(x, y) == 0
+        # static obstruction signal.  The ROM's Granite Cave encounter grass
+        # is the one verified exception: its field-behavior tile is encoded
+        # with collision bit 1/elevation 0 even though the player can enter
+        # it.  Do not generalize this to every collision-1 tile (rocks and
+        # ledges use the same bit); only the ROM encounter-grass set can
+        # override the block.
+        return self.collision(x, y) == 0 or self.is_grass(x, y)
 
     def step_allowed(self, start: tuple[int, int], target: tuple[int, int]) -> bool:
         """Return whether the runtime movement layer permits this edge.
@@ -147,7 +152,7 @@ class LiveMap:
             "metatile_id": metatile_id,
             "collision": collision,
             "elevation": elevation,
-            "walkable": collision == 0,
+            "walkable": collision == 0 or metatile_id in GRASS_METATILE_IDS,
             "grass": metatile_id in GRASS_METATILE_IDS,
         }
 
@@ -183,7 +188,7 @@ class LiveMap:
             "active_height": self.active_height,
             "collision_bits": [10, 11],
             "elevation_bits": [12, 15],
-            "walkable_rule": "collision == 0 (elevation retained for routing diagnostics)",
+            "walkable_rule": "collision == 0, plus verified encounter-grass metatiles with collision bit 1",
             "grass_metatile_ids": sorted(GRASS_METATILE_IDS),
         }
         if include_ascii:
@@ -202,6 +207,7 @@ class LiveMap:
         *,
         active_bounds: tuple[int, int] | None = None,
         blocked_edges: set[tuple[tuple[int, int], str]] | None = None,
+        blocked_tiles: set[tuple[int, int]] | None = None,
         allow_nonwalkable_start: bool = False,
         grass_penalty: int = 100,
     ) -> list[str]:
@@ -249,6 +255,8 @@ class LiveMap:
                 if blocked_edges and ((cx, cy), direction) in blocked_edges:
                     continue
                 if not (0 <= nx < width and 0 <= ny < height):
+                    continue
+                if blocked_tiles and neighbor in blocked_tiles:
                     continue
                 if not self.walkable(nx, ny):
                     continue

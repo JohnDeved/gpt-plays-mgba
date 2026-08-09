@@ -15,6 +15,7 @@ Keep the fight tied to the active milestone in `$track-runbun-goals-progress`. P
    - Keep mGBA muted and OS-stopped whenever no request or input is active.
    - Save a recoverable pre-fight checkpoint and calculate its SHA-256.
    - Prefer a checkpoint after all prior wins. Never rewind completed progression merely because an older state is healed.
+   - A save-state load is permitted only to correct an accidental or tooling-caused mistake that was not caused by the controller's strategic choice (for example, an unintended input, navigation overshoot, or interface failure). Load only the newest verified forward checkpoint, re-read RAM, and reconcile its hash before continuing. Never use a load to erase a deliberate strategic loss or to return to an older progression state.
    - If no pre-trigger frame exists, perform one reconnaissance encounter or accept one clean loss, then prepare from the resulting healed state.
 
 2. Establish the complete fight from authoritative state.
@@ -57,6 +58,7 @@ Keep the fight tied to the active milestone in `$track-runbun-goals-progress`. P
 8. Execute and learn.
    - Continue using canonical RAM state, legal-action enumeration, a decision certificate, and post-action verification for every important turn.
    - On any predicted/actual mismatch, unintended extra input, stale state, decoder gap, or unexplained behavior, invoke `$resolve-unexpected-tooling-issues`. Preserve the furthest live savestate, reproduce from a copy, fix the owning layer, replay objectively, and restore live progress before continuing.
+   - If the controller itself made the strategic choice that led to a loss, keep the live post-loss state and learn from it. If the loss or regression was caused by an accidental/tooling error outside that choice, the newest verified forward checkpoint may be loaded after the incident is preserved and the restored RAM/hash is verified.
    - Convert every unexpected outcome into roster knowledge, battle experience, a regression case, or a verified tooling defect. Never retry an unexplained action-sensitive failure ad hoc.
    - Beat every required fight after correcting reusable causes; preparation is not permission to avoid it.
 

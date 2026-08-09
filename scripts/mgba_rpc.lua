@@ -39,6 +39,10 @@ local waits = {}
 local nextWaitId = 1
 local idleStopPending = IDLE_STOP_ENABLED and PROCESS_PID~=nil
 local progressStopPending = false
+-- Do not stop during startup before the first controller can complete its
+-- handshake. Once a client has connected, the normal disconnect/request
+-- idle-stop policy applies.
+local hasConnectedClient = false
 
 local KEYS = {
   A = C.GBA_KEY.A, B = C.GBA_KEY.B,
@@ -872,6 +876,7 @@ end
 
 local function accept_client()
   local sock=server:accept(); if not sock then return end
+  hasConnectedClient=true
   idleStopPending=false
   local id=nextClientId; nextClientId=nextClientId+1
   clients[id]=sock; buffers[id]=""
@@ -926,7 +931,7 @@ callbacks:add("frame",function()
   -- While a controller is connected, its Python client performs the stop
   -- synchronously after the final RPC/status reply. Lua is the startup and
   -- disconnect fallback; stopping under a live status poll creates a race.
-  local shouldIdleStop = (progressStopPending or idleStopPending) and
+  local shouldIdleStop = hasConnectedClient and (progressStopPending or idleStopPending) and
       next(clients)==nil
   if shouldIdleStop and IDLE_STOP_ENABLED and PROCESS_PID and
       not activeAction and #actionQueue==0 then

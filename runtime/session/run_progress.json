@@ -10,47 +10,534 @@
     "status": "active",
     "completion_oracle": "ROM-specific postgame/credits/completion flag decoded from RAM or emulator API and final checkpoint hash",
     "completion_verified": false,
-    "evidence": []
+    "evidence": [
+      {
+        "kind": "ram",
+        "value": "Required Route 109 trainers map:0:24/local:7 and map:0:24/local:21 both defeated; global game completion remains unverified."
+      },
+      {
+        "kind": "emulator_api",
+        "source": "verified north map connection from Slateport",
+        "value": "Map (0,1) north edge reached and destination map (0,25) loaded with battle inactive."
+      }
+    ]
   },
   "current_goal": {
-    "id": "capture-phanpy-for-route109",
-    "objective": "Safely capture Phanpy, cap it legally, and validate the Route 109 hard-fight preparation plan.",
+    "id": "route110-local23-reprepare",
+    "objective": "Reprepare and defeat the required Route 110 trainer Camper Gavi (map 0:25, local 23), then continue to the next authoritative Route 110 milestone.",
     "status": "active",
     "parent": "global_goal",
-    "why_now": "The current wild Phanpy is the selected reachable counter candidate and Route 109 remains the next required hard fight.",
-    "created_at": "2026-08-08T22:20:44.746330+00:00",
+    "why_now": "The fifth deliberate retry was a verified strategic loss in the Eelektrik phase. Rhyhorn was retrieved from the verified PC Box 0 slot 1, raised to the Lv17 cap, and verified from live RAM as a full-health Rock/Ground counter with Horn Attack, Smack Down, Scary Face, and Stomp. Re-entry is now permitted only through revision 5: preserve Rhyhorn through Bibarel/Ponyta, resolve Eelektrik's live ability and first AI action, use Smack Down as the expected-best Levitate-bypass setup, and stop on any grounding or survival mismatch. The latest Rhyhorn checkpoint is forward-only; no strategic loss was rewound.",
+    "created_at": "2026-08-09T00:00:00+00:00",
     "completion_conditions": [
       {
-        "claim": "Phanpy is captured in the open sixth party slot, legally leveled to the verified cap, and the validated Route 109 plan records the complete current party.",
-        "oracle": "RAM party decoder, level-cap check, capture acknowledgment, trainer database, and plan validator",
+        "claim": "Camper Gavi is defeated with a ROM/RAM-verified identity, revised strategy plan, and post-battle victory proof.",
+        "oracle": "Live event-template identity, ROM trainerbattle roster/script, canonical battle RAM, and victory text/post-battle state",
+        "satisfied": false,
+        "evidence": []
+      },
+      {
+        "claim": "RAM verifies arrival at the next map or story destination beyond this Route 110 segment.",
+        "oracle": "Authoritative map connection/warp or ROM story script plus destination map identity and stable overworld/battle state",
         "satisfied": false,
         "evidence": []
       }
     ]
   },
-  "goal_history": [],
-  "milestones": [],
-  "checkpoints": [],
-  "furthest_checkpoint_sha256": null,
+  "goal_history": [
+    {
+      "id": "capture-phanpy-for-route109",
+      "status": "achieved",
+      "evidence": "Party RAM verified Phanpy species231 in the sixth slot at level17 before Route 109 trainer execution."
+    },
+    {
+      "id": "route109-tuber-ricky",
+      "status": "achieved",
+      "evidence": "Player defeated Tuber Ricky; forward checkpoint runtime/session/route109-ricky-defeated-forward-20260809.ss."
+    },
+    {
+      "id": "route109-tuber-hailey",
+      "status": "achieved",
+      "evidence": "Player defeated Tuber Hailey; forward checkpoint runtime/session/route109-tuber-hailey-defeated-forward-20260809.ss."
+    },
+    {
+      "id": "route109-post-trainers-heal-and-advance",
+      "status": "achieved",
+      "evidence": "Party healed by the verified nurse on Center map (9,11), then the verified north Slateport connection reached map (0,25); forward checkpoint runtime/session/route110-arrival-forward-20260809.ss."
+    }
+  ],
+  "milestones": [
+    {
+      "id": "map:0:24/local:7",
+      "kind": "required_trainer",
+      "order": 0,
+      "required": true,
+      "status": "completed",
+      "evidence": [
+        {
+          "kind": "trainer_flag",
+          "source": "Route 109 local 7 victory and post-battle RAM",
+          "value": "Tuber Ricky defeated; battle inactive after victory."
+        }
+      ]
+    },
+    {
+      "id": "map:0:24/local:21",
+      "kind": "required_trainer",
+      "order": 1,
+      "required": true,
+      "status": "completed",
+      "evidence": [
+        {
+          "kind": "trainer_flag",
+          "source": "Route 109 local 21 victory and post-battle RAM",
+          "value": "Tuber Hailey defeated; battle inactive after victory."
+        }
+      ]
+    },
+    {
+      "id": "map:0:25/reached",
+      "kind": "map_progression",
+      "order": 2,
+      "required": true,
+      "status": "completed",
+      "evidence": [
+        {
+          "kind": "emulator_api",
+          "source": "live north connection from map (0,1)",
+          "value": "Connection direction north reached map (0,25) at (18,99); battle inactive and party fully healed."
+        }
+      ]
+    }
+  ],
+  "checkpoints": [
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/phanpy-captured-hp9.ss",
+      "sha256": "dbc369ae6d24e0ee66ebcd3be6a6795582461e159720954ad192abfc2cf070b9",
+      "recorded_at": "2026-08-08T22:38:52.997316+00:00",
+      "canonical_state_hash": "0322bd22e5d7f469",
+      "map": [
+        24,
+        7,
+        37,
+        11
+      ],
+      "completed_milestones": [],
+      "rank": [
+        -1,
+        0,
+        0
+      ],
+      "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/route109-tuber-hailey-defeated-forward-20260809.ss",
+      "sha256": "4691a9c341663414382753b247886147eb547eaeffde64c9e6c6567625b553fd",
+      "recorded_at": "2026-08-09T00:00:00+00:00",
+      "canonical_state_hash": "dbd111f3579dee51",
+      "map": [
+        0,
+        24,
+        22,
+        7
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21"
+      ],
+      "rank": [
+        1,
+        2,
+        2
+      ],
+      "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/route110-arrival-forward-20260809.ss",
+      "sha256": "b8d4acae2d06c86be2592e050787e540135760e686451e34c3a6de9481a7c1dd",
+      "recorded_at": "2026-08-09T00:00:00+00:00",
+      "canonical_state_hash": "266b578e1563bdfb",
+      "map": [
+        0,
+        25,
+        18,
+        99
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [
+        2,
+        3,
+        3
+      ],
+      "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/slateport-center-healed-forward-20260809.ss",
+      "sha256": "1daec0ee2990dfe5ac1e886044eeb002cb413473c2be007666afc20c48777106",
+      "recorded_at": "2026-08-09T00:00:00+00:00",
+      "canonical_state_hash": "134e9934d74059d3",
+      "map": [
+        9,
+        11,
+        7,
+        4
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21"
+      ],
+      "rank": [
+        1,
+        2,
+        2
+      ],
+      "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/route110-local23-prep2-forward-20260809.ss",
+      "sha256": "d89b9e140a06e2776ced8f228618364e9ea7928ed57ba43af412e3294ba93ac2",
+      "recorded_at": "2026-08-09T00:00:00+00:00",
+      "canonical_state_hash": "875fd116c6809ced",
+      "map": [
+        0,
+        25,
+        18,
+        99
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [
+        2,
+        3,
+        3
+      ],
+      "verified": true,
+      "note": "New forward post-loss preparation checkpoint; no old savestate loaded."
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/route110-local23-loss-healed-forward-20260809.ss",
+      "sha256": "494dc9d5d3338c56e73dbc0cb1c83d531f2af6634d4783cb969ee671556aa127",
+      "recorded_at": "2026-08-09T00:00:00+00:00",
+      "canonical_state_hash": "a3a3cce3403d292f",
+      "map": [
+        0,
+        1,
+        19,
+        20
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [
+        2,
+        3,
+        3
+      ],
+      "verified": true,
+      "note": "New forward post-loss auto-healed recovery checkpoint; never loaded. Gavi retry is blocked pending a new preparation plan."
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/route110-local23-loss3-healed-forward-20260809.ss",
+      "sha256": "2d454c764d605080b566475c3fd0a237a4846f104a44440976c3bc57b15afc43",
+      "recorded_at": "2026-08-09T00:00:00+00:00",
+      "canonical_state_hash": "b240d7cca02a455c",
+      "map": [
+        0,
+        1,
+        19,
+        20
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [
+        2,
+        3,
+        3
+      ],
+      "verified": true,
+      "note": "New forward post-loss auto-healed recovery checkpoint after accidental Gavi engagement; never loaded."
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/route110-gavi-loss4-healed-forward-20260809.ss",
+      "sha256": "1156accea26e3a54ab7a32de86eb2c901354435d6704ff19daf0561aef8b62d0",
+      "recorded_at": "2026-08-09T01:00:00+00:00",
+      "canonical_state_hash": "078e95499b32de32",
+      "map": [
+        0,
+        1,
+        19,
+        20
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [
+        2,
+        3,
+        3
+      ],
+      "verified": true,
+      "note": "Newest forward post-loss auto-healed checkpoint after deliberate strategic Gavi loss; never loaded. It may be loaded only to correct a later accidental or tooling-caused mistake, never to retry this strategic loss."
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/slateport-counter-slot-forward-20260809.state",
+      "sha256": "804f3c53b710da9729e70b0f0972f174485854909c1f1fe7897a570448cd259a",
+      "recorded_at": "2026-08-09T03:56:17.057373+00:00",
+      "canonical_state_hash": "82b151922e85ccc2",
+      "map": [
+        9,
+        11,
+        10,
+        2
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [
+        2,
+        3,
+        3
+      ],
+      "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-boat-arrival-forward-20260809.state",
+      "sha256": "d266765c938087402ecad54cd0d23b11f53af89af042a1ed35b604fd452ecdf2",
+      "recorded_at": "2026-08-09T04:04:57.851824+00:00",
+      "canonical_state_hash": "0dcf00fad549a7eb",
+      "map": [
+        0,
+        11,
+        11,
+        9
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [
+        2,
+        3,
+        3
+      ],
+      "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/route106-local4-prebattle-forward-20260809.state",
+      "sha256": "6a4ae86c25629a2ed6e1f934dafccabd74b0e0eea413a65c146d3415c1810d61",
+      "recorded_at": "2026-08-09T04:21:50.690192+00:00",
+      "canonical_state_hash": "a9f36d67361c59e1",
+      "map": [
+        0,
+        21,
+        52,
+        16
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [
+        2,
+        3,
+        3
+      ],
+      "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/granite-sandile-caught-forward-20260809.state",
+      "sha256": "46b3efd39bf9dbc50bd3d61bdbe4c781abcd444a2688d8c83003fad88dbc2dc6",
+      "recorded_at": "2026-08-09T04:37:23.483490+00:00",
+      "canonical_state_hash": "8b56373e55ddf4d5",
+      "map": [
+        24,
+        7,
+        23,
+        7
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [
+        2,
+        3,
+        3
+      ],
+      "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/granite-sandile-rock-tomb-forward-20260809.state",
+      "sha256": "301abeea8ef7353c02667f74fbe65e8dbe0552311581e7df88f4271fd00d6dc2",
+      "recorded_at": "2026-08-09T04:50:49.982855+00:00",
+      "canonical_state_hash": "ac9a8886e8448c75",
+      "map": [
+        3,
+        1,
+        7,
+        4
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [
+        2,
+        3,
+        3
+      ],
+      "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/route109-local22-precontact-forward-20260809.state",
+      "sha256": "1004796895aa2fe8b1e83b11100abf15a68503845f8e5c7ea468df9111cf8aa9",
+      "recorded_at": "2026-08-09T05:04:50.387862+00:00",
+      "canonical_state_hash": "97e3bc6ec246b7e2",
+      "map": [
+        0,
+        24,
+        21,
+        20
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [
+        2,
+        3,
+        3
+      ],
+      "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/slateport-sandile-l17-forward-20260809.state",
+      "sha256": "9031f173b2e4070e49d6593de09e8ed07c04c6edec1ef89ad73a5e297201ffa6",
+      "recorded_at": "2026-08-09T06:00:00+00:00",
+      "canonical_state_hash": "e8451aad649b1da3",
+      "map": [
+        9,
+        11,
+        7,
+        8
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [
+        2,
+        3,
+        3
+      ],
+      "verified": true,
+      "note": "Latest forward preparation checkpoint: party healed, Sandile Lv17 full HP with Snarl/Bulldoze/Rock Tomb/Bite; load only for later accidental or tooling-caused corruption."
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/route110-gavi-side-prebattle-forward-20260809.state",
+      "sha256": "bc6d61df9112bac3e598bfaae96b5d7e4053136d8a56dd234e1a63b4e97f6cd0",
+      "recorded_at": "2026-08-09T06:15:00+00:00",
+      "canonical_state_hash": "928bada27564ce7f",
+      "map": [
+        0,
+        25,
+        15,
+        89
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [
+        2,
+        3,
+        3
+      ],
+      "verified": true,
+      "note": "Latest forward prebattle checkpoint: Gavi local 23 identity verified at (14,89), player side-adjacent at (15,89), trainer sight ray avoided, party healed."
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/slateport-rhyhorn-l17-forward-20260809.state",
+      "sha256": "8c29e461c306a471a5b24b2295f92f5ebbdd09853de6487e77ffa3aec498b9ed",
+      "recorded_at": "2026-08-09T08:30:00+00:00",
+      "canonical_state_hash": "8924f49470dc569d",
+      "map": [9, 11, 10, 2],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached"
+      ],
+      "rank": [2, 3, 3],
+      "verified": true,
+      "note": "Latest forward preparation checkpoint: PC withdrawal and party count 6 verified, Rhyhorn species111 Lv17 full HP with Smack Down and Stomp, all six party checksums valid; use for later accidental or tooling-caused corruption only."
+    }
+  ],
+  "furthest_checkpoint_sha256": "8c29e461c306a471a5b24b2295f92f5ebbdd09853de6487e77ffa3aec498b9ed",
   "next_actions": [
     {
       "priority": 1,
       "kind": "preparation",
-      "action": "Re-read the capture decision certificate and execute exactly one selected action at the command menu.",
-      "advances_goal_id": "capture-phanpy-for-route109",
-      "precondition": "Onix is active at 44/44; Phanpy is active at 22/32; emulator is command-menu stable and OS-stopped between requests.",
-      "expected_postcondition": "RAM verifies either one safe weakening result or one Pok\u00e9 Ball transaction, with no unintended action or resource delta."
+      "action": "Use the verified Rhyhorn Lv17 preparation, navigate from Slateport to Route 110 without entering Gavi's sight line, and resolve Eelektrik's live ability, Smack Down grounding, AI, speed, and damage before committing the follow-up.",
+      "advances_goal_id": "route110-local23-reprepare",
+      "precondition": "Latest forward checkpoint or live equivalent is Slateport Center map (9,11), party fully healed, Rhyhorn species111 Lv17 in slot5, plan revision 5 validated; route navigation must verify map (0,25) and Gavi identity before contact.",
+      "expected_postcondition": "Route 110 is reached without accidental trainer contact, party order/moves remain verified, and Gavi identity is confirmed before battle entry."
+    },
+    {
+      "priority": 2,
+      "kind": "observation",
+      "action": "Use the hardened active-printer and B-only move-learning boundaries; at Gavi entry use canonical snapshot/evaluate/commit/verify transactions and stop on any unacknowledged move or prediction mismatch.",
+      "advances_goal_id": "route110-local23-reprepare",
+      "precondition": "Route 110 map (0,25) overworld, Gavi local 23 identity matches graphics 31/script 0x082249c7, party full HP/PP, Rhyhorn slot5 moves [30,479,184,23], plan revision 5 ready.",
+      "expected_postcondition": "The battle interface returns stable command/menu boundaries and the fight begins only after a fresh tactical certificate."
+    },
+    {
+      "priority": 3,
+      "kind": "preparation",
+      "action": "Approach and execute the revised Gavi plan only after readiness validates true, using canonical snapshot/evaluate/commit/verify transactions and stopping on any unacknowledged move or prediction mismatch.",
+      "advances_goal_id": "route110-local23-reprepare",
+      "precondition": "Trainer database record map:0:25/local:23 matches graphics 31 and script 0x082249c7; plan validator returns valid.",
+      "expected_postcondition": "Victory text and battle-inactive RAM prove the required trainer milestone, or a new incident is logged before another attempt."
     }
   ],
-  "blockers": [],
+  "blockers": [
+    "Eelektrik's exact first AI move, Smack Down grounding acknowledgement, and damage against Rhyhorn are unresolved until battle RAM; do not call the Rhyhorn follow-up forced, and stop/replan if its full-health survival gate fails."
+  ],
   "last_reconciled": {
-    "at": "2026-08-08T22:20:44.778594+00:00",
-    "canonical_state_hash": "554bd06f8b58d4fe",
+    "at": "2026-08-09T08:30:00+00:00",
+    "canonical_state_hash": "8924f49470dc569d",
     "sources": [
       {
-        "kind": "emulator_api",
-        "source": "RunBunAdapter canonical state hash",
-        "value": "Granite Cave 1F (24,7), command menu, Onix 44/44, Phanpy 22/32"
+        "kind": "ram",
+        "source": "emulator_api",
+        "value": "Live RAM verifies Slateport Center map (9,11), party count 6, all six checksums valid, and Rhyhorn species111 in slot5 at Lv17 with full HP and moves [30,479,184,23]. The latest forward checkpoint slateport-rhyhorn-l17-forward-20260809.state has SHA-256 8c29e461c306a471a5b24b2295f92f5ebbdd09853de6487e77ffa3aec498b9ed."
+      },
+      {
+        "kind": "rom",
+        "source": "Route 110 map header, warp table, and event-template templates",
+        "value": "Map (0,25) direct edges are north to (0,2), south to (0,1), west to (0,18); trainer templates include local IDs 8,9,10,11,12,13,14,15,20,23,24,25,26,27."
       }
     ]
   }

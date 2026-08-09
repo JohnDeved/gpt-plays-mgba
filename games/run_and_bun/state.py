@@ -24,6 +24,10 @@ G_BATTLE_MONS = 0x020233FC
 BATTLE_MON_STRIDE = 0x5C
 G_BATTLE_ACTION_CURSOR = 0x02023A1C
 G_BATTLE_MOVE_CURSOR = 0x02023A20
+# The forced post-faint party selector uses the field party cursor rather
+# than the battle command cursor.  This was verified in the live Route 110
+# battle after Onix fainted.
+FIELD_PARTY_CURSOR = 0x0203C51D
 G_YES_NO_CURSOR = 0x0203C3C2
 G_PLAYER_PARTY_COUNT = 0x02023A95
 G_PLAYER_PARTY = 0x02023A98
@@ -444,7 +448,9 @@ class RunBun:
             raise RuntimeError(f"failed to move battle cursor to {slot}; got {final}")
         return final
 
-    def choose_move(self, slot: int, *, press_frames: int = 3):
+    def choose_move(self, slot: int, *, press_frames: int = 3, settle_frames: int = 120):
+        if settle_frames < 1:
+            raise ValueError("settle_frames must be positive")
         battle = self.battle()
         if battle.player.move_ids[slot] == 0:
             raise ValueError(f"move slot {slot} is empty")
@@ -460,7 +466,28 @@ class RunBun:
         before_pp = self.battle().player.pp[slot]
         self._menu_pause_boundary()
         action = self.gba.press("A", frames=press_frames)
-        return {"slot": slot, "move": self.battle().player.moves[slot], "before_pp": before_pp, "action": action}
+        # The custom move task can leave the move selector visible for a few
+        # frames after A.  Returning immediately lets the caller's verifier
+        # press through that stale selector; in the worst case the opponent
+        # then acts while the intended move was never acknowledged.  Wait at
+        # the same acceptance boundary used by the party UI and require a
+        # non-selector battle state before recording the transaction.
+        self.gba.wait_frames(settle_frames)
+        self._menu_pause_boundary()
+        acknowledged = RunBunAdapter(self.gba).observe()
+        menu_after = acknowledged.get("battle", {}).get("menu", {}).get("state")
+        if menu_after == "move_menu":
+            raise RuntimeError(
+                f"move_commit_not_acknowledged: move menu still open after A for slot {slot}"
+            )
+        return {
+            "slot": slot,
+            "move": self.battle().player.moves[slot],
+            "before_pp": before_pp,
+            "after_pp": self.battle().player.pp[slot],
+            "ack": menu_after,
+            "action": action,
+        }
 
     def choose_move_id(self, move_id: int, *, press_frames: int = 3):
         """Choose a move by its decoded ID, avoiding fragile slot guesses."""
@@ -501,6 +528,43 @@ class RunBun:
         active_species = self.battle_mon(0).species_id
         if mon.species_id == active_species:
             raise ValueError("switch_failed: target is already active")
+        from games.runbun import RunBunAdapter
+
+        menu_state = RunBunAdapter(self.gba).observe().get("battle", {}).get("menu", {}).get("state")
+        if menu_state == "party_switch":
+            # A fainted active Pokémon opens the selector directly. The
+            # voluntary-switch path below would incorrectly try to move the
+            # battle command cursor first, consuming input while the party
+            # task still owns the screen. In this mode the cursor is a linear
+            # party index in the live party order.
+            self._menu_pause_boundary()
+            cursor = self.gba.read8(FIELD_PARTY_CURSOR)
+            target = int(slot)
+            if cursor not in range(count):
+                raise RuntimeError(f"unexpected forced party cursor: {cursor}")
+            if cursor != target:
+                direction = "DOWN" if target > cursor else "UP"
+                for _ in range(abs(target - cursor)):
+                    self.gba.press(direction, frames=press_frames)
+                    self.gba.wait_frames(max(settle_frames, 30))
+            final = self.gba.read8(FIELD_PARTY_CURSOR)
+            if final != target:
+                raise RuntimeError(f"failed to set forced party cursor to {target}; got {final}")
+            action = self.gba.press("A", frames=press_frames)
+            self.gba.wait_frames(max(settle_frames, 120))
+            # Run & Bun keeps a short party-target transition layer after the
+            # first confirmation. If the battler identity is still stale and
+            # the selector cursor is unchanged, the second A is the explicit
+            # Send Out confirmation; it is not a blind retry.
+            if self.battle_mon(0).species_id != mon.species_id and self.gba.read8(FIELD_PARTY_CURSOR) == target:
+                self._menu_pause_boundary()
+                action = self.gba.press("A", frames=press_frames)
+                self.gba.wait_frames(settle_frames)
+            for _ in range(60):
+                if self.battle_mon(0).species_id == mon.species_id:
+                    return {"slot": slot, "species": mon.species, "action": action, "forced": True}
+                self.gba.wait_frames(10)
+            raise RuntimeError("switch_failed: forced party selection was not acknowledged")
         # The command cursor can be valid in RAM while the prior battle text
         # task still owns input.  Reconnect/pause at this boundary before
         # moving the cursor, otherwise a voluntary switch can be rejected or

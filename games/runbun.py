@@ -7,6 +7,7 @@ docs/RUNBUN_V107.md. They must not be reused for another ROM revision.
 from __future__ import annotations
 
 import math
+import hashlib
 import re
 import time
 from dataclasses import asdict, dataclass
@@ -120,6 +121,8 @@ MOVE_TYPE_IDS = {
     252: 0,   # Fake Out, Normal; priority
     270: 0,   # Helping Hand, status
     317: 5,   # Rock Tomb, Rock
+    225: 16,  # DragonBreath, Dragon
+    249: 1,   # Rock Smash, Fighting
     229: 0,  # Rapid Spin, Normal (verified from the live move window)
     267: 0,  # Nature Power (terrain-dependent; conservative Normal)
     283: 0,  # Endeavor, fixed/conditional; never use for bounded weakening
@@ -131,12 +134,22 @@ MOVE_TYPE_IDS = {
     395: 1,   # Force Palm, Fighting
     458: 0,   # Double Hit, Normal
     474: 3,   # Venoshock, Poison
+    162: 0,   # Super Fang, fixed half-current-HP Normal damage
+    172: 10,  # Flame Wheel, Fire
+    365: 2,   # Pluck, Flying
+    583: 18,  # Play Rough, Fairy
+    72: 12,   # Mega Drain, Grass
+    188: 3,   # Sludge Bomb, Poison
+    73: 12,   # Leech Seed, Grass status
+    320: 12,  # GrassWhistle, Grass status
+    611: 6,   # Infestation, Bug
+    355: 2,   # Roost, Flying status
     336: 0,   # Howl, status
     109: 7,  # Confuse Ray, Ghost
     86: 13,  # Thunder Wave, Electric
     341: 4,  # Mud Shot, Ground
     420: 15, # Ice Shard, Ice; priority
-    450: 3,  # Venoshock, Poison
+    450: 6,  # Bug Bite, Bug
     523: 4,  # Bulldoze, Ground; spread speed control
     453: 11, # Aqua Jet, Water
     512: 2,  # Acrobatics, Flying
@@ -145,16 +158,22 @@ MOVE_TYPE_IDS = {
 MOVE_POWER = {
     10: 35, 16: 40, 20: 15, 23: 65, 33: 40, 44: 60, 49: 20, 52: 40,
     71: 20, 75: 55, 88: 50, 98: 40, 183: 40, 205: 30, 229: 20,
-    7: 75, 24: 30, 86: 0, 92: 0, 109: 0,
+    7: 75, 24: 30, 86: 0, 92: 0, 103: 0, 109: 0,
     209: 65, 252: 40, 317: 60, 332: 60, 342: 50, 351: 60, 352: 60,
     395: 60, 420: 40, 458: 35, 474: 65, 267: 80, 270: 0, 341: 55,
-    340: 85, 450: 65, 453: 40, 512: 60, 523: 60,
+    340: 85, 225: 60, 249: 40, 450: 60, 453: 40, 512: 60, 523: 60,
+    172: 60, 365: 60, 583: 90, 72: 40, 188: 90, 611: 20,
 }
-MOVE_SPECIAL_IDS = frozenset({16, 49, 52, 71, 267, 341, 351, 352, 450, 474})
+MOVE_SPECIAL_IDS = frozenset({16, 49, 52, 71, 72, 188, 267, 341, 351, 352, 450, 474, 611})
 MOVE_PRIORITY_IDS = frozenset({98, 183, 252, 420, 453})
-STATUS_MOVE_IDS = frozenset({28, 43, 86, 92, 109, 117, 150, 182, 270, 283, 336, 589})
+STATUS_MOVE_IDS = frozenset({28, 43, 73, 86, 92, 103, 109, 117, 150, 182, 270, 283, 320, 336, 355, 589})
+# Fixed-damage moves bypass the ordinary type/power formula. Values are the
+# denominator of the defender's current-HP fraction; Run & Bun's Super Fang
+# follows the verified cartridge behavior of floor(current HP / 2).
+MOVE_FIXED_DAMAGE_FRACTIONS = {162: 2}
 PHYSICAL_THREAT_DEBUFF_IDS = frozenset({589})  # Play Nice lowers Attack.
 ABILITY_FLASH_FIRE = 18
+ABILITY_LEVITATE = 26
 PARALYSIS_STATUS = 0x40
 
 # These moves can be nonlethal on the immediate roll but create an avoidable
@@ -178,11 +197,16 @@ TYPE_EFFECTIVENESS = {
     0: {7: 0.0},                         # Normal -> Ghost
     1: {0: 2.0, 2: 0.5, 3: 0.5, 5: 2.0, 6: 0.5, 8: 2.0, 11: 1.0, 14: 0.5, 15: 2.0, 17: 2.0},
     2: {1: 2.0, 6: 2.0, 12: 2.0, 10: 0.5, 11: 1.0},
-    4: {10: 2.0, 11: 2.0, 12: 0.5, 2: 0.0, 6: 0.5, 13: 2.0},
+    # Ground is neutral into Water; the live Bibarel turn verified this
+    # correction when Bulldoze dealt 12 rather than the old super-effective
+    # estimate. Keep the explicit Water entry to prevent accidental fallback
+    # to an overconfident multiplier.
+    4: {10: 2.0, 11: 1.0, 12: 0.5, 2: 0.0, 6: 0.5, 13: 2.0},
+    13: {4: 0.0},             # Electric -> Ground
     6: {12: 2.0, 10: 0.5, 1: 0.5, 2: 0.5, 17: 2.0, 18: 0.5},
     10: {12: 2.0, 6: 2.0, 10: 0.5, 11: 0.5, 5: 0.5, 15: 2.0, 8: 2.0},
     11: {10: 2.0, 4: 2.0, 12: 0.5, 11: 0.5},
-    12: {11: 2.0, 4: 2.0, 10: 0.5, 12: 0.5, 2: 0.5, 6: 0.5},
+    12: {11: 2.0, 4: 2.0, 5: 2.0, 10: 0.5, 12: 0.5, 2: 0.5, 6: 0.5},
 }
 
 CHAR_PROMPT_SCROLL = 0xFA
@@ -741,7 +765,10 @@ class RunBunAdapter:
     @classmethod
     def _mon_types(cls, mon: dict[str, Any]) -> tuple[int, ...]:
         state = mon.get("state", mon)
-        types = tuple(type_id for type_id in state.get("types", ()) if type_id != 9)
+        # This build repeats a single type in both type bytes (for example
+        # Grass/Grass/Unknown). Keep the first occurrence only: multiplying
+        # the chart by duplicate type bytes falsely squares effectiveness.
+        types = tuple(dict.fromkeys(type_id for type_id in state.get("types", ()) if type_id != 9))
         return types or SPECIES_TYPE_IDS.get(state.get("species"), ())
 
     @classmethod
@@ -805,6 +832,13 @@ class RunBunAdapter:
             return (0.0, 0.0)
         attacker_state = attacker.get("state", attacker)
         defender_state = defender.get("state", defender)
+        fixed_denominator = MOVE_FIXED_DAMAGE_FRACTIONS.get(move_id)
+        if fixed_denominator is not None:
+            current_hp = int(defender_state.get("current_hp", 0) or 0)
+            if current_hp <= 0:
+                return (0.0, 0.0)
+            damage = float(current_hp // fixed_denominator)
+            return (damage, damage)
         learned = (damage_memory or {}).get(
             (attacker_state.get("species"), move_id, defender_state.get("species")),
             (),
@@ -838,6 +872,8 @@ class RunBunAdapter:
         defense = defender_state.get(defense_key, 0)
         level = attacker_state.get("level", 0)
         if not attack or not defense or not level:
+            return (0.0, 0.0)
+        if defender_state.get("ability") == ABILITY_LEVITATE and move_type == 4:
             return (0.0, 0.0)
         attack *= cls._stage_multiplier(attacker_state, attack_key)
         defense *= cls._stage_multiplier(defender_state, defense_key)
@@ -2610,9 +2646,10 @@ class RunBunAdapter:
         """Throw the current Poké Ball with L and verify the complete result.
 
         Run & Bun exposes a battle hotkey on L. This avoids opening the Bag;
-        quantity delta, capture text, and party insertion are the authoritative
-        acknowledgments. The helper currently requires an open party slot so a
-        successful capture can be verified without relying on PC UI state.
+        quantity delta, capture text, and party/PC RAM deltas are the
+        authoritative acknowledgments. A full party is supported: the game
+        sends the captured mon to PC storage, whose pointed storage image must
+        change before the helper returns success.
         """
         from games.run_and_bun.state import RunBun
 
@@ -2621,8 +2658,7 @@ class RunBunAdapter:
         if before.get("battle", {}).get("menu", {}).get("state") != "command_menu":
             raise RuntimeError("poke_ball_hotkey_requires_command_menu")
         before_count = state.party_count()
-        if before_count >= 6:
-            raise RuntimeError("poke_ball_hotkey_requires_open_party_slot")
+        before_storage = self._pokemon_storage_digest()
         before_balls = self._poke_ball_quantity(self.inventory())
         if before_balls <= 0:
             raise RuntimeError("no_poke_balls")
@@ -2650,21 +2686,28 @@ class RunBunAdapter:
             # post-capture flow; B is the deterministic No/cancel shortcut at
             # the nickname prompt.
             for _ in range(16):
-                if state.party_count() == before_count + 1:
+                party_inserted = before_count < 6 and state.party_count() == before_count + 1
+                pc_changed = before_count >= 6 and self._pokemon_storage_digest() != before_storage
+                if party_inserted or pc_changed:
                     break
                 observed = self.observe()
                 contexts = (observed.get("text") or {}).get("battle_printers", [])
                 rendered = "\n".join(context.get("text", "") for context in contexts)
                 self.gba.press("B" if "Give a nickname" in rendered else "A", frames=3)
                 self.gba.wait_frames(120)
-            if state.party_count() != before_count + 1:
-                raise RuntimeError("capture_text_seen_but_party_insertion_not_verified")
-            inserted = state.party_mon(before_count)
-            if inserted.species_id != target.get("species"):
-                raise RuntimeError(
-                    f"captured_species_mismatch: expected {target.get('species')} got {inserted.species_id}"
-                )
-            outcome = "caught"
+            if before_count < 6:
+                if state.party_count() != before_count + 1:
+                    raise RuntimeError("capture_text_seen_but_party_insertion_not_verified")
+                inserted = state.party_mon(before_count)
+                if inserted.species_id != target.get("species"):
+                    raise RuntimeError(
+                        f"captured_species_mismatch: expected {target.get('species')} got {inserted.species_id}"
+                    )
+                outcome = "caught"
+            elif self._pokemon_storage_digest() == before_storage:
+                raise RuntimeError("capture_text_seen_but_pc_storage_change_not_verified")
+            else:
+                outcome = "caught_to_pc"
         elif resolution.get("state") == "command_menu":
             outcome = "escaped_ball"
         else:
@@ -2700,8 +2743,18 @@ class RunBunAdapter:
             "balls_after": after_balls,
             "party_count_before": before_count,
             "party_count_after": state.party_count(),
+            "storage_changed": self._pokemon_storage_digest() != before_storage,
             "resolution": resolution,
         }
+
+    def _pokemon_storage_digest(self) -> str:
+        """Hash the live 14-box storage image for full-party capture proof."""
+        pointer = self.gba.read32(PC_STORAGE_PTR)
+        if not (0x02000000 <= pointer < 0x02040000):
+            raise RuntimeError(f"invalid_pokemon_storage_pointer: {pointer:#x}")
+        # Gen III storage is 14 boxes × 30 BoxPokemon records × 80 bytes.
+        raw = self.gba.read_range(pointer, 14 * 30 * 80, name="pokemon_storage")
+        return hashlib.sha256(raw).hexdigest()
 
     def finish_battle_after_ko(
         self,
@@ -2849,6 +2902,97 @@ class RunBunAdapter:
             transition_frames=transition_frames,
         )
 
+    @classmethod
+    def _trainer_sight_tiles(
+        cls,
+        gba: Any,
+        map_id: tuple[int, int],
+        *,
+        current: tuple[int, int] | None = None,
+        target: tuple[int, int] | None = None,
+    ) -> set[tuple[int, int]]:
+        """Return RAM-derived tiles that can trigger a trainer sight battle.
+
+        Runtime objects expose the current facing ray.  Immediately after a
+        map connection, the object table can still contain the source map, so
+        stationary trainer event templates are also read as a conservative
+        four-way exclusion using their ROM sight radius.  NPC interaction has
+        its own seeker; ordinary navigation should never walk through a
+        trainer ray by accident.
+        """
+        from games.run_and_bun.objects import read_live_event_targets, read_live_objects
+
+        blocked: set[tuple[int, int]] = set()
+        event_radii: dict[int, int] = {}
+        event_positions: dict[int, tuple[int, int]] = {}
+        for event in read_live_event_targets(gba, map_id=map_id):
+            if not event.trainer_type:
+                continue
+            if current is not None or target is not None:
+                distances = [
+                    abs(event.current_x - point[0]) + abs(event.current_y - point[1])
+                    for point in (current, target)
+                    if point is not None
+                ]
+                # During a connection rebuild templates for the entire map
+                # are visible. Only nearby trainers can intersect the next
+                # bounded route segment; later replans refresh this filter.
+                if min(distances, default=10**9) > 16:
+                    continue
+            radius = max(1, int(event.trainer_sight_radius or 1))
+            event_radii[event.local_id] = radius
+            event_positions[event.local_id] = event.position
+
+        live_trainer_ids: set[int] = set()
+        for obj in read_live_objects(gba):
+            if obj.is_player or not obj.trainer_type or obj.map_id != map_id:
+                continue
+            live_trainer_ids.add(obj.local_id)
+            # The trainer's own tile is occupied as well as the facing ray.
+            # Without this, a detour can route directly into the NPC and the
+            # adaptive bridge will repeatedly retry the same impossible edge.
+            blocked.add(obj.position)
+            # In this ROM the live object byte is shared with another field
+            # and can contain 33 even when the trainer's event template says
+            # the actual sight radius is 5 or 7. Treat implausibly large
+            # values as non-range payload and use the ROM-backed template;
+            # otherwise navigation can manufacture an entire map-wide wall.
+            live_range = int(obj.trainer_range_or_berry_id)
+            template_range = int(event_radii.get(obj.local_id, 5))
+            radius = live_range if 0 < live_range <= 16 else template_range
+            radius = max(1, radius)
+            facing = cls._trainer_facing_delta(obj.facing_direction)
+            if facing is None:
+                continue
+            for distance in range(1, radius + 1):
+                blocked.add((obj.current_x + facing[0] * distance, obj.current_y + facing[1] * distance))
+
+        # Template coordinates are authoritative during connection rebuilds,
+        # but do not carry the current facing direction.  Movement type 8 is
+        # verified in this ROM as the stationary trainer orientation used by
+        # Gavi and faces down.  For other template movement types, wait for a
+        # live object (which carries facing_direction) instead of creating a
+        # four-way wall that can make a legitimate route unreachable.
+        for local_id, position in event_positions.items():
+            if local_id in live_trainer_ids:
+                continue
+            event = next(
+                event
+                for event in read_live_event_targets(gba, map_id=map_id)
+                if event.local_id == local_id
+            )
+            if event.movement_type != 8:
+                continue
+            radius = event_radii[local_id]
+            # Event templates are the only reliable coordinates during a map
+            # connection rebuild.  Block the template tile too, otherwise a
+            # route can walk into the stale trainer position while only
+            # avoiding the inferred downward ray.
+            blocked.add(position)
+            for distance in range(1, radius + 1):
+                blocked.add((position[0], position[1] + distance))
+        return blocked
+
     def follow_live_path_adaptive(
         self,
         target: tuple[int, int],
@@ -2862,6 +3006,7 @@ class RunBunAdapter:
         blocked_wait_frames: int = 12,
         grass_penalty: int = 100,
         blocked_edges: set[tuple[tuple[int, int], str]] | None = None,
+        avoid_trainer_sight_lines: bool = True,
     ) -> dict[str, Any]:
         """Navigate by short compressed chunks and replan around blockers.
 
@@ -2917,11 +3062,35 @@ class RunBunAdapter:
             live = read_live_map(self.gba)
             if not live.walkable(*target):
                 raise ValueError(f"target is not walkable in live grid: {target!r}")
+            trainer_sight_tiles = (
+                self._trainer_sight_tiles(
+                    self.gba,
+                    actual_map,
+                    current=current,
+                    target=target,
+                )
+                if avoid_trainer_sight_lines
+                else set()
+            )
+            # Block every active same-map object tile, not just trainers.
+            # This prevents the planner from selecting a route that ends on a
+            # blocking NPC and then spending its replan budget retrying it.
+            from games.run_and_bun.objects import read_live_objects
+
+            occupied_tiles = {
+                obj.position
+                for obj in read_live_objects(self.gba)
+                if obj.active
+                and not obj.invisible
+                and not obj.is_player
+                and obj.map_id == actual_map
+            }
             try:
                 path = live.path_to(
                     current,
                     target,
                     blocked_edges=persistent_blocked_edges | dynamic_blocked_edges,
+                    blocked_tiles=trainer_sight_tiles | occupied_tiles,
                     allow_nonwalkable_start=True,
                     grass_penalty=grass_penalty,
                 )
@@ -3439,13 +3608,73 @@ class RunBunAdapter:
         return final
 
     @staticmethod
-    def _field_move_learning_pending(observation: dict[str, Any]) -> bool:
-        """Detect move-learning ownership before any automatic menu cleanup."""
+    def _active_field_page_texts(observation: dict[str, Any]) -> tuple[str, ...]:
+        """Return text belonging to a currently active field printer.
+
+        The custom decoder retains old printer pages for forensics and may
+        expose one of those as ``text.current`` while a newer field printer
+        is drawing the real page.  Menu input must be gated by the active
+        printer, otherwise an old ``A`` boundary can consume another item.
+        """
         text = observation.get("text") or {}
-        rendered = "\n".join(
-            [((text.get("current") or {}).get("text") or "")]
-            + [context.get("text", "") for context in text.get("battle_printers", [])]
-        )
+        active_addresses = {
+            printer.get("address")
+            for printer in text.get("printers", [])
+            if printer.get("active") and printer.get("window_id") in {5, 6}
+        }
+        pages: list[str] = []
+        for entry in text.get("pages", []):
+            printer = entry.get("printer") or {}
+            if printer.get("address") in active_addresses:
+                value = (entry.get("page") or {}).get("text") or ""
+                if value:
+                    pages.append(value)
+        if not pages:
+            pages.extend(
+                context.get("text", "")
+                for context in text.get("battle_printers", [])
+                if context.get("text")
+            )
+        if not pages:
+            current = (text.get("current") or {}).get("text") or ""
+            if current:
+                pages.append(current)
+        return tuple(dict.fromkeys(pages))
+
+    @classmethod
+    def _move_learning_page_texts(cls, observation: dict[str, Any]) -> tuple[str, ...]:
+        """Prefer the input-owning printer, with a bounded current-page fallback.
+
+        During the first level-up page the field engine can briefly expose no
+        window-5/6 entry even though the current RAM text is the live
+        "already knows four moves" acknowledgement.  The fallback is limited
+        to move-learning callers and never treats arbitrary overworld text as
+        an input boundary.
+        """
+        pages = cls._active_field_page_texts(observation)
+        if pages:
+            return pages
+        current = (observation.get("text") or {}).get("current") or {}
+        value = current.get("text") or ""
+        if value and any(
+            marker in value
+            for marker in (
+                "wants to learn",
+                "already knows four moves",
+                "Should a move be deleted",
+                "Which move should be forgotten",
+                "Poof!",
+                "forgot how to",
+                "learned",
+            )
+        ):
+            return (value,)
+        return ()
+
+    @classmethod
+    def _field_move_learning_pending(cls, observation: dict[str, Any]) -> bool:
+        """Detect move-learning ownership before any automatic menu cleanup."""
+        rendered = "\n".join(cls._active_field_page_texts(observation))
         phrases = (
             "wants to learn",
             "already knows four moves",
@@ -3498,20 +3727,36 @@ class RunBunAdapter:
                 raise RuntimeError("move_learning_not_pending")
             # Pages leading to the forget screen are ordinary field text. A
             # single verified A advances one page; no blind repeat is used.
-            text = ((state.get("text") or {}).get("current") or {}).get("text")
-            if text:
-                # The custom text printer can keep ``active`` true while the
-                # page is already input-ready. The field task owns the real
-                # boundary, so one A per sampled page is the deterministic
-                # control here.
+            pages = self._move_learning_page_texts(state)
+            if any(
+                marker in page
+                for page in pages
+                for marker in (
+                    "wants to learn",
+                    "already knows four moves",
+                    "Should a move be deleted",
+                )
+            ):
                 self.gba.press("A", frames=3)
                 self.gba.wait_frames(120)
                 elapsed += 120
             else:
+                if any("Use on which Pokémon?" in page for page in pages):
+                    raise RuntimeError("move_learning_target_prompt_before_forget_screen")
                 self.gba.wait_frames(30)
                 elapsed += 30
         if self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 33:
             raise TimeoutError("move_learning_forget_screen_not_ready")
+
+        # Mode 33 is shared by the question page and the five-row selector.
+        # The question must be acknowledged before directional input is legal.
+        question = any(
+            "Which move should be forgotten" in page
+            for page in self._active_field_page_texts(self.observe())
+        )
+        if question:
+            self.gba.press("A", frames=3)
+            self.gba.wait_frames(180)
 
         # The five-row move-forget task uses a separate cursor byte from the
         # ordinary field party cursor. Its initial position is the first move;
@@ -3543,8 +3788,34 @@ class RunBunAdapter:
                     and (expected_move_id is None or expected_move_id in new_moves)
                 ):
                     break
-            self.gba.wait_frames(30)
-            elapsed += 30
+
+            # The ROM applies the replacement only after a short sequence of
+            # field-message pages ("Poof!", "forgot ...", "And...", then
+            # "learned ..."). Waiting for the party tuple without advancing
+            # those pages stalls on the correct acknowledgement boundary.
+            # Advance only a verified move-learning page; an A on the reusable
+            # target prompt would consume another Endless Candy.
+            pages = self._move_learning_page_texts(state)
+            if any("Use on which Pokémon?" in page for page in pages):
+                raise RuntimeError("move_learning_target_prompt_before_party_ack")
+            ready = any(
+                marker in page
+                for page in pages
+                for marker in (
+                    "Poof!",
+                    "forgot how to",
+                    "And…",
+                    "And...",
+                    "learned",
+                )
+            )
+            if ready:
+                self.gba.press("A", frames=3)
+                self.gba.wait_frames(120)
+                elapsed += 120
+            else:
+                self.gba.wait_frames(30)
+                elapsed += 30
         if (
             new_moves == old_moves
             or new_moves[forget_slot] == old_moves[forget_slot]
@@ -3555,17 +3826,57 @@ class RunBunAdapter:
                 f"move_learning_party_ack_missing: old={old_moves} new={new_moves} expected={expected_move_id}"
             )
 
-        # Finish the learn message, then close the reusable item target layer.
-        for _ in range(4):
+        # Finish only the remaining learn-message pages. Stop at the reusable
+        # target prompt; pressing A there would silently use another Candy.
+        for _ in range(8):
             state = self.observe()
             if state.get("mode") == "overworld":
                 break
+            pages = self._move_learning_page_texts(state)
+            if any("Use on which Pokémon?" in page for page in pages):
+                break
+            # Only these pages belong to the current replacement.  A generic
+            # state-0/state-2 check is unsafe here: after the learned page the
+            # field task may expose another Candy target layer with a fresh
+            # printer, and A would consume the item again.
+            learning_page = any(
+                marker in page
+                for page in pages
+                for marker in (
+                    "Poof!",
+                    "forgot how to",
+                    "And…",
+                    "And...",
+                    "learned",
+                )
+            )
+            if not learning_page:
+                # Let the target-layer task settle; it will be closed by the
+                # B-only cleanup below. Never guess an A on an unknown mode.
+                self.gba.wait_frames(30)
+                if pages:
+                    break
+                continue
             self.gba.press("A", frames=3)
             self.gba.wait_frames(90)
         for _ in range(4):
             state = self.observe()
             if state.get("mode") == "overworld":
                 break
+            pages = self._move_learning_page_texts(state)
+            field_mode = state.get("ui", {}).get("field_message_box_mode")
+            if field_mode == 33 or any(
+                phrase in page
+                for page in pages
+                for phrase in (
+                    "wants to learn",
+                    "already knows four moves",
+                    "Should a move be deleted",
+                    "Which move should be forgotten",
+                    "Stop trying to teach",
+                )
+            ):
+                raise RuntimeError("nested_move_learning_prompt_after_replacement")
             self.gba.press("B", frames=3)
             self.gba.wait_frames(120)
         final = self.observe()
@@ -3863,6 +4174,21 @@ class RunBunAdapter:
             raise ValueError("interaction_gap must be >= 1")
         live = read_live_map(self.gba)
         blocked = object_occupied_edges(objects)
+        # The NPC seeker has its own path builder, so merge the same
+        # RAM/template-backed trainer sight exclusion used by the general
+        # adaptive navigator.  Without this, approaching a stationary trainer
+        # from the south can enter its ray before the final interaction tile.
+        map_state = self.observe().get("map") or {}
+        actual_map = (map_state.get("group"), map_state.get("number"))
+        if None not in actual_map:
+            blocked_tiles = self._trainer_sight_tiles(
+                self.gba,
+                (int(actual_map[0]), int(actual_map[1])),
+                current=current,
+                target=(target.current_x, target.current_y),
+            )
+        else:
+            blocked_tiles = set()
         directions = ((0, -1), (1, 0), (0, 1), (-1, 0))
         candidates: list[tuple[int, int, int, int, tuple[int, int], list[str]]] = []
         for dx, dy in directions:
@@ -3889,6 +4215,7 @@ class RunBunAdapter:
                         current,
                         approach,
                         blocked_edges=blocked,
+                        blocked_tiles=blocked_tiles,
                         allow_nonwalkable_start=True,
                         grass_penalty=grass_penalty,
                     )
@@ -3897,7 +4224,12 @@ class RunBunAdapter:
                 # Dijkstra's grass penalty is represented in the path choice,
                 # and Manhattan distance breaks equal-cost ties without
                 # screenshots.
-                if getattr(target, "trainer_type", 0):
+                if getattr(target, "trainer_type", 0) and gap > 1:
+                    # A side-adjacent tile is a valid talk boundary for a
+                    # stationary trainer.  Only open two-tile shortcuts stay
+                    # restricted to the trainer's facing ray; allowing a
+                    # side tile here is what makes a sight-ray-safe approach
+                    # possible when the front tile is intentionally blocked.
                     facing = self._trainer_facing_delta(getattr(target, "facing_direction", 0))
                     if facing is not None and (approach[0] - target.current_x, approach[1] - target.current_y) != (facing[0] * gap, facing[1] * gap):
                         continue
@@ -4059,6 +4391,10 @@ class RunBunAdapter:
             )
             if getattr(target, "trainer_type", 0) and getattr(target, "facing_direction", 0):
                 interaction_distance = self._trainer_front_range(current, target)
+                if interaction_distance is None:
+                    interaction_distance = self._npc_interaction_gap(
+                        current, target, live, max_gap=1, allow_open_gap=interact
+                    )
             if interaction_distance is not None:
                 target_dict = target.as_dict()
                 if not interact:
@@ -4106,6 +4442,10 @@ class RunBunAdapter:
                 )
                 if getattr(refreshed_target, "trainer_type", 0) and getattr(refreshed_target, "facing_direction", 0):
                     interaction_distance = self._trainer_front_range(current, refreshed_target)
+                    if interaction_distance is None:
+                        interaction_distance = self._npc_interaction_gap(
+                            current, refreshed_target, live, max_gap=1, allow_open_gap=interact
+                        )
                 if interaction_distance is None:
                     last_state = self.observe()
                     continue

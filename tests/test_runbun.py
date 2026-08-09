@@ -533,6 +533,31 @@ class RunBunTests(unittest.TestCase):
         self.assertFalse(chosen["ko_before_hit"])
         self.assertEqual(chosen["order"], "tie")
 
+    def test_super_fang_uses_fixed_half_current_hp_damage(self):
+        attacker = {"state": {"species": 400}}
+        defender = {"state": {"species": 388, "current_hp": 57}}
+        self.assertEqual(RunBunAdapter._damage_bounds(162, attacker, defender), (28.0, 28.0))
+
+    def test_single_type_battler_deduplicates_repeated_live_type_bytes(self):
+        mon = {"state": {"species": 388, "types": (12, 12, 9)}}
+        self.assertEqual(RunBunAdapter._mon_types(mon), (12,))
+
+    def test_ground_is_neutral_into_water_for_bulldoze_estimate(self):
+        attacker = {"state": {"species": 231, "level": 17, "attack": 24, "types": (4, 4, 9)}}
+        defender = {"state": {"species": 400, "level": 16, "defense": 29, "types": (0, 11, 9)}}
+        low, high = RunBunAdapter._damage_bounds(523, attacker, defender)
+        self.assertLessEqual(high, 17.0)
+
+    def test_levitate_blocks_ground_moves(self):
+        attacker = {"state": {"species": 878, "level": 17, "attack": 33, "types": (8, 8, 9)}}
+        defender = {"state": {"species": 603, "ability": 26, "current_hp": 54, "level": 17, "defense": 34, "types": (13, 13, 9)}}
+        self.assertEqual(RunBunAdapter._damage_bounds(523, attacker, defender), (0.0, 0.0))
+
+    def test_electric_is_ineffective_into_ground(self):
+        attacker = {"state": {"species": 603, "level": 17, "special_attack": 35, "types": (13, 13, 9)}}
+        defender = {"state": {"species": 95, "level": 17, "special_defense": 21, "types": (5, 4, 9)}}
+        self.assertEqual(RunBunAdapter._damage_bounds(351, attacker, defender), (0.0, 0.0))
+
     def test_stat_stage_and_speed_tie_are_not_treated_as_first(self):
         state = {"stat_stages": (6, 5, 6, 6, 6)}
         self.assertAlmostEqual(RunBunAdapter._stage_multiplier(state, "attack"), 2 / 3)
