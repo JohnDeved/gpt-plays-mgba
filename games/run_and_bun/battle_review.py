@@ -133,7 +133,8 @@ def review_episode(
     if terminal == "step_mismatch" and not any(item["kind"] == "tooling_mismatch" for item in findings):
         findings.append(_finding("tooling_mismatch", "battle step verification failed", action_changing=True))
     if terminal == "loss" and not findings:
-        findings.append(_finding("preparation_team_failure", "the verified party and policy did not produce a terminal win", transitions[-1] if transitions else None, action_changing=True))
+        kind = "tactical_error" if any(item.get("policy_decision") for item in transitions) else "preparation_team_failure"
+        findings.append(_finding(kind, "the verified party and policy did not produce a terminal win", transitions[-1] if transitions else None, action_changing=True))
 
     counterfactuals = bounded_counterfactuals(transitions)
     blocking = [item for item in findings if item.get("action_changing")]

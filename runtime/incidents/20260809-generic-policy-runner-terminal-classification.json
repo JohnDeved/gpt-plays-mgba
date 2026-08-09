@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T162854Z-generic-policy-runner-missed-authoritative-clone",
+  "status": "observed",
+  "created_at": "2026-08-09T16:28:54.190766+00:00",
+  "summary": "Generic policy runner missed authoritative clone loss terminal",
+  "component": "generic battle policy runner",
+  "symptom": "runner advanced after whiteout and labeled the attempt policy_gap",
+  "classification": "unknown",
+  "severity": "high",
+  "live_state": {
+    "required": false,
+    "preserved": false,
+    "artifact": null,
+    "sha256": null,
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "whiteout feedback ends the attempt as loss and resets qualification",
+    "actual": "battle inactive state lacked retained printer text; runner attempted another policy decision and emitted policy_gap",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

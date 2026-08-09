@@ -28,6 +28,25 @@ from games.run_and_bun.capabilities import (
 )
 
 
+def _emit_progress(record: dict) -> None:
+    """Emit one machine-readable progress card without buffering."""
+    print(json.dumps(record, separators=(",", ":")), flush=True)
+
+
+def _terminal_from_result(result: dict) -> str | None:
+    feedback = str(((result.get("actual") or {}).get("resolution") or {}).get("feedback", "")).casefold()
+    if "whited out" in feedback or "out of usable pok" in feedback:
+        return "loss"
+    if "for winning" in feedback or "defeated" in feedback:
+        return "win"
+    observation = result.get("observation") or {}
+    if not observation.get("battle", {}).get("active"):
+        party = observation.get("party", [])
+        if party and not any(int(mon.get("hp", mon.get("current_hp", 0)) or 0) > 0 for mon in party):
+            return "loss"
+    return None
+
+
 def _stable(adapter: RunBunAdapter, gba: MGBA) -> tuple[dict, dict] | None:
     for _ in range(5):
         try:
@@ -109,12 +128,12 @@ def main() -> int:
         evidence = plan_data.get("evidence", {})
         profile_rel = str(args.profile.resolve().relative_to(ROOT.resolve()))
         if evidence.get("policy_profile") != profile_rel or evidence.get("behavior_hash") != policy.behavior_hash:
-            print(json.dumps({
+            _emit_progress({
                 "error": "live plan does not authorize this exact policy profile and behavior bundle",
                 "expected_profile": profile_rel,
                 "expected_behavior_hash": policy.behavior_hash,
                 "plan_evidence": evidence,
-            }, separators=(",", ":")))
+            })
             return 2
     session = MGBA(timeout=15) if args.live else disposable_clone(args.state)
     source = "live" if args.live else "cartridge_clone"
@@ -190,9 +209,15 @@ def main() -> int:
                 terminal = "step_mismatch"
                 stop = {"discrepancies": result["discrepancies"], "certificate": certificate}
                 break
+            result_terminal = _terminal_from_result(result)
+            if result_terminal:
+                action_ids.append(result["action_id"])
+                policy.record_verified(certificate, action, result)
+                terminal = result_terminal
+                break
             action_ids.append(result["action_id"])
             policy.record_verified(certificate, action, result)
-            print(json.dumps({
+            _emit_progress({
                 "turn": turn,
                 "certificate": certificate["certificate_id"],
                 "classification": decision["classification"],
@@ -201,7 +226,7 @@ def main() -> int:
                 "action": action,
                 "behavior_hash": policy.behavior_hash,
                 "verified": True,
-            }, separators=(",", ":"), flush=True))
+            })
         else:
             terminal = "action_limit"
         final = adapter.observe()
@@ -252,7 +277,7 @@ def main() -> int:
                     stop = {**(stop or {}), "strategy_record_error": error.stderr[-500:]}
                 finally:
                     review_path.unlink(missing_ok=True)
-        print(json.dumps({
+        _emit_progress({
             "terminal": terminal,
             "review": review,
             "qualification": qualification,
@@ -266,7 +291,7 @@ def main() -> int:
                 if mon.get("present") and mon["state"].get("current_hp", 0) > 0
             },
             "stop": stop,
-        }, default=str, separators=(",", ":"), flush=True))
+        })
     return 0 if terminal == "win" else 2
 
 

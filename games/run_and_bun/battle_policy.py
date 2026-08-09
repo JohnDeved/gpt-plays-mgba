@@ -16,7 +16,7 @@ from typing import Any, Iterable
 
 ROOT = Path(__file__).resolve().parents[2]
 STRATEGY_DB = ROOT / ".agents" / "skills" / "develop-runbun-strategies" / "references" / "strategies.json"
-POLICY_ENGINE_VERSION = "hybrid-policy-v1"
+POLICY_ENGINE_VERSION = "hybrid-policy-v2"
 SUPPORTED_PREDICATES = frozenset({
     "active_role",
     "opponent_species",
@@ -64,6 +64,23 @@ def _compact_mon(certificate: dict[str, Any], slot: int) -> dict[str, Any]:
 
 def _party(certificate: dict[str, Any]) -> list[dict[str, Any]]:
     return list((certificate.get("compact_state") or {}).get("party", []) or [])
+
+
+def _battle_state(mon: dict[str, Any]) -> dict[str, Any]:
+    """Adapt compact RAM fields to the scorer's state-field names."""
+    state = dict(mon.get("state", mon))
+    if "current_hp" not in state:
+        state["current_hp"] = state.get("hp", 0)
+    return state
+
+
+def _damage_bounds(move_id: int, attacker: dict[str, Any], defender: dict[str, Any]) -> tuple[float, float]:
+    try:
+        from games.runbun import RunBunAdapter
+
+        return RunBunAdapter._damage_bounds(move_id, _battle_state(attacker), _battle_state(defender))
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return (0.0, 0.0)
 
 
 def _profile_behavior(profile: dict[str, Any], strategies: Iterable[dict[str, Any]]) -> dict[str, Any]:
@@ -438,11 +455,26 @@ class BattlePolicy:
                 safe = bool(move.get("ko_before_hit") or incoming_max < player_hp)
                 proof = move.get("evidence", {}).get("kind")
             else:
-                minimum, estimate, guaranteed = 0.0, 0.0, False
                 target = next((mon for mon in _party(certificate) if mon.get("slot") == action.get("slot")), {})
                 target_hp = int(target.get("hp", target.get("current_hp", action.get("hp", 0))) or 0)
-                safe = target_hp > 0 and not int(target.get("status", 0) or 0) & 0x67
-                proof = "switch_state"
+                target_state = _battle_state(target)
+                opponent_state = _battle_state(opponent)
+                target_threat = max(
+                    (_damage_bounds(int(move_id), opponent_state, target_state)[1] for move_id in opponent_state.get("moves", ()) if move_id),
+                    default=0.0,
+                )
+                outgoing = [
+                    _damage_bounds(int(move_id), target_state, opponent_state)
+                    for slot, move_id in enumerate(target_state.get("moves", ()) or ())
+                    if move_id and int((target_state.get("pp") or (0, 0, 0, 0))[slot] or 0) > 0
+                ]
+                minimum = max((bounds[0] for bounds in outgoing), default=0.0)
+                estimate = max(((bounds[0] + bounds[1]) / 2 for bounds in outgoing), default=0.0)
+                guaranteed = bool(minimum >= opponent_hp > 0)
+                safe = target_hp > 0 and not int(target.get("status", 0) or 0) & 0x67 and (
+                    target_threat <= 0 or target_threat < target_hp
+                )
+                proof = "switch_damage_model"
             preserve = self._reserve_score(action, certificate)
             preference = preferences.get(key, 0)
             score = [

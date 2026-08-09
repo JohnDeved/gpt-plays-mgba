@@ -160,7 +160,7 @@ class BattleReviewTests(unittest.TestCase):
 
     def test_loss_resets_qualification_and_records_cause(self):
         review = review_episode([self.transition()], terminal="loss", source="cartridge_clone", opening_state_hash="open", behavior_hash="b" * 64, policy_id="fixture")
-        self.assertEqual(review["classification"], "preparation_team_failure")
+        self.assertEqual(review["classification"], "tactical_error")
         with tempfile.TemporaryDirectory() as directory:
             ledger = QualificationLedger(Path(directory) / "qualification.json")
             ledger.record(review)

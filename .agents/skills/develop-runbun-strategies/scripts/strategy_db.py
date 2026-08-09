@@ -93,7 +93,7 @@ def save(data: dict) -> None:
 
 def record_review(data: dict, review: dict, strategy_ids: list[str]) -> None:
     """Merge one concise episode review without rewriting executable policy."""
-    selected = set(review.get("matched_strategy_ids") or strategy_ids)
+    selected = set(review["matched_strategy_ids"]) if "matched_strategy_ids" in review else set(strategy_ids)
     for strategy in data["strategies"]:
         if strategy.get("id") not in selected:
             continue

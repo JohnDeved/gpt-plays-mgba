@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T162646Z-generic-policy-runner-passed-flush-to-json-dumps",
+  "status": "observed",
+  "created_at": "2026-08-09T16:26:46.879897+00:00",
+  "summary": "Generic policy runner passed flush to json.dumps",
+  "component": "generic battle policy runner",
+  "symptom": "clone runner raised TypeError before emitting its action result",
+  "classification": "unknown",
+  "severity": "medium",
+  "live_state": {
+    "required": false,
+    "preserved": false,
+    "artifact": null,
+    "sha256": null,
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "one compact JSON line is emitted with print(..., flush=True)",
+    "actual": "json.dumps received unexpected keyword argument flush",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

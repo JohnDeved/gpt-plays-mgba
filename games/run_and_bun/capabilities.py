@@ -55,7 +55,7 @@ class CapabilityError(RuntimeError):
 # These versions are part of the action-affecting policy bundle. Bump them
 # when canonical observation or verified action postconditions change.
 BATTLE_OBSERVATION_VERSION = "battle-cert-v1"
-BATTLE_EXECUTION_VERSION = "battle-step-v1"
+BATTLE_EXECUTION_VERSION = "battle-step-v2"
 
 
 @dataclass(frozen=True)
@@ -213,6 +213,14 @@ def _compact_state(state: dict[str, Any], *, include_objects: bool = False) -> d
                 "moves": mon.get("state", {}).get("moves"),
                 "pp": mon.get("state", {}).get("pp"),
                 "status": mon.get("state", {}).get("status"),
+                "types": mon.get("state", {}).get("types"),
+                "attack": mon.get("state", {}).get("attack"),
+                "defense": mon.get("state", {}).get("defense"),
+                "speed": mon.get("state", {}).get("speed"),
+                "special_attack": mon.get("state", {}).get("special_attack"),
+                "special_defense": mon.get("state", {}).get("special_defense"),
+                "stat_stages": mon.get("state", {}).get("stat_stages"),
+                "ability": mon.get("state", {}).get("ability"),
                 "held_item": mon.get("state", {}).get("held_item"),
             }
             for mon in state.get("party", {}).get("mons", [])
