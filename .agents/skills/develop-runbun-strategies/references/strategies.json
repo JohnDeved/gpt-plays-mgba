@@ -266,6 +266,44 @@
           {
             "when": {
               "active_role": "croakatoa",
+              "opponent_species": [77, 192, 269]
+            },
+            "directives": [
+              {"kind": "forbid", "action": {"kind": "move", "move_id": 252}}
+            ]
+          },
+          {
+            "when": {
+              "active_role": "croakatoa",
+              "opponent_species": [603],
+              "fresh_entry": false
+            },
+            "directives": [
+              {"kind": "forbid", "action": {"kind": "move", "move_id": 252}}
+            ]
+          },
+          {
+            "when": {
+              "active_role": "ohmnomnom",
+              "opponent_species": [77, 192],
+              "fresh_entry": false
+            },
+            "directives": [
+              {"kind": "forbid", "action": {"kind": "move", "move_id": 252}}
+            ]
+          },
+          {
+            "when": {
+              "active_role": "ohmnomnom",
+              "opponent_species": [269, 603]
+            },
+            "directives": [
+              {"kind": "forbid", "action": {"kind": "move", "move_id": 252}}
+            ]
+          },
+          {
+            "when": {
+              "active_role": "croakatoa",
               "opponent_species": [
                 603
               ],

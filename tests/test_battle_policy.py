@@ -11,6 +11,8 @@ from games.run_and_bun.battle_policy import (
     BattlePolicy,
     PolicyError,
     _battle_state,
+    load_profile,
+    load_strategies,
     policy_bundle_hash,
     validate_profile,
 )
@@ -124,6 +126,13 @@ class BattlePolicyTests(unittest.TestCase):
     def test_switch_scorer_fills_party_types_from_species_when_ram_omits_them(self):
         state = _battle_state({"species": 878, "types": None, "hp": 34, "max_hp": 54})
         self.assertTrue(state["types"])
+
+    def test_gavi_fake_out_is_vetoed_outside_certified_context(self):
+        profile = load_profile(Path("games/run_and_bun/policy_profiles/gavi.json"))
+        policy = BattlePolicy(profile, strategies=load_strategies())
+        decision = policy.decide(certificate(player_species=453, opponent_species=269, move_ids=(252, 124)))
+        self.assertNotEqual(decision["action"]["move_id"], 252)
+        self.assertTrue(any("strategy:" in item for items in decision["vetoes"].values() for item in items))
 
 
 class BattleReviewTests(unittest.TestCase):
