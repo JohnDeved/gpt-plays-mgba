@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from client.mgba_rpc import MGBA
 
@@ -78,6 +79,12 @@ class FakeMGBA(MGBA):
 
 
 class MGBAClientTests(unittest.TestCase):
+    def test_rpc_port_can_be_isolated_by_environment(self):
+        with patch.dict("os.environ", {"MGBA_RPC_PORT": "18765"}):
+            self.assertEqual(MGBA.resolve_port(), 18765)
+        with self.assertRaises(ValueError):
+            MGBA.resolve_port(0)
+
     def test_idle_policy_keeps_only_frame_work_running(self):
         self.assertFalse(
             MGBA._request_finished(

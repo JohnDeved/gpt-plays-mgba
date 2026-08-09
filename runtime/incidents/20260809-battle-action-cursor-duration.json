@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T112507Z-battle-action-cursor-ignores-three-frame-directi",
+  "status": "unresolved",
+  "created_at": "2026-08-09T11:25:07.872585+00:00",
+  "summary": "Flee reached an unstable battle command boundary",
+  "component": "games/runbun.py advance_battle_until_menu and escape_battle",
+  "symptom": "flee helper could not move command cursor from Fight slot 0 to Run slot 3",
+  "classification": "timing_protocol",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/granite-sandile-flee-cursor-forward-20260809.state",
+    "sha256": "2f1cf8c66fdb0c57c7860f3d0a19f9680deac17711eae37590a64b96aef24fba",
+    "canonical_state": {"map": [24, 7], "position": [22, 8], "battle": "wild Sandile level 8", "menu": "command_menu", "state_hash": "cab1cc51d6da0492"},
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "DOWN and RIGHT held three frames move battle command cursor to slot 3",
+    "actual": "cursor remained at slot 0 at a verified What-will-Grotle-do command boundary",
+    "diff": ["the initial live transition failed once; the later stable saved boundary accepts identical cursor input"],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": ["advance_battle_until_menu accepted a transient command classification before the cursor task owned input", "an unobserved emulator timing condition rejected the directional taps"],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": "interface_fix",
+    "files": ["games/runbun.py"],
+    "contract_change": "All battle menu boundaries now require two stable RAM observations before input, including non-post-action entry boundaries.",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [{"name": "stable Sandile flee replay", "command": "Run escape_battle twice from granite-sandile-flee-cursor-forward-20260809.state in disposable clones", "passed": true, "evidence": "both escaped in one attempt with no HP/resource loss"}],
+    "regression_checks": [{"name": "bounded multi-encounter hunt replay", "command": "Run two disposable hunts through three non-target encounters", "passed": true, "evidence": "both fled all three encounters and returned clean overworld"}, {"name": "full repository tests", "command": "python3 -m unittest discover -s tests", "passed": true, "evidence": "121 tests passed; 1 skipped"}],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": ["A rendered What-will prompt may be observed during ownership transition; battle input needs a stable boundary."],
+    "regression_cases": ["granite-sandile-flee-cursor-forward-20260809.state"],
+    "tooling_contracts": ["Confirm every battle command boundary with two stable RAM samples before cursor input."]
+  },
+  "action_changing_unknowns": ["The exact pre-failure cursor ownership state was not preserved, so the one-off failure cannot yet be deterministically reproduced."],
+  "next_experiments": [{"hypothesis": "a transient command classification caused the cursor rejection", "action": "if the failure recurs, preserve the pre-cursor observation and replay its exact boundary in two clones", "expected_discriminator": "unstable menu/cursor values change during the two confirmation samples while stable values accept input", "risk": "none; probe only disposable clones", "cost": "two clone replays", "rollback": "close clones; live state remains paused at its forward checkpoint"}]
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T112147Z-wild-hunt-used-menu-tap-duration-for-overworld-m",
+  "status": "verified",
+  "created_at": "2026-08-09T11:21:47.739169+00:00",
+  "summary": "Wild hunt used menu-tap duration for overworld movement",
+  "component": "games/runbun.py hunt_wild_species",
+  "symptom": "selected valid cave-floor encounter pair but repeated steps did not change coordinates",
+  "classification": "actuator_input",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/granite-togedemaru-hunt-forward-20260809.state",
+    "sha256": "0ff7ce36200d95b39b6b5cc6328b5527ef039aff6c12aedf96dccea572fa05cf",
+    "canonical_state": {"map": [24, 7], "position": [22, 8], "mode": "overworld", "state_hash": "b34337777fe5073e"},
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "three held frames move one overworld tile",
+    "actual": "two clone runs at three frames stayed at x22; two clone runs at twelve frames moved left to x21",
+    "diff": ["wild-hunt step changed from a 3-frame menu tap to the verified 12-frame overworld movement hold plus 4-frame release"],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "Run & Bun cartridge SaveBlock coordinates after frame-synchronized input",
+    "sources": ["runtime/session/granite-togedemaru-hunt-forward-20260809.state", "games/runbun.py follow_live_path_adaptive verified movement timing"]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "runtime/session/granite-togedemaru-hunt-forward-20260809.state",
+    "fixture_sha256": "0ff7ce36200d95b39b6b5cc6328b5527ef039aff6c12aedf96dccea572fa05cf",
+    "command": "disposable_clone fixture; compare LEFT held 3 frames and LEFT held 12 frames; read SaveBlock position",
+    "steps": ["load fixture in clone", "apply one LEFT hold", "read map position"],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "3-frame runs stayed at x22; 12-frame runs moved exactly one tile to x21"
+  },
+  "hypotheses": ["menu-tap duration is sufficient for overworld movement", "overworld movement needs the existing 12-frame route timing"],
+  "root_cause": {
+    "verified": true,
+    "claim": "hunt_wild_species reused a 3-frame menu tap for overworld walking even though the verified navigation primitive holds directions for 12 frames.",
+    "evidence": ["two fixed-fixture clone runs at 3 frames produced no coordinate delta", "two fixed-fixture clone runs at 12 frames moved exactly one tile", "corrected hunter replay moved from x22 to x21"],
+    "alternatives_falsified": ["The destination is not statically blocked: both tiles have collision 0/elevation 3", "No NPC occupies the destination"]
+  },
+  "solution": {
+    "kind": "code_fix",
+    "files": ["games/runbun.py"],
+    "contract_change": "Wild-hunt overworld steps use the established 12-frame hold and explicit 4-frame release.",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [{"name": "two corrected one-step clone replays", "command": "Run hunt_wild_species(target=777,max_steps=1,max_encounters=1) twice in disposable clones", "passed": true, "evidence": "both selected [(22,8),(21,8)] and moved to x21"}],
+    "regression_checks": [{"name": "full repository tests", "command": "python3 -m unittest discover -s tests", "passed": true, "evidence": "121 tests passed; 1 skipped"}],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "one bounded hunt step moves from x22 to x21 without extra state mutation",
+      "actual": "both corrected runs ended at x21, overworld, battle inactive",
+      "extra_state_deltas": []
+    },
+    "metrics": {"movement_success_before": "0/2", "movement_success_after": "2/2"}
+  },
+  "learning": {
+    "domain_knowledge": ["This mGBA/ROM input schedule needs a 12-frame directional hold for deterministic one-tile overworld movement."],
+    "regression_cases": ["fixed-fixture one-step Togedemaru hunt replay"],
+    "tooling_contracts": ["Do not reuse menu-tap hold durations for overworld movement."]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

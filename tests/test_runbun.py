@@ -1,5 +1,6 @@
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from games.runbun import (
     BATTLE_MONS,
@@ -7,11 +8,13 @@ from games.runbun import (
     BATTLE_KO_FIELD_MESSAGE_MODES,
     DOUBLE_BATTLE_FIELD_MESSAGE_MODES,
     FIELD_MESSAGE_MODE_NAMES,
+    GEN3_CHARSET,
     PLAYER_PARTY,
     RunBunAdapter,
     decode_gen3_text,
     decode_text_observation,
     decode_battle_mon,
+    decode_box_mon,
 )
 
 
@@ -69,6 +72,80 @@ class FakeMGBA:
 
 
 class RunBunTests(unittest.TestCase):
+    def test_nickname_keyboard_plan_uses_shortest_uppercase_grid_path(self):
+        name, keys = RunBunAdapter._nickname_keyboard_plan("OhmNomNom")
+        self.assertEqual(name, "Ohmnomnom")
+        self.assertEqual(keys[-2:], ["START", "A"])
+        self.assertEqual(keys.count("A"), len(name) + 1)
+        self.assertNotIn("SELECT", keys)
+
+        _, bush_keys = RunBunAdapter._nickname_keyboard_plan("BushTank")
+        self.assertIn(["UP", "LEFT", "LEFT", "LEFT", "LEFT", "A"], [bush_keys[i:i + 6] for i in range(len(bush_keys) - 5)])
+
+        with self.assertRaisesRegex(ValueError, "1..10 ASCII letters"):
+            RunBunAdapter._nickname_keyboard_plan("TOO-LONG-NAME")
+
+    def test_capture_nickname_prompt_uses_current_field_text_fallback(self):
+        self.assertEqual(
+            RunBunAdapter._active_field_page_texts({
+                "text": {"battle_printers": [], "current": {"text": "Give a nickname?"}}
+            }),
+            ("Give a nickname?",),
+        )
+
+    def test_ball_hotkey_closes_move_menu_before_throwing(self):
+        class Gba:
+            def __init__(self):
+                self.presses = []
+
+            def press(self, key, frames=3):
+                self.presses.append((key, frames))
+
+            @staticmethod
+            def wait_frames(_frames):
+                return None
+
+        gba = Gba()
+        adapter = RunBunAdapter(gba)
+        states = iter([
+            {"battle": {"menu": {"state": "move_menu"}}},
+            {"battle": {"menu": {"state": "command_menu"}}},
+        ])
+        adapter.observe = lambda: next(states)
+        adapter._pokemon_storage_digest = lambda: "unchanged"
+        adapter.inventory = lambda: {}
+        adapter._poke_ball_quantity = lambda _inventory: 0
+        state = SimpleNamespace(party_count=lambda: 0)
+        with patch("games.run_and_bun.state.RunBun", return_value=state):
+            with self.assertRaisesRegex(RuntimeError, "no_poke_balls"):
+                adapter.throw_poke_ball_hotkey(nickname="Croakatoa")
+        self.assertEqual(gba.presses, [("B", 3)])
+
+    def test_party_grid_uses_verified_vertical_cursor_ring(self):
+        self.assertEqual(RunBunAdapter._party_grid_keys(0, 2), ["DOWN", "DOWN"])
+        self.assertEqual(RunBunAdapter._party_grid_keys(5, 0), ["DOWN", "DOWN"])
+        self.assertEqual(RunBunAdapter._party_switch_row(4), 1)
+        self.assertEqual(RunBunAdapter._party_switch_row(5), 2)
+
+    def test_selected_trainer_can_be_excluded_from_sight_blocking(self):
+        event = SimpleNamespace(
+            local_id=4, trainer_type=1, current_x=2, current_y=2,
+            trainer_sight_radius=3, position=(2, 2), movement_type=8,
+        )
+        obj = SimpleNamespace(
+            local_id=4, trainer_type=1, is_player=False, map_id=(0, 1),
+            position=(2, 2), current_x=2, current_y=2,
+            trainer_range_or_berry_id=3, facing_direction=1,
+        )
+        with patch("games.run_and_bun.objects.read_live_event_targets", return_value=[event]), patch(
+            "games.run_and_bun.objects.read_live_objects", return_value=[obj]
+        ):
+            self.assertTrue(RunBunAdapter._trainer_sight_tiles(None, (0, 1)))
+            self.assertEqual(
+                RunBunAdapter._trainer_sight_tiles(None, (0, 1), ignored_local_ids={4}),
+                set(),
+            )
+
     @staticmethod
     def _capture_observation(*, target_hp=30, target_max_hp=30, moves=(44, 342, 0, 0)):
         return {
@@ -154,12 +231,36 @@ class RunBunTests(unittest.TestCase):
         self.assertEqual(report["decision"], {"kind": "throw_ball", "button": "L"})
         self.assertTrue(report["legal_actions"]["moves"][0]["excluded_for_residual_risk"])
 
-    def test_capture_certificate_throws_after_hp_threshold(self):
+    def test_capture_certificate_throws_when_no_further_crit_safe_damage_exists(self):
         report = RunBunAdapter.capture_decision_certificate(
             self._capture_observation(target_hp=9),
             poke_balls=24,
         )
         self.assertEqual(report["decision"], {"kind": "throw_ball", "button": "L"})
+
+    def test_capture_certificate_keeps_weakening_below_old_hp_threshold(self):
+        observation = self._capture_observation(target_hp=10, moves=(999, 0, 0, 0))
+        observation["battle"]["mons"][1]["state"]["types"] = [0, 0, 9]
+        move = SimpleNamespace(
+            name="Nibble", power=1, type_id=0, category="physical", secondary_chance=0,
+        )
+        report = RunBunAdapter.capture_decision_certificate(
+            observation, poke_balls=24, move_data={999: move}, type_chart={},
+        )
+        self.assertEqual(report["decision"]["kind"], "move")
+        self.assertTrue(report["decision"]["guaranteed_nonlethal"])
+
+    def test_capture_certificate_sets_status_after_lowest_safe_hp(self):
+        observation = self._capture_observation(target_hp=1, moves=(86, 0, 0, 0))
+        observation["battle"]["mons"][1]["state"]["types"] = [0, 0, 9]
+        move = SimpleNamespace(
+            name="Thunder Wave", power=0, type_id=13, category="status", secondary_chance=0,
+        )
+        report = RunBunAdapter.capture_decision_certificate(
+            observation, poke_balls=24, move_data={86: move}, type_chart={},
+        )
+        self.assertEqual(report["decision"]["capture_status"], "paralysis")
+        self.assertEqual(report["proof"]["level"], "expected-best")
 
     def test_capture_certificate_surfaces_full_paralysis_action_failure(self):
         observation = self._capture_observation()
@@ -177,12 +278,19 @@ class RunBunTests(unittest.TestCase):
         move = report["decision"]
         self.assertEqual(move["accuracy_stage"], 4)
         self.assertEqual(move["accuracy_multiplier"], 0.6)
-        self.assertEqual(move["expected_damage_after_accuracy"], 5.7)
+        self.assertEqual(move["expected_damage_after_accuracy"], 4.8)
         self.assertEqual(report["proof"]["material_uncertainty"]["accuracy_stage"], 4)
 
     def test_battle_prompt_requires_command_text_not_page_control(self):
         self.assertFalse(RunBunAdapter._battle_command_prompt([{"text": "Chimchar used\nEmber!<0x70>"}]))
         self.assertTrue(RunBunAdapter._battle_command_prompt([{"text": "What will\nChimchar do?"}]))
+
+    def test_battle_printer_decodes_string_ending_at_cursor(self):
+        inverse = {value: key for key, value in GEN3_CHARSET.items()}
+        encode = lambda value: bytes(inverse[char] for char in value)
+        raw = encode("old") + b"\xff" + encode("What will A do?") + b"\xff" + encode("stale") + b"\xff"
+        cursor = raw.index(encode("stale"))
+        self.assertEqual(RunBunAdapter._current_printer_text(raw, cursor), "What will A do?")
 
     def test_battle_move_prompt_uses_type_and_pp_printer(self):
         self.assertTrue(RunBunAdapter._battle_move_prompt([{"text": "Type/Flying\nPP\n34/35"}]))
@@ -228,8 +336,133 @@ class RunBunTests(unittest.TestCase):
         self.assertTrue(RunBunAdapter._battle_party_switch_prompt([{"text": "Use next Pokémon?"}]))
         self.assertFalse(RunBunAdapter._battle_party_switch_prompt([{"text": "Aaaa used\nGust!"}]))
 
+    def test_fainted_active_cannot_be_a_command_boundary(self):
+        battle = {"mons": [{"slot": 0, "present": True, "state": {"current_hp": 0}}]}
+        self.assertTrue(RunBunAdapter._active_player_fainted(battle))
+        battle["mons"][0]["state"]["current_hp"] = 1
+        self.assertFalse(RunBunAdapter._active_player_fainted(battle))
+
+    def test_command_boundary_waits_through_delayed_residual_hp(self):
+        class Gba:
+            ticks = 0
+
+            def wait_frames(self, _frames):
+                self.ticks += 1
+
+        gba = Gba()
+        adapter = RunBunAdapter(gba)
+
+        def observe():
+            hp = 10 if gba.ticks < 3 else 5
+            return {
+                "battle": {
+                    "active": True,
+                    "menu": {"state": "command_menu"},
+                    "mons": [
+                        {"slot": 0, "present": True, "state": {"species": 1, "current_hp": hp, "pp": (5,)}},
+                        {"slot": 1, "present": True, "state": {"species": 2, "current_hp": 20, "pp": (5,)}},
+                    ],
+                },
+                "text": {"active": False, "battle_printers": []},
+                "ui": {"field_message_box_mode": 34},
+            }
+
+        adapter.observe = observe
+        result = adapter.advance_battle_until_menu(
+            after_action=True,
+            pre_action_signature=((0, 1, 20, (6,)),),
+        )
+        self.assertEqual(result["state"], "command_menu")
+        self.assertGreaterEqual(gba.ticks, 8)
+
+    def test_inactive_battle_is_terminal_only_after_overworld_returns(self):
+        self.assertFalse(RunBunAdapter._inactive_battle_is_terminal({"mode": "dialogue"}))
+        self.assertTrue(RunBunAdapter._inactive_battle_is_terminal({"mode": "overworld"}))
+
+    def test_completed_battle_text_is_ready_even_while_printer_is_active(self):
+        self.assertTrue(RunBunAdapter._battle_text_ready({"active": True, "current": {"state": 1}}))
+        self.assertFalse(RunBunAdapter._battle_text_ready({"active": True, "current": {"state": 0}}))
+        self.assertTrue(RunBunAdapter._battle_text_ready({"current": {"state": 0}, "printers": [{"active": 1, "state": 2}]}))
+
+    def test_stale_text_cannot_press_into_returned_command_menu(self):
+        class Gba:
+            presses = 0
+
+            def press(self, key, frames=2):
+                self.assert_key = key
+                self.assert_frames = frames
+                self.presses += 1
+
+            def wait_frames(self, _frames):
+                pass
+
+        gba = Gba()
+        adapter = RunBunAdapter(gba)
+
+        def observe():
+            return {
+                "mode": "dialogue",
+                "battle": {
+                    "active": True,
+                    "menu": {"state": "none" if gba.presses == 0 else "command_menu"},
+                    "mons": [
+                        {"slot": 0, "present": True, "state": {"species": 1, "current_hp": 10, "pp": (5,)}},
+                        {"slot": 1, "present": True, "state": {"species": 2, "current_hp": 20, "pp": (5,)}},
+                    ],
+                },
+                "text": {"active": True, "current": {"state": 1, "start": 1, "end": 2, "cursor": 2, "text": "Foe used a move"}, "battle_printers": []},
+                "ui": {"field_message_box_mode": 34},
+            }
+
+        adapter.observe = observe
+        self.assertEqual(adapter.advance_battle_until_menu(sample_frames=1, max_frames=20)["state"], "command_menu")
+        self.assertEqual(gba.presses, 1)
+        self.assertEqual(gba.assert_key, "A")
+        self.assertEqual(gba.assert_frames, 1)
+
+    def test_identical_locked_move_text_advances_after_hp_progress(self):
+        class Gba:
+            presses = 0
+
+            def press(self, _key, frames=1):
+                self.presses += 1
+
+            def wait_frames(self, _frames):
+                pass
+
+        gba = Gba()
+        adapter = RunBunAdapter(gba)
+
+        def observe():
+            return {
+                "mode": "dialogue",
+                "battle": {
+                    "active": True,
+                    "menu": {"state": "command_menu" if gba.presses >= 2 else "battle_text"},
+                    "mons": [
+                        {"slot": 0, "present": True, "state": {"species": 1, "current_hp": 10, "pp": (4,)}},
+                        {"slot": 1, "present": True, "state": {"species": 2, "current_hp": 20 - gba.presses * 5, "pp": (5,)}},
+                    ],
+                },
+                "text": {
+                    "active": True,
+                    "current": {"state": 1, "start": 1, "end": 2, "cursor": 2, "text": "Used Rollout!"},
+                    "battle_printers": [{"printer_address": 1, "current_char": 2, "text": "Used Rollout!"}],
+                },
+                "ui": {"field_message_box_mode": 34},
+            }
+
+        adapter.observe = observe
+        result = adapter.advance_battle_until_menu(sample_frames=1, max_frames=30, after_action=True, pre_action_signature=((0, 1, 10, (5,)),))
+        self.assertEqual(result["state"], "command_menu")
+        self.assertEqual(gba.presses, 2)
+
     def test_field_mode_54_is_drained_as_post_ko_battle_text(self):
         self.assertIn(54, BATTLE_KO_FIELD_MESSAGE_MODES)
+
+    def test_single_battle_move_field_mode_is_active_battle_ui(self):
+        self.assertIn(45, BATTLE_KO_FIELD_MESSAGE_MODES)
+        self.assertEqual(FIELD_MESSAGE_MODE_NAMES[45], "battle_move")
 
     def test_double_battle_field_modes_are_classified_as_battle_ui(self):
         for mode in (36, 44, 48, 52, 60, 68):
@@ -289,6 +522,12 @@ class RunBunTests(unittest.TestCase):
             "ui": {"field_message_box_mode": 13},
             "text": {"battle_printers": [{"text": "Onix wants to learn the move Dragon Breath."}]},
         }))
+        self.assertEqual(
+            RunBunAdapter._move_learning_page_texts({
+                "text": {"battle_printers": [{"text": "However, Onix already\nknows four moves."}]},
+            }),
+            ("However, Onix already knows four moves.",),
+        )
         self.assertTrue(RunBunAdapter._field_move_learning_pending({
             "ui": {"field_message_box_mode": 33},
             "text": {},
@@ -325,6 +564,11 @@ class RunBunTests(unittest.TestCase):
             RunBunAdapter._npc_interaction_gap((7, 3), target, live, max_gap=2),
             1,
         )
+        self.assertIsNone(
+            RunBunAdapter._npc_interaction_gap(
+                (5, 2), target, FakeLiveMap({(5, 2), (7, 2)}), max_gap=2
+            )
+        )
 
     def test_npc_interaction_gap_rejects_open_floor_range(self):
         class FakeLiveMap:
@@ -336,6 +580,12 @@ class RunBunTests(unittest.TestCase):
             RunBunAdapter._npc_interaction_gap(
                 (7, 4), target, FakeLiveMap(), max_gap=2
             )
+        )
+        self.assertEqual(
+            RunBunAdapter._npc_interaction_gap(
+                (7, 0), target, FakeLiveMap(), max_gap=2, allow_open_gap=True
+            ),
+            2,
         )
 
     def test_gen3_text_decoder_handles_dialogue_and_page_controls(self):
@@ -368,6 +618,12 @@ class RunBunTests(unittest.TestCase):
         self.assertEqual(mon.level, 2)
         self.assertEqual(mon.experience, 157)
         self.assertEqual(mon.stat_stages, (6, 5, 7, 6, 8, 6, 6, 6))
+
+    def test_box_decoder_reuses_verified_encrypted_prefix(self):
+        mon = decode_box_mon(bytes(80))
+        self.assertEqual(mon["species"], 0)
+        self.assertTrue(mon["checksum"]["valid"])
+        self.assertNotIn("current_hp", mon)
 
     def test_adapter_reads_verified_pointers_and_structures(self):
         state = RunBunAdapter(FakeMGBA()).observe()
@@ -496,7 +752,7 @@ class RunBunTests(unittest.TestCase):
         report = RunBunAdapter.explain_battle_action(observation)
         self.assertEqual(report["decision"]["action"], "move")
         self.assertEqual(report["decision"]["move_id"], 16)
-        self.assertEqual(report["proof"]["level"], "best_estimate")
+        self.assertEqual(report["proof"]["level"], "expected_best")
         self.assertEqual(report["chosen"]["move_id"], 16)
         self.assertTrue(report["proof"]["caveat"])
 
@@ -528,10 +784,11 @@ class RunBunTests(unittest.TestCase):
         # Legacy samples have no stage metadata; known move IDs use the
         # verified ROM calculation rather than treating those samples as a
         # standalone bound.
-        self.assertEqual(chosen["damage_range"], [9.0, 11.0])
+        self.assertEqual(chosen["damage_range"], [7.0, 9.0])
         self.assertEqual(chosen["guaranteed_ko_in"], 3)
         self.assertFalse(chosen["ko_before_hit"])
         self.assertEqual(chosen["order"], "tie")
+        self.assertEqual(chosen["evidence"], {"kind": "static_model", "legacy_samples_quarantined": 3})
 
     def test_super_fang_uses_fixed_half_current_hp_damage(self):
         attacker = {"state": {"species": 400}}
@@ -557,6 +814,23 @@ class RunBunTests(unittest.TestCase):
         attacker = {"state": {"species": 603, "level": 17, "special_attack": 35, "types": (13, 13, 9)}}
         defender = {"state": {"species": 95, "level": 17, "special_defense": 21, "types": (5, 4, 9)}}
         self.assertEqual(RunBunAdapter._damage_bounds(351, attacker, defender), (0.0, 0.0))
+
+    def test_gavi_known_damage_ranges_match_cartridge_observations(self):
+        def move(power, type_id, category):
+            return SimpleNamespace(power=power, type_id=type_id, category=category)
+
+        cases = (
+            (479, {"species": 111, "level": 17, "attack": 35, "types": (5, 4, 9)}, {"species": 77, "level": 17, "defense": 28, "types": (10, 10, 9)}, move(50, 5, "physical"), {5: {10: 2}}, (30.0, 36.0)),
+            (72, {"species": 603, "level": 17, "special_attack": 35, "types": (13, 13, 9)}, {"species": 111, "level": 17, "special_defense": 16, "types": (5, 4, 9)}, move(60, 12, "special"), {12: {5: 2, 4: 2}}, (76.0, 92.0)),
+            (412, {"species": 192, "level": 16, "special_attack": 43, "types": (12, 12, 9)}, {"species": 878, "level": 17, "special_defense": 24, "types": (8, 8, 9)}, move(90, 12, "special"), {12: {8: 0.5}}, (16.0, 20.0)),
+            (523, {"species": 551, "level": 17, "attack": 30, "types": (4, 17, 9)}, {"species": 192, "level": 16, "defense": 29, "types": (12, 12, 9)}, move(60, 4, "physical"), {4: {12: 0.5}}, (6.0, 8.0)),
+        )
+        for move_id, attacker, defender, metadata, chart, expected in cases:
+            with self.subTest(move_id=move_id):
+                self.assertEqual(
+                    RunBunAdapter._damage_bounds(move_id, attacker, defender, move_data={move_id: metadata}, type_chart=chart),
+                    expected,
+                )
 
     def test_stat_stage_and_speed_tie_are_not_treated_as_first(self):
         state = {"stat_stages": (6, 5, 6, 6, 6)}

@@ -33,6 +33,8 @@ LIVE_MAP_ACTIVE_HEIGHT = 22
 LIVE_MAP_HEADER = 0x020368DC
 MAP_HEADER_EVENTS_OFFSET = 0x04
 MAP_HEADER_CONNECTIONS_OFFSET = 0x0C
+MAP_HEADER_MAP_TYPE_OFFSET = 0x17
+MAP_TYPE_UNDERGROUND = 4
 MAP_EVENTS_WARP_COUNT_OFFSET = 0x01
 MAP_EVENTS_WARPS_PTR_OFFSET = 0x08
 LIVE_WARP_STRIDE = 0x08
@@ -62,8 +64,6 @@ GRASS_METATILE_IDS = frozenset(
         0x025,  # General tall-grass tree top
         0x1C6,
         0x1C7,  # General tall-grass tree edges
-        0x208,  # Fortree long-grass root
-        *range(0x279, 0x284),  # Fortree secret-base long-grass pieces
     }
 )
 
@@ -104,12 +104,10 @@ class LiveMap:
         # Elevation is a movement layer, not a blocking flag.  Run & Bun's
         # bridges and connected-map tiles use elevations 0/1/4 while still
         # accepting ordinary movement; collision bits are the authoritative
-        # static obstruction signal.  The ROM's Granite Cave encounter grass
-        # is the one verified exception: its field-behavior tile is encoded
-        # with collision bit 1/elevation 0 even though the player can enter
-        # it.  Do not generalize this to every collision-1 tile (rocks and
-        # ledges use the same bit); only the ROM encounter-grass set can
-        # override the block.
+        # static obstruction signal. Only primary-tileset grass IDs are safe
+        # global exceptions: secondary metatile IDs are tileset-local (0x208
+        # is blocked in Granite Cave even though another tileset uses it as
+        # grass).
         return self.collision(x, y) == 0 or self.is_grass(x, y)
 
     def step_allowed(self, start: tuple[int, int], target: tuple[int, int]) -> bool:
@@ -363,6 +361,16 @@ def read_live_map(gba: Any) -> LiveMap:
         active_width=active_width,
         active_height=active_height,
     )
+
+
+def read_live_map_type(gba: Any) -> int:
+    """Return the active Gen III map type from the authoritative RAM header."""
+    return gba.read8(LIVE_MAP_HEADER + MAP_HEADER_MAP_TYPE_OFFSET)
+
+
+def is_land_encounter_tile(live: LiveMap, x: int, y: int, map_type: int) -> bool:
+    """Return whether walking on a tile can roll the map's land encounter table."""
+    return live.walkable(x, y) and (map_type == MAP_TYPE_UNDERGROUND or live.is_grass(x, y))
 
 
 def read_live_warps(gba: Any) -> list[LiveWarp]:

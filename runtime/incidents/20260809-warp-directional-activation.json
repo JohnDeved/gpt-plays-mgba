@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T113343Z-event-warp-helper-omitted-directional-activation",
+  "status": "observed",
+  "created_at": "2026-08-09T11:33:43.544238+00:00",
+  "summary": "Event warp helper omitted directional activation",
+  "component": "games/run_and_bun/capabilities.py game_travel_warp",
+  "symptom": "path reached Granite Cave exit event at 37,12 but remained on the source map",
+  "classification": "missing_capability",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/granite-exit-warp-forward-20260809.state",
+    "sha256": "57f6e0a25314b46d64ff7dd9c4e6eb9d8176b12025af49a8e7ab7c7cd669bb9f",
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "arriving at the event coordinate activates destination map 0,21",
+    "actual": "cartridge remained at 24,7 until DOWN was held toward the unique blocked neighbor",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

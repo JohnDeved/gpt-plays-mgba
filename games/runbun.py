@@ -18,7 +18,7 @@ try:
 except ImportError:  # Pillow remains optional for RAM-only clients.
     inspect_png = None
 
-from games.run_and_bun.rom_data import BattleRomData
+from games.run_and_bun.rom_data import BattleRomData, RomMove
 
 
 ROM_TITLE = "POKEMON EMER"
@@ -46,6 +46,9 @@ PLAYER_PARTY = 0x02023A98
 PARTY_STRIDE = 0x64
 PARTY_SECURITY_OFFSET = 0x20
 PARTY_SECURITY_LENGTH = 0x30
+BOX_STRIDE = 0x50
+BOX_COUNT = 14
+BOX_CAPACITY = 30
 
 BATTLE_MONS = 0x020233FC
 BATTLE_MON_STRIDE = 0x5C
@@ -73,6 +76,7 @@ FIELD_MESSAGE_MODE_NAMES = {
     38: "battle_intro",
     42: "battle_text",
     44: "double_battle_text",
+    45: "battle_move",
     46: "battle_text",
     48: "double_battle_command",
     50: "battle_text_prompt",
@@ -88,7 +92,7 @@ FIELD_MESSAGE_MODE_NAMES = {
 # double-battle UI; stale gBattleMons slots 2/3 must not promote a single
 # battle into a double battle.
 DOUBLE_BATTLE_FIELD_MESSAGE_MODES = {36, 44, 48, 52, 60, 68}
-BATTLE_FIELD_MESSAGE_MODES = {16, 34, 36, 38, 42, 44, 46, 48, 50, 52, 54, 55, 59, 60, 68}
+BATTLE_FIELD_MESSAGE_MODES = {16, 34, 36, 38, 42, 44, 45, 46, 48, 50, 52, 54, 55, 59, 60, 68}
 BATTLE_KO_FIELD_MESSAGE_MODES = BATTLE_FIELD_MESSAGE_MODES
 
 # The move IDs below are the ones observed in this Run & Bun save.  The hack
@@ -109,6 +113,7 @@ MOVE_TYPE_IDS = {
     71: 12,  # Absorb, Grass
     75: 12,  # Razor Leaf, Grass
     88: 5,   # Rock Throw, Rock
+    479: 5,  # Smack Down, Rock
     7: 10,   # Fire Punch, Fire
     24: 1,   # Double Kick, Fighting
     92: 3,   # Toxic, Poison
@@ -161,6 +166,7 @@ MOVE_POWER = {
     7: 75, 24: 30, 86: 0, 92: 0, 103: 0, 109: 0,
     209: 65, 252: 40, 317: 60, 332: 60, 342: 50, 351: 60, 352: 60,
     395: 60, 420: 40, 458: 35, 474: 65, 267: 80, 270: 0, 341: 55,
+    479: 50,
     340: 85, 225: 60, 249: 40, 450: 60, 453: 40, 512: 60, 523: 60,
     172: 60, 365: 60, 583: 90, 72: 40, 188: 90, 611: 20,
 }
@@ -180,13 +186,21 @@ PARALYSIS_STATUS = 0x40
 # later KO (residual poison/bind or Rollout lock-in).  A capture planner must
 # not call them a safe weakening line.
 CAPTURE_UNSAFE_MOVE_IDS = frozenset({20, 205, 342})
+CAPTURE_STATUS_MOVES = {
+    "Dark Void": ("sleep", 2.0), "GrassWhistle": ("sleep", 2.0),
+    "Hypnosis": ("sleep", 2.0), "Lovely Kiss": ("sleep", 2.0),
+    "Sing": ("sleep", 2.0), "Sleep Powder": ("sleep", 2.0),
+    "Spore": ("sleep", 2.0),
+    "Glare": ("paralysis", 1.5), "Nuzzle": ("paralysis", 1.5),
+    "Stun Spore": ("paralysis", 1.5), "Thunder Wave": ("paralysis", 1.5),
+}
 
 # Species types are only a fallback for party entries: battle entries already
 # carry live type bytes.  Keep this small and verified against this save.
 SPECIES_TYPE_IDS = {
     16: (0, 2), 98: (11,), 193: (6, 2), 273: (12,),
     390: (10,), 761: (12,), 987: (17, 0),
-    95: (5, 4), 231: (4,), 388: (12,), 397: (0, 2),
+    95: (5, 4), 111: (5, 4), 231: (4,), 388: (12,), 397: (0, 2),
     543: (6, 3), 878: (8,), 404: (13,),
 }
 
@@ -552,6 +566,19 @@ def decode_party_mons(data: bytes, slots: int = 6) -> list[dict[str, Any]]:
     return result
 
 
+def decode_box_mon(data: bytes, offset: int = 0) -> dict[str, Any]:
+    """Decode the persistent 80-byte prefix shared by box and party Pokémon."""
+    if len(data) < offset + BOX_STRIDE:
+        raise ValueError("box buffer too short")
+    mon = decode_party_mon(data[offset:offset + BOX_STRIDE] + bytes(PARTY_STRIDE - BOX_STRIDE))
+    for field in (
+        "status", "level", "current_hp", "max_hp", "attack", "defense",
+        "speed", "special_attack", "special_defense",
+    ):
+        mon.pop(field, None)
+    return mon
+
+
 def _named_values(reads: list[dict[str, Any]]) -> dict[str, int]:
     return {item["name"]: item["value"] for item in reads}
 
@@ -594,6 +621,597 @@ class RunBunAdapter:
             self._rom_data = BattleRomData(self.gba)
         return self._rom_data
 
+    def battle_move_data(self, observation: dict[str, Any]) -> dict[int, RomMove]:
+        """Return ROM records for every move present in the canonical state."""
+        move_ids = {
+            int(move_id)
+            for section in (observation.get("battle", {}), observation.get("party", {}))
+            for mon in section.get("mons", [])
+            if mon.get("present")
+            for move_id in mon.get("state", {}).get("moves", ())
+            if move_id
+        }
+        rom = self.rom_data()
+        return {move_id: rom.move(move_id) for move_id in sorted(move_ids)}
+
+    def pokemon_storage(self, *, include_empty: bool = False) -> dict[str, Any]:
+        """Return every valid box record from the pointed save-storage image."""
+        pointer = self.gba.read32(PC_STORAGE_PTR)
+        if not _valid_ewram_pointer(pointer):
+            raise RuntimeError(f"invalid_pokemon_storage_pointer: {pointer:#x}")
+        current_box = self.gba.read32(pointer)
+        if current_box >= BOX_COUNT:
+            raise RuntimeError(f"invalid_current_box: {current_box}")
+        raw = self.gba.read_range(pointer + 4, BOX_COUNT * BOX_CAPACITY * BOX_STRIDE, name="pokemon_storage")
+        records = []
+        for index in range(BOX_COUNT * BOX_CAPACITY):
+            mon = decode_box_mon(raw, index * BOX_STRIDE)
+            if not include_empty and not mon["species"]:
+                continue
+            records.append({
+                "box": index // BOX_CAPACITY,
+                "slot": index % BOX_CAPACITY,
+                "present": bool(mon["species"]),
+                "reference": {
+                    "personality": mon["personality"],
+                    "ot_id": mon["ot_id"],
+                    "box": index // BOX_CAPACITY,
+                    "slot": index % BOX_CAPACITY,
+                },
+                "state": mon,
+            })
+        return {
+            "pointer": pointer,
+            "current_box": current_box,
+            "occupied": sum(record["present"] for record in records),
+            "records": records,
+        }
+
+    def _pc_tap(self, key: str, *, wait_frames: int = 120, hold_frames: int = 3) -> None:
+        self.gba.press(key, frames=hold_frames)
+        self.gba.wait_frames(wait_frames)
+
+    def _close_pc_storage(self) -> dict[str, Any]:
+        """Exit the storage script and prove field movement owns input again."""
+        for _ in range(2):
+            self._pc_tap("B", hold_frames=12)
+        state = self.observe()
+        map_state = state.get("map") or {}
+        map_id = (map_state.get("group"), map_state.get("number"))
+        result = self.follow_live_path_adaptive(
+            (10, 4), expected_map=map_id, avoid_trainer_sight_lines=False
+        )
+        if result.get("position") != (10, 4) or result["state"].get("mode") != "overworld":
+            raise RuntimeError("pc_storage_cleanup_failed")
+        return result["state"]
+
+    @staticmethod
+    def _pc_box_keys(current: int, target: int) -> list[str]:
+        right = (target - current) % BOX_COUNT
+        left = (current - target) % BOX_COUNT
+        return (["RIGHT"] * right) if right <= left else (["LEFT"] * left)
+
+    def _open_pc_storage_menu(self) -> None:
+        state = self.observe()
+        if state.get("mode") != "overworld" or state.get("battle", {}).get("active"):
+            raise RuntimeError("pc_transfer_requires_clean_overworld")
+        map_state = state.get("map") or {}
+        map_id = (map_state.get("group"), map_state.get("number"))
+        self.follow_live_path_adaptive(
+            (10, 2),
+            expected_map=map_id,
+            avoid_trainer_sight_lines=False,
+        )
+        self._pc_tap("UP", wait_frames=12)
+        self._pc_tap("A")
+        text = ((self.observe().get("text") or {}).get("current") or {}).get("text", "")
+        if "booted up the PC" not in text:
+            raise RuntimeError(f"pc_terminal_identity_not_verified: {text!r}")
+        # Which PC -> Someone's PC -> accessed -> storage opened -> operation menu.
+        for _ in range(4):
+            self._pc_tap("A")
+
+    def _pc_deposit_from_main(self, party_slot: int, box: int) -> None:
+        party = self.observe().get("party", {})
+        count = int(party.get("count", 0))
+        if count <= 1:
+            raise RuntimeError("cannot_deposit_last_party_pokemon")
+        if party_slot not in range(count):
+            raise IndexError(f"party slot {party_slot} outside count {count}")
+        current_box = self.pokemon_storage()["current_box"]
+        self._pc_tap("DOWN")  # Deposit Pokémon.
+        self._pc_tap("A")
+        if party_slot:
+            self._pc_tap("RIGHT")
+            for _ in range(party_slot - 1):
+                self._pc_tap("DOWN")
+        self._pc_tap("A")  # Pokémon action menu.
+        self._pc_tap("A")  # Store.
+        for key in self._pc_box_keys(current_box, box):
+            self._pc_tap(key)
+        self._pc_tap("A")  # Chosen destination box.
+        self._pc_tap("B")  # Continue box operations? prompt.
+        self._pc_tap("B")  # Return to operation menu and reconcile party count.
+
+    def _pc_withdraw_from_main(self, box: int, box_slot: int, *, menu_cursor: int = 0) -> None:
+        if self.observe().get("party", {}).get("count", 0) >= 6:
+            raise RuntimeError("cannot_withdraw_with_full_party")
+        storage = self.pokemon_storage()
+        target = next(
+            (record for record in storage["records"] if record["box"] == box and record["slot"] == box_slot),
+            None,
+        )
+        if target is None:
+            raise RuntimeError(f"box slot is empty: box={box} slot={box_slot}")
+        if menu_cursor == 1:
+            self._pc_tap("UP")
+        self._pc_tap("A")  # Withdraw Pokémon.
+        current_box = storage["current_box"]
+        if box != current_box:
+            self._pc_tap("UP")
+            for key in self._pc_box_keys(current_box, box):
+                self._pc_tap(key)
+            self._pc_tap("DOWN")
+        row, column = divmod(box_slot, 6)
+        for _ in range(column):
+            self._pc_tap("RIGHT")
+        for _ in range(row):
+            self._pc_tap("DOWN")
+        self._pc_tap("A")  # Pokémon action menu.
+        self._pc_tap("A")  # Withdraw.
+        self._pc_tap("B")  # Continue box operations? prompt.
+        self._pc_tap("B")  # Return to operation menu and reconcile party count.
+
+    def pc_transfer(
+        self,
+        operation: str,
+        *,
+        party_slot: int | None = None,
+        box: int = 0,
+        box_slot: int | None = None,
+    ) -> dict[str, Any]:
+        """Deposit, withdraw, or swap through the verified storage UI."""
+        if operation not in {"deposit", "withdraw", "swap"}:
+            raise ValueError("pc operation must be deposit, withdraw, or swap")
+        if box not in range(BOX_COUNT):
+            raise ValueError("box must be 0..13")
+        before_party = self.observe()["party"]
+        before_storage = self.pokemon_storage()
+        self._open_pc_storage_menu()
+        if operation in {"deposit", "swap"}:
+            if party_slot is None:
+                raise ValueError("deposit/swap requires party_slot")
+            self._pc_deposit_from_main(int(party_slot), box)
+        if operation in {"withdraw", "swap"}:
+            if box_slot is None:
+                raise ValueError("withdraw/swap requires box_slot")
+            self._pc_withdraw_from_main(box, int(box_slot), menu_cursor=1 if operation == "swap" else 0)
+
+        after = self._close_pc_storage()
+        after_storage = self.pokemon_storage()
+        before_ids = {
+            mon["state"]["personality"] for mon in before_party.get("mons", []) if mon.get("present")
+        }
+        after_ids = {
+            mon["state"]["personality"] for mon in after["party"].get("mons", []) if mon.get("present")
+        }
+        storage_before_ids = {record["state"]["personality"] for record in before_storage["records"]}
+        storage_after_ids = {record["state"]["personality"] for record in after_storage["records"]}
+        if operation == "deposit" and not (before_ids - after_ids <= storage_after_ids):
+            raise RuntimeError("pc_deposit_identity_verification_failed")
+        if operation == "withdraw" and not (storage_before_ids - storage_after_ids <= after_ids):
+            raise RuntimeError("pc_withdraw_identity_verification_failed")
+        if operation == "swap" and (len(before_ids) != len(after_ids) or before_ids == after_ids):
+            raise RuntimeError("pc_swap_identity_verification_failed")
+        return {
+            "operation": operation,
+            "verified": True,
+            "party_before": [(mon["slot"], mon["state"]["species"]) for mon in before_party.get("mons", []) if mon.get("present")],
+            "party_after": [(mon["slot"], mon["state"]["species"]) for mon in after["party"].get("mons", []) if mon.get("present")],
+            "storage_occupied_before": before_storage["occupied"],
+            "storage_occupied_after": after_storage["occupied"],
+            "state": after,
+        }
+
+    @staticmethod
+    def _party_grid_keys(current: int, target: int) -> list[str]:
+        """Shortest path on the field party screen's vertical cursor ring."""
+        if current not in range(6) or target not in range(6):
+            raise ValueError("party grid slots must be 0..5")
+        ring = (0, 1, 2, 3, 4, 5, 7)
+        start, end = ring.index(current), ring.index(target)
+        down, up = (end - start) % len(ring), (start - end) % len(ring)
+        return ["DOWN"] * down if down <= up else ["UP"] * up
+
+    def _move_party_grid_cursor(self, target: int) -> int:
+        current = self.gba.read8(FIELD_PARTY_CURSOR)
+        for key in self._party_grid_keys(current, target):
+            self._pc_tap(key, wait_frames=30)
+        final = self.gba.read8(FIELD_PARTY_CURSOR)
+        if final != target:
+            raise RuntimeError(f"party_grid_cursor_failed: expected={target} got={final}")
+        return final
+
+    @staticmethod
+    def _party_switch_row(row_count: int) -> int:
+        """Locate Switch after Summary and any dynamic field-move rows."""
+        if row_count < 4:
+            raise ValueError("party command menu must contain at least four rows")
+        return row_count - 3
+
+    @staticmethod
+    def _nickname_keyboard_plan(nickname: str) -> tuple[str, list[str]]:
+        """Normalize and route the auto-title-casing nickname grid."""
+        if not nickname.isascii() or re.fullmatch(r"[A-Za-z]{1,10}", nickname) is None:
+            raise ValueError("nickname must contain 1..10 ASCII letters")
+        normalized = nickname[:1].upper() + nickname[1:].lower()
+        rows = ("ABCDEF", "GHIJKL", "MNOPQRS", "TUVWXYZ")
+        positions = {character: (x, y) for y, row in enumerate(rows) for x, character in enumerate(row)}
+
+        def axis(current: int, target: int, size: int, positive: str, negative: str) -> list[str]:
+            forward = (target - current) % size
+            backward = (current - target) % size
+            return [positive] * forward if forward <= backward else [negative] * backward
+
+        x = y = 0
+        keys: list[str] = []
+        for character in normalized.upper():
+            target_x, target_y = positions[character]
+            keys.extend(axis(y, target_y, 4, "DOWN", "UP"))
+            # Horizontal wrap includes the right-side button column (x=8).
+            keys.extend(axis(x, target_x, 9, "RIGHT", "LEFT"))
+            keys.append("A")
+            x, y = target_x, target_y
+        return normalized, keys + ["START", "A"]
+
+    def _type_nickname_keyboard(self, nickname: str) -> str:
+        """Type one validated nickname into an already-open naming screen."""
+        normalized, keyboard = self._nickname_keyboard_plan(nickname)
+        if self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 10:
+            raise RuntimeError("nickname_screen_not_ready")
+        for key in keyboard[:-2]:
+            self._pc_tap(key, wait_frames=90 if key == "A" else 24, hold_frames=12)
+        self._pc_tap("START", wait_frames=60, hold_frames=12)
+        self._pc_tap("A", wait_frames=300, hold_frames=12)
+        return normalized
+
+    def party_reorder(self, personalities: list[int]) -> dict[str, Any]:
+        """Reorder the full party through the field UI and verify stable identities."""
+        before = self.observe()
+        if before.get("mode") != "overworld" or before.get("battle", {}).get("active"):
+            raise RuntimeError("party_reorder_requires_clean_overworld")
+        current = [
+            int(mon["state"]["personality"])
+            for mon in before.get("party", {}).get("mons", [])
+            if mon.get("present")
+        ]
+        desired = [int(value) for value in personalities]
+        if len(current) != len(desired) or len(set(desired)) != len(desired) or set(current) != set(desired):
+            raise ValueError("party order must contain every current personality exactly once")
+        if current == desired:
+            return {"verified": True, "changed": False, "order_before": current, "order_after": current, "state": before}
+
+        self._pc_tap("START", wait_frames=60)
+        if not self._field_start_menu_open() or self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 2:
+            raise RuntimeError("party_reorder_start_menu_not_ready")
+        self._move_field_cursor(FIELD_MENU_CURSOR, 1, max_steps=8)
+        self._pc_tap("A")
+        if self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 11:
+            raise RuntimeError("party_reorder_selector_not_ready")
+
+        swaps: list[dict[str, int]] = []
+        for target_slot, personality in enumerate(desired):
+            source_slot = current.index(personality)
+            if source_slot == target_slot:
+                continue
+            self._move_party_grid_cursor(source_slot)
+            self._pc_tap("A")
+            rows = 1
+            for _ in range(7):
+                self._pc_tap("DOWN", wait_frames=30)
+                if self.gba.read8(FIELD_MENU_CURSOR) == 0:
+                    break
+                rows += 1
+            else:
+                raise RuntimeError("party_command_menu_did_not_wrap")
+            self._move_field_cursor(
+                FIELD_MENU_CURSOR, self._party_switch_row(rows), max_steps=8
+            )
+            self._pc_tap("A")
+            for key in self._party_grid_keys(source_slot, target_slot):
+                self._pc_tap(key, wait_frames=30)
+            self._pc_tap("A")
+            current[source_slot], current[target_slot] = current[target_slot], current[source_slot]
+            actual = [
+                int(mon["state"]["personality"])
+                for mon in self.observe().get("party", {}).get("mons", [])
+                if mon.get("present")
+            ]
+            if actual != current:
+                raise RuntimeError(f"party_reorder_identity_mismatch: expected={current} actual={actual}")
+            swaps.append({"from": source_slot, "to": target_slot, "personality": personality})
+
+        self._pc_tap("B")
+        self._pc_tap("B")
+        after = self.observe()
+        final = [
+            int(mon["state"]["personality"])
+            for mon in after.get("party", {}).get("mons", [])
+            if mon.get("present")
+        ]
+        if after.get("mode") != "overworld" or final != desired:
+            raise RuntimeError(f"party_reorder_cleanup_failed: mode={after.get('mode')} order={final}")
+        return {
+            "verified": True,
+            "changed": True,
+            "order_before": [int(mon["state"]["personality"]) for mon in before["party"]["mons"] if mon.get("present")],
+            "order_after": final,
+            "swaps": swaps,
+            "state": after,
+        }
+
+    def heal_party(self) -> dict[str, Any]:
+        """Use the Center nurse and verify HP, status, and move PP from RAM/ROM."""
+        before = self.observe()
+        if before.get("mode") != "overworld" or before.get("battle", {}).get("active"):
+            raise RuntimeError("heal_requires_clean_overworld")
+        candidates = [
+            obj for obj in self.live_objects()
+            if obj.get("local_id") == 1 and obj.get("graphics_id") == 58
+        ]
+        if len(candidates) != 1:
+            raise RuntimeError(f"nurse_identity_ambiguous: {candidates}")
+        npc = candidates[0]
+        map_state = before.get("map") or {}
+        map_id = (map_state.get("group"), map_state.get("number"))
+        self.follow_live_path_adaptive(
+            (int(npc["current_x"]), int(npc["current_y"]) + 2),
+            expected_map=map_id,
+            avoid_trainer_sight_lines=False,
+        )
+        self._pc_tap("UP", wait_frames=12)
+        self._pc_tap("A")
+        first_text = (((self.observe().get("text") or {}).get("current") or {}).get("text", ""))
+        if "Pokémon" not in first_text:
+            raise RuntimeError(f"nurse_dialogue_not_verified: {first_text!r}")
+        pages = []
+        for _ in range(12):
+            state = self.observe()
+            if state.get("mode") == "overworld":
+                break
+            if state.get("battle", {}).get("active"):
+                raise RuntimeError("heal_interrupted_by_battle")
+            field_mode = state.get("ui", {}).get("field_message_box_mode")
+            if field_mode in {10, 16, 42, 50}:
+                raise RuntimeError(f"heal_reached_unsafe_mode: {field_mode}")
+            text = (((state.get("text") or {}).get("current") or {}).get("text"))
+            if text:
+                pages.append(text)
+                self._pc_tap("A", wait_frames=90)
+            else:
+                self.gba.wait_frames(30)
+        else:
+            raise RuntimeError("heal_dialogue_exceeded_page_limit")
+
+        after = self.observe()
+        rom = self.rom_data()
+        failures = []
+        for mon in after.get("party", {}).get("mons", []):
+            if not mon.get("present"):
+                continue
+            state = mon["state"]
+            expected_pp = []
+            for slot, move_id in enumerate(state.get("moves", ())):
+                if not move_id:
+                    expected_pp.append(0)
+                    continue
+                bonus = (int(state.get("pp_bonuses", 0)) >> (2 * slot)) & 3
+                base = int(rom.move(int(move_id)).pp)
+                expected_pp.append(base * (5 + bonus) // 5)
+            if (
+                int(state.get("current_hp", 0)) != int(state.get("max_hp", 0))
+                or int(state.get("status", 0)) != 0
+                or list(state.get("pp", ())) != expected_pp
+            ):
+                failures.append({"slot": mon["slot"], "hp": [state.get("current_hp"), state.get("max_hp")], "status": state.get("status"), "pp": list(state.get("pp", ())), "expected_pp": expected_pp})
+        if failures:
+            raise RuntimeError(f"heal_ram_verification_failed: {failures}")
+        return {"verified": True, "nurse": {"local_id": 1, "graphics_id": 58, "position": npc.get("position")}, "pages": pages, "state": after}
+
+    def pokecenter_apply_status(self, target_slot: int, status_name: str) -> dict[str, Any]:
+        """Apply one utility-NPC status and verify the party RAM bitfield."""
+        status_options = {"burn": 0x10, "freeze": 0x20, "paralysis": 0x40, "poison": 0x08, "sleep": 0x07}
+        key = status_name.casefold()
+        if key not in status_options:
+            raise ValueError(f"unsupported status: {status_name!r}")
+        before = self.observe()
+        party = before.get("party", {})
+        if target_slot not in range(int(party.get("count", 0))):
+            raise IndexError(f"party slot {target_slot} is unavailable")
+        target = party["mons"][target_slot]["state"]
+        if target.get("status"):
+            raise RuntimeError("status_service_target_already_statused")
+        candidates = [
+            obj for obj in self.live_objects()
+            if obj.get("local_id") in {4, 5, 6} and obj.get("graphics_id") in {28, 70}
+        ]
+        if len(candidates) != 1:
+            raise RuntimeError(f"utility_npc_identity_ambiguous: {candidates}")
+        npc = candidates[0]
+        map_state = before.get("map") or {}
+        map_id = (map_state.get("group"), map_state.get("number"))
+        self.follow_live_path_adaptive(
+            (int(npc["current_x"]), int(npc["current_y"]) + 2),
+            expected_map=map_id,
+            avoid_trainer_sight_lines=False,
+        )
+        self._pc_tap("UP", wait_frames=12)
+        self._pc_tap("A")
+        greeting = ((self.observe().get("text") or {}).get("current") or {}).get("text", "")
+        if "How can I help you today" not in greeting:
+            raise RuntimeError(f"utility_npc_greeting_not_verified: {greeting!r}")
+        self._pc_tap("A")  # Open the six-entry service menu.
+        for _ in range(5):
+            self._pc_tap("DOWN")
+        self._pc_tap("A")  # Apply status.
+        self._pc_tap("A")  # Open status menu after its explanation.
+        for _ in range(("burn", "freeze", "paralysis", "poison", "sleep").index(key)):
+            self._pc_tap("DOWN")
+        self._pc_tap("A")  # Chosen status; ask for target.
+        for _ in range(3):
+            self._pc_tap("A")
+            if self.gba.read8(FIELD_MESSAGE_BOX_MODE) in {11, 13, 15, 19}:
+                break
+        else:
+            raise RuntimeError("status_service_party_selector_not_ready")
+        self._move_field_cursor(FIELD_PARTY_CURSOR, target_slot)
+        self._pc_tap("A")
+        self._pc_tap("A")  # Open confirmation choice.
+        if self.gba.read8(YES_NO_CURSOR) == 1:
+            self._pc_tap("UP")
+        self._pc_tap("A")
+        self.gba.wait_frames(180)
+        after = self.observe()
+        actual = after["party"]["mons"][target_slot]["state"].get("status", 0)
+        expected = status_options[key]
+        verified = bool(actual & expected) if key == "sleep" else (actual & expected) == expected
+        if not verified:
+            raise RuntimeError(f"status_service_verification_failed: expected={key} actual={actual:#x}")
+        acknowledgement = (((after.get("text") or {}).get("last_page") or {}).get("text", ""))
+        if "status condition" not in acknowledgement:
+            raise RuntimeError(f"status_service_acknowledgement_missing: {acknowledgement!r}")
+        # The custom script drops field mode to zero before dismissing its
+        # success box, so mode=overworld is not yet proof that movement owns
+        # input. Exactly one acknowledged A releases the script lock.
+        self._pc_tap("A")
+        final = self.observe()
+        if final.get("mode") != "overworld" or final.get("ui", {}).get("field_message_box_mode") != 0:
+            raise RuntimeError("status_service_cleanup_failed")
+        return {
+            "service": "apply_status",
+            "status": status_name,
+            "target_slot": target_slot,
+            "target_species": target["species"],
+            "status_before": target.get("status", 0),
+            "status_after": actual,
+            "verified": True,
+            "state": final,
+        }
+
+    def pokecenter_change_nickname(self, target_slot: int, nickname: str) -> dict[str, Any]:
+        """Change one party nickname and verify identity and text from RAM."""
+        normalized, _ = self._nickname_keyboard_plan(nickname)
+        before = self.observe()
+        if before.get("mode") != "overworld" or before.get("battle", {}).get("active"):
+            raise RuntimeError("nickname_service_requires_clean_overworld")
+        party = before.get("party", {})
+        if target_slot not in range(int(party.get("count", 0))):
+            raise IndexError(f"party slot {target_slot} is unavailable")
+        target = party["mons"][target_slot]["state"]
+        personality = int(target["personality"])
+        old_nickname = str(target.get("nickname", ""))
+        if old_nickname == normalized:
+            return {
+                "service": "change_nickname", "target_slot": target_slot,
+                "personality": personality, "nickname_before": old_nickname,
+                "nickname_after": normalized, "changed": False, "verified": True,
+                "state": before,
+            }
+
+        candidates = [
+            obj for obj in self.live_objects()
+            if obj.get("local_id") in {4, 5, 6} and obj.get("graphics_id") in {28, 70}
+        ]
+        if len(candidates) != 1:
+            raise RuntimeError(f"utility_npc_identity_ambiguous: {candidates}")
+        npc = candidates[0]
+        map_state = before.get("map") or {}
+        map_id = (map_state.get("group"), map_state.get("number"))
+        self.follow_live_path_adaptive(
+            (int(npc["current_x"]), int(npc["current_y"]) + 2),
+            expected_map=map_id,
+            avoid_trainer_sight_lines=False,
+        )
+
+        def tap(key: str, wait_frames: int = 120) -> None:
+            self._pc_tap(key, wait_frames=wait_frames, hold_frames=12)
+
+        tap("UP", 12)
+        tap("A")
+        greeting = ((self.observe().get("text") or {}).get("current") or {}).get("text", "")
+        if "How can I help you today" not in greeting:
+            raise RuntimeError(f"utility_npc_greeting_not_verified: {greeting!r}")
+        tap("A")
+        for _ in range(4):
+            tap("DOWN")
+        tap("A")
+        selected = ((self.observe().get("text") or {}).get("current") or {}).get("text", "")
+        if "So you want to change a Pokémon's" not in selected:
+            raise RuntimeError(f"nickname_service_selection_not_verified: {selected!r}")
+        tap("A")
+        prompt = ((self.observe().get("text") or {}).get("current") or {}).get("text", "")
+        if "nickname should\nI change" not in prompt:
+            raise RuntimeError(f"nickname_service_target_prompt_not_verified: {prompt!r}")
+        tap("A")
+        if self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 11:
+            raise RuntimeError("nickname_service_party_selector_not_ready")
+        self._move_field_cursor(FIELD_PARTY_CURSOR, target_slot)
+        tap("A")
+
+        for _ in range(4):
+            if self.gba.read8(FIELD_MESSAGE_BOX_MODE) == 10:
+                break
+            observed = self.observe()
+            text = observed.get("text") or {}
+            rendered = "\n".join(
+                value for value in (
+                    ((text.get("current") or {}).get("text") or ""),
+                    ((text.get("last_page") or {}).get("text") or ""),
+                ) if value
+            )
+            if "Do you want" in rendered and self.gba.read8(YES_NO_CURSOR) == 1:
+                tap("UP")
+            tap("A")
+        else:
+            raise RuntimeError("nickname_screen_not_ready")
+
+        self._type_nickname_keyboard(normalized)
+        changed = self.observe()
+        changed_target = changed["party"]["mons"][target_slot]["state"]
+        if int(changed_target["personality"]) != personality or changed_target.get("nickname") != normalized:
+            raise RuntimeError(
+                f"nickname_service_verification_failed: expected={normalized!r} "
+                f"actual={changed_target.get('nickname')!r}"
+            )
+
+        for _ in range(2):
+            acknowledgement = self.observe()
+            if acknowledgement.get("mode") == "overworld":
+                break
+            tap("A", 180)
+        else:
+            raise RuntimeError("nickname_service_acknowledgement_not_dismissed")
+        # The custom script clears field mode one command before releasing
+        # input ownership. B closes that retained command without re-talking
+        # to the NPC (A would immediately reopen its service menu).
+        tap("B")
+        final = self.follow_live_path_adaptive(
+            (10, 4), expected_map=map_id, avoid_trainer_sight_lines=False
+        )["state"]
+        final_target = final["party"]["mons"][target_slot]["state"]
+        if (
+            final.get("mode") != "overworld"
+            or int(final_target["personality"]) != personality
+            or final_target.get("nickname") != normalized
+        ):
+            raise RuntimeError("nickname_service_cleanup_failed")
+        return {
+            "service": "change_nickname", "target_slot": target_slot,
+            "target_species": target["species"], "personality": personality,
+            "nickname_before": old_nickname, "nickname_after": normalized,
+            "changed": True, "verified": True, "state": final,
+        }
+
     def _battle_printer_contexts(self, printers: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Decode the transient battle-text buffers behind active printers.
 
@@ -632,10 +1250,23 @@ class RunBunAdapter:
                     "current_char": current_char,
                     "start": start,
                     "end": start + len(raw),
-                    "text": decode_gen3_text(raw),
+                    "text": self._current_printer_text(raw, current_char - start),
                 }
             )
         return contexts
+
+    @staticmethod
+    def _current_printer_text(raw: bytes, cursor: int) -> str:
+        """Decode the string owned by a printer, ignoring adjacent stale strings."""
+        if cursor > 0 and raw[cursor - 1] == 0xFF:
+            end = cursor - 1
+            start = raw.rfind(b"\xff", 0, end) + 1
+        else:
+            start = raw.rfind(b"\xff", 0, cursor) + 1
+            end = raw.find(b"\xff", cursor)
+            if end < 0:
+                end = len(raw)
+        return decode_gen3_text(raw[start:end] + b"\xff")
 
     @staticmethod
     def _battle_command_prompt(contexts: list[dict[str, Any]]) -> bool:
@@ -734,6 +1365,14 @@ class RunBunAdapter:
         return False
 
     @staticmethod
+    def _active_player_fainted(battle: dict[str, Any]) -> bool:
+        active = next(
+            (item for item in battle.get("mons", []) if item.get("present") and item.get("slot") == 0),
+            None,
+        )
+        return bool(active and active.get("state", {}).get("current_hp", 0) <= 0)
+
+    @staticmethod
     def _battle_printer_text(contexts: list[dict[str, Any]]) -> str:
         return "\n".join(
             (context.get("text") or "").strip()
@@ -819,6 +1458,7 @@ class RunBunAdapter:
         effectiveness_memory: dict[tuple[int, int], float] | None = None,
         type_chart: dict[int, dict[int, float]] | None = None,
         damage_memory: dict[tuple[int, int, int], list[int]] | None = None,
+        move_data: dict[int, RomMove] | None = None,
     ) -> tuple[float, float]:
         """Return a conservative normal-roll damage interval.
 
@@ -828,7 +1468,10 @@ class RunBunAdapter:
         roll interval; unknown move metadata remains zero and therefore
         cannot create a false forced KO.
         """
-        if move_id in STATUS_MOVE_IDS:
+        metadata = (move_data or {}).get(move_id)
+        if metadata is not None and metadata.category == "status":
+            return (0.0, 0.0)
+        if metadata is None and move_id in STATUS_MOVE_IDS:
             return (0.0, 0.0)
         attacker_state = attacker.get("state", attacker)
         defender_state = defender.get("state", defender)
@@ -849,7 +1492,7 @@ class RunBunAdapter:
             else:
                 samples = learned
             if samples:
-                move_type = MOVE_TYPE_IDS.get(move_id)
+                move_type = metadata.type_id if metadata is not None else MOVE_TYPE_IDS.get(move_id)
                 # Legacy samples do not carry their stage context, so they
                 # are never a standalone bound for a known move. Keep them
                 # useful for custom/unknown move IDs, but let the verified
@@ -860,14 +1503,17 @@ class RunBunAdapter:
                         max(1.0, float(min(samples))),
                         max(1.0, float(max(samples))),
                     )
-        move_type = MOVE_TYPE_IDS.get(move_id)
+        move_type = metadata.type_id if metadata is not None else MOVE_TYPE_IDS.get(move_id)
         if move_type is None:
             return (0.0, 0.0)
-        power = MOVE_POWER.get(move_id, 40)
+        power = metadata.power if metadata is not None else MOVE_POWER.get(move_id, 40)
         if move_id == 49:  # Sonic Boom is fixed 20 damage in this battle.
             return (20.0, 20.0)
-        attack_key = "special_attack" if move_id in MOVE_SPECIAL_IDS else "attack"
-        defense_key = "special_defense" if move_id in MOVE_SPECIAL_IDS else "defense"
+        special = metadata.category == "special" if metadata is not None else move_id in MOVE_SPECIAL_IDS
+        if metadata is not None and metadata.category == "unknown":
+            return (0.0, 0.0)
+        attack_key = "special_attack" if special else "attack"
+        defense_key = "special_defense" if special else "defense"
         attack = attacker_state.get(attack_key, 0)
         defense = defender_state.get(defense_key, 0)
         level = attacker_state.get("level", 0)
@@ -875,8 +1521,8 @@ class RunBunAdapter:
             return (0.0, 0.0)
         if defender_state.get("ability") == ABILITY_LEVITATE and move_type == 4:
             return (0.0, 0.0)
-        attack *= cls._stage_multiplier(attacker_state, attack_key)
-        defense *= cls._stage_multiplier(defender_state, defense_key)
+        attack = max(1, math.floor(attack * cls._stage_multiplier(attacker_state, attack_key)))
+        defense = max(1, math.floor(defense * cls._stage_multiplier(defender_state, defense_key)))
         defender_types = cls._mon_types(defender)
         effectiveness = 1.0
         for defender_type in defender_types:
@@ -890,16 +1536,26 @@ class RunBunAdapter:
         stab = 1.5 if move_type in cls._mon_types(attacker) else 1.0
         if attacker_state.get("ability") == ABILITY_FLASH_FIRE and move_type == 10:
             return (0.0, 0.0)
-        base = (((2 * level / 5) + 2) * power * attack / max(defense, 1)) / 50 + 2
-        high = max(1.0, base * effectiveness * stab)
-        # Cartridge damage is integral. Flooring the low roll avoids claiming
-        # a fractional guaranteed minimum that the game can round below;
-        # ceiling the high roll preserves a conservative nonlethal/threat
-        # bound despite the omitted intermediate integer floors.
-        return (
-            max(1.0, float(math.floor(high * 0.85))),
-            max(1.0, float(math.ceil(high))),
-        )
+        base = (((2 * int(level) // 5 + 2) * int(power) * attack) // defense) // 50 + 2
+
+        def cartridge_roll(roll: int) -> int:
+            damage = base * roll // 100
+            if stab > 1:
+                damage = damage * 15 // 10
+            multipliers = (
+                (remembered,)
+                if remembered is not None
+                else tuple(
+                    (type_chart or TYPE_EFFECTIVENESS).get(move_type, {}).get(defender_type, 1.0)
+                    for defender_type in defender_types
+                )
+            )
+            for multiplier in multipliers:
+                damage = damage * int(round(multiplier * 0x1000)) // 0x1000
+            return max(1, damage)
+
+        values = [cartridge_roll(roll) for roll in range(85, 101)]
+        return (float(min(values)), float(max(values)))
 
     @classmethod
     def _estimated_damage(
@@ -911,6 +1567,7 @@ class RunBunAdapter:
         effectiveness_memory: dict[tuple[int, int], float] | None = None,
         type_chart: dict[int, dict[int, float]] | None = None,
         damage_memory: dict[tuple[int, int, int], list[int]] | None = None,
+        move_data: dict[int, RomMove] | None = None,
     ) -> float:
         """Return the midpoint of the bounded interval for ranking only."""
         low, high = cls._damage_bounds(
@@ -920,6 +1577,7 @@ class RunBunAdapter:
             effectiveness_memory=effectiveness_memory,
             type_chart=type_chart,
             damage_memory=damage_memory,
+            move_data=move_data,
         )
         return (low + high) / 2
 
@@ -933,6 +1591,7 @@ class RunBunAdapter:
         effectiveness_memory: dict[tuple[int, int], float] | None,
         type_chart: dict[int, dict[int, float]] | None,
         damage_memory: dict[tuple[int, int, int], list[int]] | None,
+        move_data: dict[int, RomMove] | None,
         low_hp_fraction: float,
         allow_switch: bool,
     ) -> dict[str, Any] | None:
@@ -963,6 +1622,7 @@ class RunBunAdapter:
                     effectiveness_memory=effectiveness_memory,
                     type_chart=type_chart,
                     damage_memory=damage_memory,
+                    move_data=move_data,
                 )
                 result.append({
                     "slot": slot,
@@ -978,13 +1638,19 @@ class RunBunAdapter:
             return None
         best_move = max(
             active_moves,
-            key=lambda item: (item["damage"], item["move_id"] not in STATUS_MOVE_IDS, -item["slot"]),
+            key=lambda item: (
+                item["damage"],
+                (move_data or {}).get(item["move_id"], None) is not None
+                and (move_data or {})[item["move_id"]].category != "status"
+                or item["move_id"] not in STATUS_MOVE_IDS,
+                -item["slot"],
+            ),
         )
         opponent_hp = opponent_state.get("current_hp", 0)
         player_hp = player_state.get("current_hp", 0)
         active_fraction = player_hp / max(player_state.get("max_hp", 1), 1)
         incoming = max(
-            (cls._damage_bounds(move_id, opponent, player, type_chart=type_chart, damage_memory=damage_memory)[1] for move_id in opponent_state.get("moves", ()) if move_id),
+            (cls._damage_bounds(move_id, opponent, player, type_chart=type_chart, damage_memory=damage_memory, move_data=move_data)[1] for move_id in opponent_state.get("moves", ()) if move_id),
             default=0.0,
         )
         player_speed = cls._effective_speed(player_state)
@@ -1047,7 +1713,7 @@ class RunBunAdapter:
                     continue
                 best = max(options, key=lambda item: item["damage"])
                 threat = max(
-                    (cls._damage_bounds(move_id, opponent, mon, type_chart=type_chart, damage_memory=damage_memory)[1] for move_id in opponent_state.get("moves", ()) if move_id),
+                    (cls._damage_bounds(move_id, opponent, mon, type_chart=type_chart, damage_memory=damage_memory, move_data=move_data)[1] for move_id in opponent_state.get("moves", ()) if move_id),
                     default=0.0,
                 )
                 if threat >= max(state.get("current_hp", 0), 1):
@@ -1105,6 +1771,7 @@ class RunBunAdapter:
         effectiveness_memory: dict[tuple[int, int], float] | None = None,
         type_chart: dict[int, dict[int, float]] | None = None,
         damage_memory: dict[tuple[int, int, int], list[int]] | None = None,
+        move_data: dict[int, RomMove] | None = None,
         low_hp_fraction: float = 0.25,
         allow_switch: bool = True,
     ) -> dict[str, Any]:
@@ -1132,6 +1799,7 @@ class RunBunAdapter:
             effectiveness_memory=effectiveness_memory,
             type_chart=type_chart,
             damage_memory=damage_memory,
+            move_data=move_data,
             low_hp_fraction=low_hp_fraction,
             allow_switch=allow_switch,
         )
@@ -1204,6 +1872,7 @@ class RunBunAdapter:
         effectiveness_memory: dict[tuple[int, int], float] | None = None,
         type_chart: dict[int, dict[int, float]] | None = None,
         damage_memory: dict[tuple[int, int, int], list[int]] | None = None,
+        move_data: dict[int, RomMove] | None = None,
         low_hp_fraction: float = 0.25,
         allow_switch: bool = True,
     ) -> dict[str, Any]:
@@ -1229,6 +1898,7 @@ class RunBunAdapter:
             effectiveness_memory=effectiveness_memory,
             type_chart=type_chart,
             damage_memory=memory,
+            move_data=move_data,
             low_hp_fraction=low_hp_fraction,
             allow_switch=allow_switch,
         )
@@ -1245,16 +1915,23 @@ class RunBunAdapter:
         def move_report(state: dict[str, Any], slot: int, move_id: int, defender: dict[str, Any]) -> dict[str, Any]:
             raw_samples = memory.get((state.get("species"), move_id, defender.get("species")), ())
             samples = list(raw_samples.get("samples", ())) if isinstance(raw_samples, dict) else list(raw_samples)
+            metadata = (move_data or {}).get(move_id)
+            known_move = metadata is not None or move_id in MOVE_TYPE_IDS
             damage_min, damage_max = cls._damage_bounds(
                 move_id, state, defender,
                 effectiveness_memory=effectiveness_memory,
                 type_chart=type_chart,
                 damage_memory=memory,
+                move_data=move_data,
             )
             damage = (damage_min + damage_max) / 2
             ko_in = int((defender.get("current_hp", 0) + max(damage_max, 1) - 1) // max(damage_max, 1))
             guaranteed_ko_in = int((defender.get("current_hp", 0) + max(damage_min, 1) - 1) // max(damage_min, 1))
-            priority = move_id in MOVE_PRIORITY_IDS
+            priority = (
+                (move_data or {}).get(move_id).priority > 0
+                if (move_data or {}).get(move_id) is not None
+                else move_id in MOVE_PRIORITY_IDS
+            )
             attacker_speed = cls._effective_speed(state)
             defender_speed = cls._effective_speed(defender)
             speed_order = (
@@ -1275,7 +1952,14 @@ class RunBunAdapter:
                 "order": order,
                 "acts_first": first,
                 "ko_before_hit": damage_min >= defender.get("current_hp", 0) > 0 and first,
-                "evidence": {"kind": "observed_samples", "samples": samples} if samples else {"kind": "static_model"},
+                "evidence": (
+                    {"kind": "observed_samples", "samples": samples}
+                    if samples and not known_move
+                    else {
+                        "kind": "rom_formula" if metadata is not None else "static_model",
+                        **({"legacy_samples_quarantined": len(samples)} if samples else {}),
+                    }
+                ),
             }
 
         moves = []
@@ -1294,24 +1978,24 @@ class RunBunAdapter:
             None,
         )
         if chosen and chosen["ko_before_hit"]:
-            proof_level = "forced_estimate"
-            claim = "fastest visible one-turn KO; no slower move can improve the turn"
+            proof_level = "minimax_visible"
+            claim = "visible-state one-turn KO before the modeled reply"
         elif chosen and plan.get("reason") == "safe_two_turn_finish":
-            proof_level = "safe_two_turn_estimate"
+            proof_level = "expected_best"
             claim = "estimated two-turn finish while surviving the modeled intervening hit"
         elif chosen and plan.get("reason") == "defensive_status_vs_physical_threat":
-            proof_level = "best_estimate"
+            proof_level = "expected_best"
             claim = "only live status line that can reduce the modeled physical KO threat; every switch candidate is also KO'd"
         elif chosen and plan.get("reason") == "last_damage_line":
             proof_level = "heuristic"
             claim = "no legal line guarantees survival; selected the highest observed damage chance"
         else:
-            proof_level = "best_estimate"
+            proof_level = "expected_best"
             claim = "highest modeled damage/survival score among legal actions"
         return {
             "state": {
-                "player": {"species": player_key, "hp": player.get("current_hp"), "max_hp": player.get("max_hp"), "speed": player_speed},
-                "opponent": {"species": opponent_key, "hp": opponent_hp, "max_hp": opponent.get("max_hp"), "speed": opponent_speed},
+                "player": {"species": player_key, "hp": player.get("current_hp"), "max_hp": player.get("max_hp"), "speed": player_speed, "status": player.get("status", 0)},
+                "opponent": {"species": opponent_key, "hp": opponent_hp, "max_hp": opponent.get("max_hp"), "speed": opponent_speed, "status": opponent.get("status", 0)},
             },
             "decision": plan,
             "chosen": chosen,
@@ -1326,7 +2010,7 @@ class RunBunAdapter:
                     "chosen_damage_est": chosen["damage_est"] if chosen else None,
                     "chosen_acts_first": chosen["acts_first"] if chosen else None,
                 },
-                "caveat": "RNG, hidden AI, and unverified move metadata can invalidate non-forced estimates.",
+                "caveat": "Hidden AI choices, unmodeled move effects, items, and abilities can change non-exhaustive rankings.",
             },
         }
 
@@ -2063,6 +2747,7 @@ class RunBunAdapter:
         max_frames: int = 900,
         visual_fallback: bool = False,
         after_action: bool = False,
+        pre_action_signature: tuple[Any, ...] | None = None,
     ) -> dict[str, Any]:
         """Advance battle text from RAM until a command menu or battle end.
 
@@ -2085,8 +2770,10 @@ class RunBunAdapter:
         # a second move into the previous turn.
         initial_prompt_marker = None
         prompt_transition_seen = not after_action
-        initial_battle_signature = None
+        initial_battle_signature = pre_action_signature
         action_transition_seen = not after_action
+        pending_text_signature = None
+        last_battle_signature = None
         while elapsed <= max_frames:
             state = self.observe()
             battle = state["battle"]
@@ -2107,6 +2794,12 @@ class RunBunAdapter:
                 for item in battle["mons"]
                 if item.get("present")
             )
+            if last_battle_signature is not None and battle_signature != last_battle_signature:
+                # Locked moves can render the same text at the same printer
+                # address on consecutive turns. HP/PP progress proves the new
+                # page is not a stale duplicate and may be acknowledged.
+                pending_text_signature = None
+            last_battle_signature = battle_signature
             if after_action and initial_battle_signature is None:
                 initial_battle_signature = battle_signature
             if after_action and battle_signature != initial_battle_signature:
@@ -2116,6 +2809,20 @@ class RunBunAdapter:
                 # authoritative transition signal.
                 action_transition_seen = True
             text = state.get("text") or {}
+            text_ready = self._battle_text_ready(text)
+            current_text = text.get("current") or {}
+            text_signature = (
+                current_text.get("start"), current_text.get("end"),
+                current_text.get("cursor"), current_text.get("text"),
+                tuple(
+                    (printer.get("address"), printer.get("current_char"), printer.get("state"), printer.get("active"))
+                    for printer in text.get("printers", [])
+                ),
+                tuple(
+                    (printer.get("printer_address"), printer.get("current_char"), printer.get("text"))
+                    for printer in text.get("battle_printers", [])
+                ),
+            )
             battle_contexts = text.get("battle_printers", [])
             for context in battle_contexts:
                 value = (context.get("text") or "").strip()
@@ -2134,6 +2841,40 @@ class RunBunAdapter:
                 prompt_transition_seen = True
             field_mode = state["ui"].get("field_message_box_mode", 0)
             ram_menu_state = battle.get("menu", {}).get("state")
+            player_fainted = self._active_player_fainted(battle)
+
+            def confirmed_boundary(name: str) -> dict[str, Any] | None:
+                """Require the menu and battlers to remain stable before input."""
+                nonlocal elapsed
+                expected_signature = battle_signature
+                # Run & Bun can render a command prompt before delayed
+                # residual HP changes (notably Leech Seed) are committed.
+                # Five frame samples keep that transient prompt from owning
+                # the next action while adding no host-side idle time.
+                for _ in range(5):
+                    self.gba.wait_frames(sample_frames)
+                    elapsed += sample_frames
+                    settled = self.observe()
+                    settled_signature = tuple(
+                        (
+                            item["slot"], item["state"].get("species"),
+                            item["state"].get("current_hp"), item["state"].get("pp"),
+                        )
+                        for item in settled["battle"]["mons"]
+                        if item.get("present")
+                    )
+                    if (
+                        settled_signature != expected_signature
+                        or settled["battle"].get("menu", {}).get("state") != name
+                        or (name in {"command_menu", "move_menu"} and self._active_player_fainted(settled["battle"]))
+                    ):
+                        return None
+                return {
+                    "state": name,
+                    "frames": elapsed,
+                    "presses": presses,
+                    "feedback": "\n".join(feedback_parts),
+                }
             if ram_menu_state == "target_menu":
                 # Target choice is a gameplay decision, never battle text to
                 # auto-advance. Hand it back to the tactical controller.
@@ -2143,27 +2884,18 @@ class RunBunAdapter:
                     "presses": presses,
                     "feedback": "\n".join(feedback_parts),
                 }
-            if ram_menu_state == "move_menu" and (not after_action or action_transition_seen):
-                return {
-                    "state": "move_menu",
-                    "frames": elapsed,
-                    "presses": presses,
-                    "feedback": "\n".join(feedback_parts),
-                }
+            if ram_menu_state == "move_menu" and not player_fainted and (not after_action or action_transition_seen):
+                if confirmed := confirmed_boundary("move_menu"):
+                    return confirmed
+                continue
             if ram_menu_state == "party_switch" and (not after_action or action_transition_seen):
-                return {
-                    "state": "party_switch",
-                    "frames": elapsed,
-                    "presses": presses,
-                    "feedback": "\n".join(feedback_parts),
-                }
-            if ram_menu_state == "command_menu" and (not after_action or action_transition_seen):
-                return {
-                    "state": "command_menu",
-                    "frames": elapsed,
-                    "presses": presses,
-                    "feedback": "\n".join(feedback_parts),
-                }
+                if confirmed := confirmed_boundary("party_switch"):
+                    return confirmed
+                continue
+            if ram_menu_state == "command_menu" and not player_fainted and (not after_action or action_transition_seen):
+                if confirmed := confirmed_boundary("command_menu"):
+                    return confirmed
+                continue
             # A stale Type/PP printer can survive the transition back to the
             # command selector.  When both markers are present, the live
             # ``What will ... do?`` command prompt wins; otherwise open_fight
@@ -2172,21 +2904,16 @@ class RunBunAdapter:
                 move_prompt
                 and ram_menu_state != "target_menu"
                 and not command_prompt
+                and not player_fainted
                 and (not after_action or action_transition_seen)
             ):
-                return {
-                    "state": "move_menu",
-                    "frames": elapsed,
-                    "presses": presses,
-                    "feedback": "\n".join(feedback_parts),
-                }
+                if confirmed := confirmed_boundary("move_menu"):
+                    return confirmed
+                continue
             if party_switch_prompt and (not after_action or action_transition_seen):
-                return {
-                    "state": "party_switch",
-                    "frames": elapsed,
-                    "presses": presses,
-                    "feedback": "\n".join(feedback_parts),
-                }
+                if confirmed := confirmed_boundary("party_switch"):
+                    return confirmed
+                continue
             battle_hud = bool(visual and visual.battle_hud)
             if (
                 opponent
@@ -2199,11 +2926,14 @@ class RunBunAdapter:
                 # command prompt appears instead of treating the first KO as
                 # the end of the whole battle.
                 if field_mode != 0:
-                    if text.get("active"):
+                    if ram_menu_state in {"command_menu", "move_menu", "party_switch", "target_menu"}:
+                        self.gba.wait_frames(sample_frames)
+                    elif (text_ready or not text.get("active")) and text_signature != pending_text_signature:
+                        self.gba.press("A", frames=1)
+                        presses += 1
+                        pending_text_signature = text_signature
                         self.gba.wait_frames(sample_frames)
                     else:
-                        self.gba.press("A")
-                        presses += 1
                         self.gba.wait_frames(sample_frames)
                     elapsed += sample_frames
                     continue
@@ -2219,22 +2949,19 @@ class RunBunAdapter:
             # A battle HUD is the only case where the narrow visual fallback
             # can promote that ambiguous state back to an active battle.
             battle_active = battle["active"] or battle_hud or command_prompt or party_switch_prompt
-            if not battle_active:
+            if not battle_active and self._inactive_battle_is_terminal(state):
                 return {
                     "state": "not_in_battle",
                     "frames": elapsed,
                     "presses": presses,
                     "feedback": "\n".join(feedback_parts),
                 }
-            if (command_prompt or (visual and visual.battle_command_menu)) and (
+            if not player_fainted and (command_prompt or (visual and visual.battle_command_menu)) and (
                 prompt_transition_seen or action_transition_seen
             ):
-                return {
-                    "state": "command_menu",
-                    "frames": elapsed,
-                    "presses": presses,
-                    "feedback": "\n".join(feedback_parts),
-                }
+                if confirmed := confirmed_boundary("command_menu"):
+                    return confirmed
+                continue
             # Run & Bun leaves the battle text mode latched at 50 while both
             # battle messages and the command selector are on screen.  The
             # text buffer is a different runtime buffer here, but the live
@@ -2242,26 +2969,30 @@ class RunBunAdapter:
             # when one printer remains active at its cleared (0, 1) cursor.
             # This avoids treating "Go! ..." or a fainting message as a move
             # menu and sending an accidental input too early.
-            if field_mode == 50 and self._battle_command_prompt(battle_contexts) and (
+            if not player_fainted and field_mode == 50 and self._battle_command_prompt(battle_contexts) and (
                 prompt_transition_seen or action_transition_seen
             ):
-                return {
-                    "state": "command_menu",
-                    "frames": elapsed,
-                    "presses": presses,
-                    "feedback": "\n".join(feedback_parts),
-                }
+                if confirmed := confirmed_boundary("command_menu"):
+                    return confirmed
+                continue
             if field_mode != 0:
-                if text.get("active"):
+                if ram_menu_state in {"command_menu", "move_menu", "party_switch", "target_menu"}:
+                    self.gba.wait_frames(sample_frames)
+                elif (text_ready or not text.get("active")) and text_signature != pending_text_signature:
+                    self.gba.press("A", frames=1)
+                    presses += 1
+                    pending_text_signature = text_signature
                     self.gba.wait_frames(sample_frames)
                 else:
-                    self.gba.press("A")
-                    presses += 1
                     self.gba.wait_frames(sample_frames)
             elif text.get("active"):
                 self.gba.wait_frames(sample_frames)
+            elif player_fainted:
+                self.gba.wait_frames(sample_frames)
             else:
-                return {"state": "command_menu", "frames": elapsed, "presses": presses}
+                if confirmed := confirmed_boundary("command_menu"):
+                    return confirmed
+                continue
             elapsed += sample_frames
         return {
             "state": "timeout",
@@ -2269,6 +3000,20 @@ class RunBunAdapter:
             "presses": presses,
             "feedback": "\n".join(feedback_parts),
         }
+
+    @staticmethod
+    def _inactive_battle_is_terminal(state: dict[str, Any]) -> bool:
+        """A battle-active flicker during dialogue is not a battle end."""
+        return state.get("mode") == "overworld"
+
+    @staticmethod
+    def _battle_text_ready(text: dict[str, Any]) -> bool:
+        current = text.get("current") or {}
+        ready_states = (1, 2, 3, 5, 6)
+        return current.get("state") in ready_states or any(
+            printer.get("active") and printer.get("state") in ready_states
+            for printer in text.get("printers", [])
+        )
 
     def resolve_battle(
         self,
@@ -2295,11 +3040,7 @@ class RunBunAdapter:
         state = RunBun(self.gba)
         turns = 0
         effectiveness_memory: dict[tuple[int, int], float] = {}
-        # Keep the raw ROM chart available through ``rom_data()``. Its table
-        # has a legacy reserved-type index that still needs a complete mapping
-        # proof before it is allowed to steer decisions; live feedback and
-        # learned damage are safer for this battle loop today.
-        type_chart = None
+        type_chart = self.rom_data().type_chart()
         while turns <= max_turns:
             observation = self.observe()
             if not observation["battle"]["active"]:
@@ -2341,6 +3082,7 @@ class RunBunAdapter:
                     effectiveness_memory=effectiveness_memory,
                     type_chart=type_chart,
                     damage_memory=self._damage_memory,
+                    move_data=self.battle_move_data(observation),
                     low_hp_fraction=low_hp_fraction,
                     allow_switch=allow_switch,
                 )
@@ -2404,6 +3146,104 @@ class RunBunAdapter:
             turns += 1
         raise RuntimeError(f"battle exceeded {max_turns} turns")
 
+    def hunt_wild_species(
+        self,
+        target_species: int,
+        *,
+        max_steps: int = 2000,
+        max_encounters: int = 100,
+    ) -> dict[str, Any]:
+        """Walk a verified grass pair, flee non-targets, and stop at target command."""
+        if target_species <= 0 or max_steps < 1 or max_encounters < 1:
+            raise ValueError("target species and hunt bounds must be positive")
+        from games.run_and_bun.live_map import (
+            is_land_encounter_tile,
+            read_live_map,
+            read_live_map_type,
+        )
+
+        start = self.observe()
+        if start.get("battle", {}).get("active") or start.get("mode") != "overworld":
+            raise RuntimeError("wild_hunt_requires_clean_overworld")
+        map_state = start.get("map") or {}
+        map_id = (int(map_state["group"]), int(map_state["number"]))
+        current = (int(map_state["x"]), int(map_state["y"]))
+        live = read_live_map(self.gba)
+        map_type = read_live_map_type(self.gba)
+        pairs = []
+        directions = ((0, -1, "UP", "DOWN"), (1, 0, "RIGHT", "LEFT"), (0, 1, "DOWN", "UP"), (-1, 0, "LEFT", "RIGHT"))
+        for y in range(live.active_height):
+            for x in range(live.active_width):
+                if not is_land_encounter_tile(live, x, y, map_type):
+                    continue
+                try:
+                    path = live.path_to(current, (x, y), allow_nonwalkable_start=True, grass_penalty=0)
+                except ValueError:
+                    continue
+                for dx, dy, outward, inward in directions:
+                    neighbor = (x + dx, y + dy)
+                    if (
+                        0 <= neighbor[0] < live.active_width
+                        and 0 <= neighbor[1] < live.active_height
+                        and live.step_allowed((x, y), neighbor)
+                    ):
+                        pairs.append((len(path), (x, y), neighbor, outward, inward))
+        if not pairs:
+            raise RuntimeError("no_reachable_land_encounter_pair")
+        _, encounter_tile, neighbor, outward, inward = min(pairs)
+
+        encounters: list[dict[str, Any]] = []
+        steps = 0
+        while steps < max_steps and len(encounters) < max_encounters:
+            state = self.observe()
+            if state.get("battle", {}).get("active"):
+                status = self.advance_battle_until_menu(
+                    sample_frames=24, max_frames=1200, visual_fallback=False
+                )
+                if status.get("state") != "command_menu":
+                    raise RuntimeError(f"wild_hunt_unstable_battle_boundary: {status.get('state')}")
+                state = self.observe()
+                opponent = self._present_battle_mon(state, 1)
+                encountered = int(opponent["species"])
+                encounters.append({
+                    "species": encountered, "level": int(opponent["level"]),
+                    "hp": int(opponent["current_hp"]), "max_hp": int(opponent["max_hp"]),
+                })
+                if encountered == target_species:
+                    return {
+                        "found": True, "target_species": target_species, "map": map_id,
+                        "encounter_pair": [encounter_tile, neighbor], "steps": steps,
+                        "encounters": encounters, "state": state,
+                    }
+                escaped = self.escape_battle()
+                if escaped.get("state") != "overworld":
+                    raise RuntimeError(f"wild_hunt_escape_failed: {escaped}")
+                continue
+
+            position_state = state.get("map") or {}
+            actual_map = (position_state.get("group"), position_state.get("number"))
+            if actual_map != map_id:
+                raise RuntimeError(f"wild_hunt_map_changed: {actual_map} != {map_id}")
+            position = (int(position_state["x"]), int(position_state["y"]))
+            if position not in {encounter_tile, neighbor}:
+                result = self.follow_live_path_adaptive(
+                    encounter_tile, expected_map=map_id, grass_penalty=0, chunk_steps=6
+                )
+                if result.get("reason") == "interrupted":
+                    continue
+                position = tuple(result["position"])
+            key = outward if position == encounter_tile else inward
+            self.gba.sequence([
+                {"keys": [key], "frames": 12},
+                {"keys": [], "frames": 4},
+            ])
+            steps += 1
+        return {
+            "found": False, "target_species": target_species, "map": map_id,
+            "encounter_pair": [encounter_tile, neighbor], "steps": steps,
+            "encounters": encounters, "state": self.observe(),
+        }
+
     def escape_battle(
         self,
         *,
@@ -2460,9 +3300,9 @@ class RunBunAdapter:
         observation: dict[str, Any],
         *,
         poke_balls: int,
-        target_hp_fraction: float = 0.35,
         type_chart: dict[int, dict[int, float]] | None = None,
         damage_memory: dict[tuple[int, int, int], list[int]] | None = None,
+        move_data: dict[int, RomMove] | None = None,
     ) -> dict[str, Any]:
         """Choose a conservative wild-capture action from canonical RAM state.
 
@@ -2471,8 +3311,6 @@ class RunBunAdapter:
         residual-KO risk are excluded even if their first hit is nonlethal.
         Unknown damage is uncertainty, never evidence that a move is safe.
         """
-        if not 0 < target_hp_fraction < 1:
-            raise ValueError("target_hp_fraction must be between 0 and 1")
         battle = observation.get("battle", {})
         if not battle.get("active"):
             raise RuntimeError("capture_requires_active_battle")
@@ -2524,6 +3362,7 @@ class RunBunAdapter:
                 opponent,
                 type_chart=type_chart,
                 damage_memory=damage_memory,
+                move_data=move_data,
             )
             if damage_max <= 0 and move_id not in STATUS_MOVE_IDS:
                 unknown_moves.append(int(move_id))
@@ -2532,6 +3371,19 @@ class RunBunAdapter:
             # a move is capture-safe only when every modeled crit remains
             # nonlethal.
             critical_damage_max = damage_max * 2
+            metadata = (move_data or {}).get(int(move_id))
+            status_effect = CAPTURE_STATUS_MOVES.get((metadata.name or "") if metadata else "")
+            status_effectiveness = 1.0
+            if metadata is not None:
+                for defender_type in cls._mon_types(opponent):
+                    status_effectiveness *= (type_chart or TYPE_EFFECTIVENESS).get(
+                        metadata.type_id, {}
+                    ).get(defender_type, 1.0)
+            guaranteed_status = bool(
+                status_effect
+                and status_effectiveness > 0
+                and (metadata.category == "status" or metadata.secondary_chance >= 100)
+            ) if metadata is not None else False
             safe = (
                 damage_min > 0
                 and critical_damage_max < target_hp
@@ -2556,8 +3408,12 @@ class RunBunAdapter:
                     max(1, round(target_hp - damage_min, 2)),
                 ] if safe else None,
                 "excluded_for_residual_risk": move_id in CAPTURE_UNSAFE_MOVE_IDS,
+                "capture_status": status_effect[0] if guaranteed_status else None,
+                "capture_status_multiplier": status_effect[1] if guaranteed_status else None,
             })
 
+        target_status = int(opponent_state.get("status", 0))
+        residual_status = bool(target_status & (0x08 | 0x10 | 0x80))
         safe_moves = [move for move in legal_moves if move["guaranteed_nonlethal"]]
         # Maximize the conservative minimum reduction, then the modeled
         # maximum reduction; this increases catch odds without accepting a KO
@@ -2565,6 +3421,7 @@ class RunBunAdapter:
         safest_weaken = max(
             safe_moves,
             key=lambda move: (
+                move["capture_status_multiplier"] if target_status == 0 and move["capture_status"] else 0,
                 move["damage_range"][0],
                 move["damage_range"][1],
                 -move["slot"],
@@ -2572,20 +3429,36 @@ class RunBunAdapter:
             default=None,
         )
         hp_fraction = target_hp / target_max_hp
-        should_weaken = hp_fraction > target_hp_fraction and safest_weaken is not None
-        if should_weaken:
+        status_setup = max(
+            (
+                move for move in legal_moves
+                if move["capture_status"] and move["damage_range"][1] == 0
+            ),
+            key=lambda move: (
+                move["capture_status_multiplier"],
+                move["accuracy_multiplier"],
+                -move["slot"],
+            ),
+            default=None,
+        )
+        if safest_weaken is not None and not residual_status:
             decision = {"kind": "move", **safest_weaken}
-            claim = "expected-best safe weakening line; modeled maximum remains strictly nonlethal"
+            claim = "minimax-safe weakening line; no ball is used while a crit-safe catch-factor improvement remains"
+        elif target_status == 0 and status_setup is not None:
+            decision = {"kind": "move", **status_setup}
+            claim = "expected-best sleep/paralysis setup after reaching the lowest crit-safe HP"
         elif poke_balls > 0:
             decision = {"kind": "throw_ball", "button": "L"}
-            claim = (
-                "expected-best throw after reaching the configured HP threshold"
-                if hp_fraction <= target_hp_fraction
-                else "heuristic throw because no damaging move has a verified nonlethal bound"
-            )
+            claim = "minimax-safe throw: no verified action can further improve catch factor without KO risk"
         else:
             decision = {"kind": "blocked", "reason": "no_poke_balls"}
             claim = "capture is impossible with verified inventory"
+        status_multiplier = (
+            2.0 if target_status & (0x07 | 0x20)
+            else 1.5 if target_status & (0x08 | 0x10 | 0x40 | 0x80)
+            else 1.0
+        )
+        catch_factor_score = ((3 * target_max_hp - 2 * target_hp) / (3 * target_max_hp)) * status_multiplier
         return {
             "state": {
                 "player": {
@@ -2599,6 +3472,8 @@ class RunBunAdapter:
                     "max_hp": target_max_hp,
                     "status": opponent_state.get("status", 0),
                     "hp_fraction": round(hp_fraction, 4),
+                    "relative_catch_factor": round(catch_factor_score, 4),
+                    "status_multiplier": status_multiplier,
                 },
                 "poke_balls": int(poke_balls),
             },
@@ -2615,7 +3490,11 @@ class RunBunAdapter:
             },
             "decision": decision,
             "proof": {
-                "level": "expected-best" if decision["kind"] != "blocked" else "forced",
+                "level": (
+                    "forced" if decision["kind"] == "blocked"
+                    else "expected-best" if decision.get("capture_status")
+                    else "minimax"
+                ),
                 "claim": claim,
                 "material_uncertainty": {
                     "catch_rng": decision["kind"] == "throw_ball",
@@ -2623,6 +3502,10 @@ class RunBunAdapter:
                     "critical_hit_multiplier_bound": 2.0 if decision["kind"] == "move" else None,
                     "accuracy_stage": accuracy_stage if decision["kind"] == "move" else None,
                     "accuracy_multiplier": round(accuracy_multiplier, 4) if decision["kind"] == "move" else None,
+                    "status_effect_model": (
+                        "ROM move name/category/chance identify the effect; the battle script is verified after execution"
+                        if decision.get("capture_status") else None
+                    ),
                     "volatile_infatuation": (
                         "not decoded in canonical battler RAM; recent feedback may cause action failure"
                         if decision["kind"] == "move"
@@ -2641,6 +3524,7 @@ class RunBunAdapter:
     def throw_poke_ball_hotkey(
         self,
         *,
+        nickname: str,
         max_frames: int = 1800,
     ) -> dict[str, Any]:
         """Throw the current Poké Ball with L and verify the complete result.
@@ -2653,12 +3537,21 @@ class RunBunAdapter:
         """
         from games.run_and_bun.state import RunBun
 
+        requested_nickname = self._nickname_keyboard_plan(nickname)[0]
         state = RunBun(self.gba)
         before = self.observe()
+        if before.get("battle", {}).get("menu", {}).get("state") == "move_menu":
+            self.gba.press("B", frames=3)
+            self.gba.wait_frames(30)
+            before = self.observe()
         if before.get("battle", {}).get("menu", {}).get("state") != "command_menu":
             raise RuntimeError("poke_ball_hotkey_requires_command_menu")
         before_count = state.party_count()
         before_storage = self._pokemon_storage_digest()
+        before_storage_personalities = {
+            int(record["state"]["personality"])
+            for record in self.pokemon_storage()["records"]
+        } if before_count >= 6 else set()
         before_balls = self._poke_ball_quantity(self.inventory())
         if before_balls <= 0:
             raise RuntimeError("no_poke_balls")
@@ -2680,21 +3573,43 @@ class RunBunAdapter:
             )
         feedback = resolution.get("feedback", "")
         caught = "was caught" in feedback or "Gotcha!" in feedback
+        captured_nickname = None
         if caught:
             # A first capture may show Pokédex registration before the naming
             # question. After catch text is verified, A may only advance that
             # post-capture flow; B is the deterministic No/cancel shortcut at
             # the nickname prompt.
+            nickname_screen_resolved = False
             for _ in range(16):
                 party_inserted = before_count < 6 and state.party_count() == before_count + 1
                 pc_changed = before_count >= 6 and self._pokemon_storage_digest() != before_storage
                 if party_inserted or pc_changed:
                     break
                 observed = self.observe()
-                contexts = (observed.get("text") or {}).get("battle_printers", [])
-                rendered = "\n".join(context.get("text", "") for context in contexts)
-                self.gba.press("B" if "Give a nickname" in rendered else "A", frames=3)
-                self.gba.wait_frames(120)
+                rendered = "\n".join(self._active_field_page_texts(observed))
+                if self.gba.read8(FIELD_MESSAGE_BOX_MODE) == 10:
+                    if nickname_screen_resolved:
+                        if "transferred to" in rendered:
+                            self._pc_tap("A")
+                        else:
+                            self.gba.wait_frames(120)
+                        continue
+                    self._type_nickname_keyboard(requested_nickname)
+                    nickname_screen_resolved = True
+                    continue
+                if "Give a nickname" in rendered:
+                    for _ in range(4):
+                        if self.gba.read8(FIELD_MESSAGE_BOX_MODE) == 10:
+                            break
+                        if self.gba.read8(YES_NO_CURSOR) == 1:
+                            self._pc_tap("UP", hold_frames=12)
+                        self._pc_tap("A", hold_frames=12)
+                    else:
+                        raise RuntimeError("capture_nickname_screen_not_ready")
+                    self._type_nickname_keyboard(requested_nickname)
+                    nickname_screen_resolved = True
+                    continue
+                self._pc_tap("A")
             if before_count < 6:
                 if state.party_count() != before_count + 1:
                     raise RuntimeError("capture_text_seen_but_party_insertion_not_verified")
@@ -2703,13 +3618,27 @@ class RunBunAdapter:
                     raise RuntimeError(
                         f"captured_species_mismatch: expected {target.get('species')} got {inserted.species_id}"
                     )
+                captured_nickname = inserted.nickname
                 outcome = "caught"
             elif self._pokemon_storage_digest() == before_storage:
                 raise RuntimeError("capture_text_seen_but_pc_storage_change_not_verified")
             else:
+                added = [
+                    record for record in self.pokemon_storage()["records"]
+                    if int(record["state"]["personality"]) not in before_storage_personalities
+                ]
+                if len(added) != 1 or int(added[0]["state"]["species"]) != int(target.get("species", 0)):
+                    raise RuntimeError(f"captured_storage_identity_not_unique: {added}")
+                captured_nickname = str(added[0]["state"].get("nickname", ""))
                 outcome = "caught_to_pc"
+            if captured_nickname != requested_nickname:
+                raise RuntimeError(
+                    f"captured_nickname_mismatch: expected={requested_nickname!r} actual={captured_nickname!r}"
+                )
         elif resolution.get("state") == "command_menu":
             outcome = "escaped_ball"
+        elif resolution.get("state") == "party_switch":
+            outcome = "party_switch"
         else:
             raise RuntimeError(
                 f"poke_ball_outcome_unresolved: state={resolution.get('state')} feedback={feedback!r}"
@@ -2744,6 +3673,8 @@ class RunBunAdapter:
             "party_count_before": before_count,
             "party_count_after": state.party_count(),
             "storage_changed": self._pokemon_storage_digest() != before_storage,
+            "nickname_requested": requested_nickname,
+            "nickname": captured_nickname,
             "resolution": resolution,
         }
 
@@ -2910,6 +3841,7 @@ class RunBunAdapter:
         *,
         current: tuple[int, int] | None = None,
         target: tuple[int, int] | None = None,
+        ignored_local_ids: set[int] | None = None,
     ) -> set[tuple[int, int]]:
         """Return RAM-derived tiles that can trigger a trainer sight battle.
 
@@ -2923,10 +3855,11 @@ class RunBunAdapter:
         from games.run_and_bun.objects import read_live_event_targets, read_live_objects
 
         blocked: set[tuple[int, int]] = set()
+        ignored = ignored_local_ids or set()
         event_radii: dict[int, int] = {}
         event_positions: dict[int, tuple[int, int]] = {}
         for event in read_live_event_targets(gba, map_id=map_id):
-            if not event.trainer_type:
+            if not event.trainer_type or event.local_id in ignored:
                 continue
             if current is not None or target is not None:
                 distances = [
@@ -2945,7 +3878,7 @@ class RunBunAdapter:
 
         live_trainer_ids: set[int] = set()
         for obj in read_live_objects(gba):
-            if obj.is_player or not obj.trainer_type or obj.map_id != map_id:
+            if obj.is_player or not obj.trainer_type or obj.map_id != map_id or obj.local_id in ignored:
                 continue
             live_trainer_ids.add(obj.local_id)
             # The trainer's own tile is occupied as well as the facing ray.
@@ -3007,6 +3940,7 @@ class RunBunAdapter:
         grass_penalty: int = 100,
         blocked_edges: set[tuple[tuple[int, int], str]] | None = None,
         avoid_trainer_sight_lines: bool = True,
+        verified_defeated_trainer_local_ids: set[int] | None = None,
     ) -> dict[str, Any]:
         """Navigate by short compressed chunks and replan around blockers.
 
@@ -3068,6 +4002,7 @@ class RunBunAdapter:
                     actual_map,
                     current=current,
                     target=target,
+                    ignored_local_ids=verified_defeated_trainer_local_ids,
                 )
                 if avoid_trainer_sight_lines
                 else set()
@@ -3281,7 +4216,8 @@ class RunBunAdapter:
             expected_map=source_map,
             interact=True,
             require_trainer_ready=False,
-            interaction_gap=2,
+            avoid_trainer_sight_lines=False,
+            interaction_gap=1,
             chunk_steps=6,
             transition_frames=20,
         )
@@ -3349,6 +4285,7 @@ class RunBunAdapter:
         destination: tuple[int, int] | None = None,
         max_candidates: int = 24,
         grass_penalty: int = 100,
+        verified_defeated_trainer_local_ids: set[int] | None = None,
     ) -> dict[str, Any]:
         """Select one decoded map connection and verify the loaded destination.
 
@@ -3433,6 +4370,7 @@ class RunBunAdapter:
                     chunk_steps=6,
                     max_replans=32,
                     grass_penalty=grass_penalty,
+                    verified_defeated_trainer_local_ids=verified_defeated_trainer_local_ids,
                 )
             result = self.follow_route([input_direction], transition_frames=120)
             after = result["state"]
@@ -3651,7 +4589,7 @@ class RunBunAdapter:
         to move-learning callers and never treats arbitrary overworld text as
         an input boundary.
         """
-        pages = cls._active_field_page_texts(observation)
+        pages = tuple(" ".join(page.split()) for page in cls._active_field_page_texts(observation))
         if pages:
             return pages
         current = (observation.get("text") or {}).get("current") or {}
@@ -3668,13 +4606,13 @@ class RunBunAdapter:
                 "learned",
             )
         ):
-            return (value,)
+            return (" ".join(value.split()),)
         return ()
 
     @classmethod
     def _field_move_learning_pending(cls, observation: dict[str, Any]) -> bool:
         """Detect move-learning ownership before any automatic menu cleanup."""
-        rendered = "\n".join(cls._active_field_page_texts(observation))
+        rendered = "\n".join(cls._move_learning_page_texts(observation))
         phrases = (
             "wants to learn",
             "already knows four moves",
@@ -3859,9 +4797,14 @@ class RunBunAdapter:
                 continue
             self.gba.press("A", frames=3)
             self.gba.wait_frames(90)
-        for _ in range(4):
+        for _ in range(6):
             state = self.observe()
-            if state.get("mode") == "overworld":
+            try:
+                bag_open = self._field_bag_task() is not None
+            except RuntimeError:
+                bag_open = False
+            start_open = self._field_start_menu_open()
+            if state.get("mode") == "overworld" and not bag_open and not start_open:
                 break
             pages = self._move_learning_page_texts(state)
             field_mode = state.get("ui", {}).get("field_message_box_mode")
@@ -3880,7 +4823,11 @@ class RunBunAdapter:
             self.gba.press("B", frames=3)
             self.gba.wait_frames(120)
         final = self.observe()
-        if final.get("mode") != "overworld":
+        try:
+            bag_open = self._field_bag_task() is not None
+        except RuntimeError:
+            bag_open = False
+        if final.get("mode") != "overworld" or bag_open or self._field_start_menu_open():
             raise RuntimeError("move_learning_cleanup_failed")
         return {
             "target_species": target_species,
@@ -4158,6 +5105,8 @@ class RunBunAdapter:
         grass_penalty: int,
         interaction_gap: int,
         prefer_open_gap: bool = False,
+        avoid_trainer_sight_lines: bool = True,
+        ignored_trainer_ids: set[int] | None = None,
     ) -> tuple[tuple[int, int], list[str], int]:
         """Choose the cheapest reachable tile from which an object can talk.
 
@@ -4180,12 +5129,13 @@ class RunBunAdapter:
         # from the south can enter its ray before the final interaction tile.
         map_state = self.observe().get("map") or {}
         actual_map = (map_state.get("group"), map_state.get("number"))
-        if None not in actual_map:
+        if avoid_trainer_sight_lines and None not in actual_map:
             blocked_tiles = self._trainer_sight_tiles(
                 self.gba,
                 (int(actual_map[0]), int(actual_map[1])),
                 current=current,
                 target=(target.current_x, target.current_y),
+                ignored_local_ids=ignored_trainer_ids,
             )
         else:
             blocked_tiles = set()
@@ -4258,10 +5208,18 @@ class RunBunAdapter:
             return None
         if distance == 1:
             return 1
+        if allow_open_gap:
+            return distance
+        # Emerald's counter interaction extension is vertical: the player
+        # stands south of a service NPC with one counter tile between them.
+        # Treating a horizontal wall as the same range made the seeker press
+        # A at an unrelated blocked tile beside the utility NPC.
+        if dx != 0 or dy >= 0:
+            return None
         step_x = 0 if dx == 0 else (1 if dx > 0 else -1)
         step_y = 0 if dy == 0 else (1 if dy > 0 else -1)
         between = (current[0] + step_x, current[1] + step_y)
-        if allow_open_gap or not live.walkable(*between):
+        if not live.walkable(*between):
             return distance
         return None
 
@@ -4283,6 +5241,7 @@ class RunBunAdapter:
         blocked_wait_frames: int = 8,
         interaction_gap: int = 2,
         require_trainer_ready: bool = True,
+        avoid_trainer_sight_lines: bool = True,
     ) -> dict[str, Any]:
         """Seek a live NPC, re-reading its position while walking.
 
@@ -4387,7 +5346,7 @@ class RunBunAdapter:
 
             live = read_live_map(self.gba)
             interaction_distance = self._npc_interaction_gap(
-                current, target, live, max_gap=interaction_gap, allow_open_gap=interact
+                current, target, live, max_gap=interaction_gap
             )
             if getattr(target, "trainer_type", 0) and getattr(target, "facing_direction", 0):
                 interaction_distance = self._trainer_front_range(current, target)
@@ -4438,7 +5397,7 @@ class RunBunAdapter:
                 current = ((last_state.get("map") or {}).get("x"), (last_state.get("map") or {}).get("y"))
                 live = read_live_map(self.gba)
                 interaction_distance = self._npc_interaction_gap(
-                    current, refreshed_target, live, max_gap=interaction_gap, allow_open_gap=interact
+                    current, refreshed_target, live, max_gap=interaction_gap
                 )
                 if getattr(refreshed_target, "trainer_type", 0) and getattr(refreshed_target, "facing_direction", 0):
                     interaction_distance = self._trainer_front_range(current, refreshed_target)
@@ -4472,7 +5431,12 @@ class RunBunAdapter:
                 objects,
                 grass_penalty=grass_penalty,
                 interaction_gap=interaction_gap,
-                prefer_open_gap=interact,
+                prefer_open_gap=False,
+                avoid_trainer_sight_lines=avoid_trainer_sight_lines,
+                ignored_trainer_ids=(
+                    {int(target.local_id)}
+                    if interact and getattr(target, "trainer_type", 0) else None
+                ),
             )
             if not path:
                 last_state = self.observe()

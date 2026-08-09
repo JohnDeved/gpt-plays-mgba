@@ -1,0 +1,135 @@
+{
+  "schema_version": 1,
+  "id": "20260809T101114Z-slateport-center-interface-fixture-retains-stale",
+  "status": "verified",
+  "created_at": "2026-08-09T10:11:14.713818+00:00",
+  "summary": "Slateport Center interface fixture retains stale Endless Candy Bag tasks",
+  "component": "team-preparation clone fixture precondition",
+  "symptom": "START did not open the field menu and FIELD_MENU_CURSOR could not move because old Bag/party target tasks still owned input.",
+  "classification": "observation_decoder",
+  "severity": "low",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/pre-oracle-implementation-forward-20260809.state",
+    "sha256": "3933ecb49cff2c51670f87cb2d18fec4b92344d0d39dab37284bc43c67ad6ac3",
+    "canonical_state": {
+      "map": [0, 1, 19, 20],
+      "party_count": 6,
+      "battle_active": false,
+      "process_state": "SIGSTOP idle"
+    },
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "The forward Center checkpoint is a clean battle-inactive overworld state suitable for opening party preparation menus.",
+    "actual": "RAM mode was overworld, but active task payloads and retained text showed Use on which Pokémon? with FIELD_PARTY_CURSOR=7; START was ignored.",
+    "diff": [
+      "The selected fixture was battle-inactive but still owned by an Endless Candy Bag/party-target task.",
+      "The generic mode label overworld was insufficient to prove a clean field-input boundary."
+    ],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "A clean preparation fixture must have field message mode 0, no verified Bag task, no Start-menu task, six valid party records, and a stable compact RAM hash on two launches.",
+    "sources": [
+      "Lua task inspection and verified Bag-task payload signature",
+      "SaveBlock map and field-message RAM",
+      "Encrypted party records and protected checkpoint SHA-256"
+    ]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "/Users/johann/gpt-plays-mgba/runtime/session/slateport-rhyhorn-l17-forward-20260809.state",
+    "fixture_sha256": "8c29e461c306a471a5b24b2295f92f5ebbdd09853de6487e77ffa3aec498b9ed",
+    "command": "Launch the fixture twice with client.mgba_clone.disposable_clone and inspect RunBunAdapter.observe(), _field_bag_task(), FIELD_PARTY_CURSOR, and active tasks before input.",
+    "steps": [
+      "Load only the historical fixture in a disposable muted clone.",
+      "Read field mode, retained text, party cursor, and active task payloads without input.",
+      "Confirm the Bag-task signature owns input and START is not a legal clean-overworld action."
+    ],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "Both probes exposed retained Use on which Pokémon? state, FIELD_PARTY_CURSOR 7, and active Endless Candy Bag/party-target tasks."
+  },
+  "hypotheses": [
+    {
+      "claim": "Battle inactive plus mode overworld proves no field menu owns input.",
+      "result": "falsified by the active Bag task and ignored START input."
+    },
+    {
+      "claim": "slateport-center-healed-forward-20260809.ss is a clean alternative fixture.",
+      "result": "verified twice with identical RAM hash cb5a0d58281816f7 and no Bag/Start task."
+    }
+  ],
+  "root_cause": {
+    "verified": true,
+    "claim": "The Rhyhorn Lv17 checkpoint was saved before the reusable Endless Candy target layer had closed; preparation-fixture legality therefore requires task ownership checks in addition to battle/mode labels.",
+    "evidence": [
+      "The stale fixture reproduces the exact Bag task payload and party-target cursor on two isolated launches.",
+      "A separate Center checkpoint passes the full clean-boundary oracle twice with the same state hash."
+    ],
+    "alternatives_falsified": [
+      "START timing was flaky",
+      "The live authoritative emulator caused the stale menu state"
+    ]
+  },
+  "solution": {
+    "kind": "knowledge_fix",
+    "files": [
+      "docs/ROADMAP.md",
+      "runtime/incidents/20260809-center-fixture-stale-bag-task.json"
+    ],
+    "contract_change": "Disposable preparation fixtures must pass explicit field-task ownership checks; mode=overworld alone is not a clean-input precondition.",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [
+      {
+        "name": "two-run clean Center fixture oracle",
+        "command": "Launch slateport-center-healed-forward-20260809.ss twice through disposable_clone and assert map 9:11 at 7,4, field mode 0, no Bag task, no Start task, party count 6, and state hash cb5a0d58281816f7.",
+        "passed": true,
+        "evidence": "Both runs returned the same canonical hash and every clean-boundary invariant."
+      },
+      {
+        "name": "protected live checkpoint hash",
+        "command": "shasum -a 256 runtime/session/pre-oracle-implementation-forward-20260809.state",
+        "passed": true,
+        "evidence": "3933ecb49cff2c51670f87cb2d18fec4b92344d0d39dab37284bc43c67ad6ac3 remained unchanged."
+      }
+    ],
+    "regression_checks": [
+      {
+        "name": "full Python suite",
+        "command": "python3 -m unittest discover -s tests -q",
+        "passed": true,
+        "evidence": "106 tests passed; one opt-in macOS UI integration test skipped without its fixture variable."
+      }
+    ],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "Clean Center field boundary with no menu owner and a stable six-member party.",
+      "actual": "Both clean-fixture runs returned state hash cb5a0d58281816f7, map 9:11 at 7,4, field mode 0, no Bag/Start task, and party count 6.",
+      "extra_state_deltas": []
+    },
+    "metrics": {
+      "clean_fixture_replays": 2,
+      "live_checkpoint_sha256_unchanged": true,
+      "gameplay_inputs_to_live": 0
+    }
+  },
+  "learning": {
+    "domain_knowledge": [
+      "A Run & Bun field menu may retain input ownership while battle is inactive and the generic mode classifier says overworld."
+    ],
+    "regression_cases": [
+      "slateport-rhyhorn-l17-forward-20260809.state is the stale Bag-task fixture; slateport-center-healed-forward-20260809.ss is the clean preparation fixture."
+    ],
+    "tooling_contracts": [
+      "Mutating field interfaces must reject active Bag/Start tasks unless that exact interface owns and verifies the menu transition."
+    ]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

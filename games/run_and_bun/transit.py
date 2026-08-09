@@ -21,7 +21,6 @@ from .state import decode_gen3
 TRANSIT_TEXT_HINTS = (
     "anchors aweigh",
     "set sail",
-    "sailing",
     "where are we bound",
     "we've made land in",
     "you just tell me whenever",
@@ -44,7 +43,9 @@ def _decoded_rom_text(gba: Any, address: int) -> str:
     return decode_gen3(raw[:end]).strip()
 
 
-def script_transit_texts(gba: Any, script_address: int) -> list[str]:
+def script_transit_texts(
+    gba: Any, script_address: int, *, scan_bytes: int = SCRIPT_SCAN_BYTES
+) -> list[str]:
     """Extract unique transit-related strings referenced by one ROM script.
 
     The scan deliberately only promotes strings containing a known voyage
@@ -53,7 +54,7 @@ def script_transit_texts(gba: Any, script_address: int) -> list[str]:
     """
     if not ROM_POINTER_MIN <= script_address < ROM_POINTER_MAX:
         return []
-    raw = gba.read_range(script_address, SCRIPT_SCAN_BYTES)
+    raw = gba.read_range(script_address, min(SCRIPT_SCAN_BYTES, scan_bytes))
     texts: list[str] = []
     seen_addresses: set[int] = set()
     for offset in range(0, len(raw) - 3):
@@ -91,9 +92,20 @@ class LiveTransitOption:
 
 def read_live_transit_options(gba: Any, *, map_id: tuple[int, int]) -> list[LiveTransitOption]:
     """Discover scripted ferry/transit actors in the loaded map."""
+    targets = read_live_event_targets(gba, map_id=map_id)
+    script_starts = sorted({
+        target.script_address for target in targets
+        if ROM_POINTER_MIN <= target.script_address < ROM_POINTER_MAX
+    })
     options: list[LiveTransitOption] = []
-    for target in read_live_event_targets(gba, map_id=map_id):
-        texts = script_transit_texts(gba, target.script_address)
+    for target in targets:
+        next_start = next(
+            (address for address in script_starts if address > target.script_address),
+            target.script_address + SCRIPT_SCAN_BYTES,
+        )
+        texts = script_transit_texts(
+            gba, target.script_address, scan_bytes=next_start - target.script_address
+        )
         if texts:
             options.append(LiveTransitOption(target=target, texts=tuple(texts)))
     return options

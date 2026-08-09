@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T121741Z-escaped-capture-ball-followed-by-active-faint-wa",
+  "status": "observed",
+  "created_at": "2026-08-09T12:17:41.871666+00:00",
+  "summary": "Escaped capture ball followed by active faint was treated as unresolved",
+  "component": "games/runbun.py:throw_poke_ball_hotkey",
+  "symptom": "Full-party Togedemaru replay reached authoritative party_switch after Metal Claw KO and raised poke_ball_outcome_unresolved",
+  "classification": "timing_protocol",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-all-catches-renamed-forward-20260809.state",
+    "sha256": "ab0d3ff6f490babb644f4bca114cfaacbfb49d1c1ca6fef22608caf16587f24d",
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "Capture helper returns party_switch without losing the required nickname intent",
+    "actual": "Helper raised despite stable RAM party-switch boundary and audited ball consumption",
+    "diff": ["party_switch is a stable acknowledged post-ball boundary, but only command_menu and caught states were classified"],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "Battle menu state, active HP, ball quantity delta, and unchanged nickname intent from RAM/certificate",
+    "sources": ["games/runbun.py:throw_poke_ball_hotkey", "runtime/session/granite-togedemaru-hunt-forward-20260809.state"]
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [{"claim": "party_switch is a valid escaped-ball successor when the wild counterattack faints the active Pokémon", "predicted_discriminator": "Ball count decreases by one, target remains live, active HP is zero, and party selector owns input", "evidence_for": "Observed trace contained Almost had it, Metal Claw, and Choose a Pokémon", "evidence_against": "Post-fix exact low-HP fixture has not been retained", "result": "supported"}],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": "code_fix",
+    "files": ["games/runbun.py"],
+    "contract_change": "Return outcome=party_switch with the audited ball delta so the caller can switch and continue with the same required nickname",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [{"name": "full repository unit suite", "command": "python3 -m unittest discover -s tests", "passed": true, "evidence": "130 passed, 1 skipped"}],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": ["A failed ball includes the wild counterattack and can terminate at forced party selection"],
+    "regression_cases": ["Almost had it -> Metal Claw KO -> Choose a Pokémon"],
+    "tooling_contracts": ["Capture result classification includes party_switch and preserves the required nickname across the next call"]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": [{"hypothesis": "The new classifier returns party_switch without extra input", "action": "Replay the retained sequence if a low-active-HP target-command fixture is created", "expected_discriminator": "outcome=party_switch, one ball consumed, no nickname screen", "risk": "clone only", "cost": "one failed throw", "rollback": "discard clone"}]
+}

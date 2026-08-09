@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T115919Z-nickname-service-rejected-a-uniquely-identified-",
+  "status": "observed",
+  "created_at": "2026-08-09T11:59:19.649603+00:00",
+  "summary": "Nickname service rejected a uniquely identified partially rendered service page",
+  "component": "games/runbun.py:pokecenter_change_nickname",
+  "symptom": "Live call stopped after selecting Change nickname because current text ended at nicknam",
+  "classification": "timing_protocol",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-pre-renames-forward-20260809.state",
+    "sha256": "d2d86e4bb6c8982bf994c113862418fcccee248a50548531fc50d3be705d737e",
+    "canonical_state": {"map": [3, 1, 10, 4], "state_hash": "9d2ebf7595b9a691", "party_unchanged": true},
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "Unique verified service page is accepted once its stable identifying prefix is present",
+    "actual": "Exact full-line check rejected the same page one glyph before printer completion",
+    "diff": ["full equality-style substring required the final glyph even though the stable service prefix was already unique"],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "Active field text RAM and unchanged party nickname/personality RAM",
+    "sources": ["games/runbun.py:pokecenter_change_nickname", "runtime/session/dewford-pre-renames-forward-20260809.state"]
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [{"claim": "The observer sampled during the last glyph of a correctly selected service page", "predicted_discriminator": "The stable unique prefix is present while party RAM remains unchanged", "evidence_for": "Live text was exactly the expected page minus its final e; all six post-fix party renames succeeded", "evidence_against": "The exact partial render was observed once", "result": "supported"}],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": "code_fix",
+    "files": ["games/runbun.py"],
+    "contract_change": "Identify the selected nickname service by its unique stable sentence prefix instead of waiting for the final glyph",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {"live_post_fix_successes": 9}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": ["nickname service page sampled at nicknam before final e"],
+    "tooling_contracts": ["Text-page identity checks should use a unique stable prefix when the printer may still be rendering"]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

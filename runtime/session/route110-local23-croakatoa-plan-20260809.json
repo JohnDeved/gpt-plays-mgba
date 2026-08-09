@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "fight": {
+    "id": "map:0:25/local:23/trainer:334",
+    "required": true,
+    "format": "single",
+    "identity_source": "mixed",
+    "roster_complete": true,
+    "expected_roster_count": 5
+  },
+  "checkpoint": {
+    "path": "/Users/johann/gpt-plays-mgba/runtime/session/route110-ohm-lead-bugatti-gavi-prep-forward-20260809.state",
+    "sha256": "cdac0b96fd5e17512217decaebf836e02663f068fb75a6079f824b6953f03f9b"
+  },
+  "level_cap": {"value": 17, "source": "mixed"},
+  "enemy_roster": [
+    {"species_id": 400, "level": 16, "moves": [29, 453, 365, 162], "ability_id": 109, "item_id": 522, "source": "mixed"},
+    {"species_id": 77, "level": 17, "moves": [172, 583, 24], "ability_id": 49, "item_id": 523, "source": "mixed"},
+    {"species_id": 603, "level": 17, "moves": [351, 72, 162, 92], "ability_id": 26, "item_id": 523, "source": "mixed"},
+    {"species_id": 192, "level": 16, "moves": [412, 188, 73, 320], "ability_id": null, "item_id": 522, "source": "rom"},
+    {"species_id": 269, "level": 17, "moves": [474, 611, 355, 92], "ability_id": null, "item_id": 487, "source": "rom"}
+  ],
+  "party": [
+    {"slot": 0, "nickname": "Ohmnomnom", "personality": 3950252238, "species_id": 777, "level": 17, "current_hp": 52, "max_hp": 52, "status": 0, "moves": [252, 609, 232, 209], "pp": [5, 20, 35, 20], "max_pp": [5, 20, 35, 20], "role": "Spark lead for Bibarel plus Fake Out and Nuzzle conversion pivot"},
+    {"slot": 1, "nickname": "Lildozer", "personality": 1744238455, "species_id": 231, "level": 17, "current_hp": 58, "max_hp": 58, "status": 0, "moves": [420, 523, 28, 88], "pp": [30, 20, 5, 15], "max_pp": [30, 20, 5, 15], "role": "Ponyta Bulldoze pivot with Ice Shard priority"},
+    {"slot": 2, "nickname": "Bushtank", "personality": 1476487022, "species_id": 388, "level": 17, "current_hp": 57, "max_hp": 57, "status": 0, "moves": [44, 75, 71, 590], "pp": [25, 25, 25, 10], "max_pp": [25, 25, 25, 10], "role": "full-health preserved Grass/Electric resistance pivot for late Eelektrik"},
+    {"slot": 3, "nickname": "Birdlaw", "personality": 1813210531, "species_id": 397, "level": 17, "current_hp": 46, "max_hp": 46, "status": 0, "moves": [283, 45, 98, 332], "pp": [5, 10, 30, 20], "max_pp": [5, 10, 30, 20], "role": "preserved Aerial Ace finisher for Sunflora and Dustox"},
+    {"slot": 4, "nickname": "Croakatoa", "personality": 2701863113, "species_id": 453, "level": 17, "current_hp": 44, "max_hp": 44, "status": 0, "moves": [341, 124, 252, 410], "pp": [15, 20, 5, 30], "max_pp": [15, 20, 5, 30], "role": "Poison-immune Eelektrik converter and Sludge answer to Sunflora"},
+    {"slot": 5, "nickname": "Bugatti", "personality": 2609223149, "species_id": 543, "level": 17, "current_hp": 41, "max_hp": 41, "status": 0, "moves": [205, 182, 450, 342], "pp": [20, 10, 20, 25], "max_pp": [20, 10, 20, 25], "role": "preserved Bug/Poison Sunflora counter using Poison Tail with quarter Grass and half Poison damage"}
+  ],
+  "leads": [0],
+  "plan": {
+    "target_priorities": [
+      "Bibarel: lead Ohmnomnom and use Spark directly, preserving Bushtank at full health for Eelektrik.",
+      "Ponyta: Lildozer Bulldoze while HP is above 18 and foe HP above 13; otherwise Ice Shard. Ohmnomnom Fake Out then Spark is the fallback.",
+      "Eelektrik: if Ohmnomnom remains active after Ponyta, use Nuzzle and Spark until forced out; otherwise bring Croakatoa for Fake Out, pivot once through living Bushtank for Razor Leaf, and use Croakatoa Sludge when those pivots are unavailable.",
+      "Sunflora: preserve Bugatti for Poison Tail; Croakatoa Sludge and Birdlaw Aerial Ace are fallbacks; a freshly forced-in Ohmnomnom uses Fake Out then Metal Claw.",
+      "Dustox: preserve Birdlaw for Aerial Ace; use surviving neutral attackers only after Birdlaw falls."
+    ],
+    "opening_turn": [{"party_slot": 0, "action": "Spark", "target": "Bibarel"}],
+    "contingencies": [
+      "Resolve every switch target by current personality/species from a fresh certificate because switches move the active Pokemon into party slot 0.",
+      "Never use Ground moves into Eelektrik while live RAM verifies Levitate.",
+      "Preserve Bugatti for Sunflora; Rollout is allowed only as an expected-best last-Pokémon fallback against Gavi's final Dustox.",
+      "Stop and recompute for an unknown opponent, missing legal action, unmodeled ability/item/move, prediction mismatch, or delayed no-input state delta."
+    ],
+    "classification": "heuristic"
+  },
+  "uncertainty": {
+    "action_changing": [],
+    "other": [
+      "Trainer AI send-out order, damage, accuracy, critical-hit, and custom-AI branches are not exhaustively enumerated.",
+      "Sunflora and Dustox ability IDs remain unresolved until exposed in live battle RAM."
+    ]
+  },
+  "readiness": {
+    "checkpoint_verified": true,
+    "party_healed": true,
+    "pp_full": true,
+    "level_cap_respected": true,
+    "moves_and_items_set": true,
+    "live_execution_allowed": false,
+    "status": "ready"
+  },
+  "failure_history": {"same_plan_attempts": 0, "previous_plan_failures": 4},
+  "evidence": {
+    "executable_policy": "games/run_and_bun/gavi_policy.py",
+    "policy_sha256": "4cad1fa36dfb9dcf46c04e022291949f08337f0e9203e602936f6aa7ff82ea0a",
+    "policy_regressions": [
+      "GaviPolicyTests.test_normal_ohmnomnom_to_ponyta_switches_to_lildozer",
+      "GaviPolicyTests.test_fake_out_requires_fresh_verified_entry",
+      "GaviPolicyTests.test_bibarel_opens_with_one_razor_leaf_before_switching",
+      "GaviPolicyTests.test_forced_ponyta_replacement_uses_ohmnomnom_when_lildozer_fainted",
+      "GaviPolicyTests.test_rampage_is_a_dustox_only_fallback",
+      "GaviPolicyTests.test_fresh_ohmnomnom_finishes_sunflora_with_fake_out_then_metal_claw",
+      "GaviPolicyTests.test_bushtank_takes_only_one_eelektrik_turn_then_returns_to_croakatoa",
+      "GaviPolicyTests.test_bugatti_is_the_primary_sunflora_counter",
+      "GaviPolicyTests.test_bugatti_uses_controllable_dustox_pivot_before_rollout",
+      "GaviPolicyTests.test_lildozer_finishes_low_dustox_without_switching",
+      "GaviPolicyTests.test_low_hp_lildozer_uses_birdlaw_when_ohmnomnom_has_fainted"
+    ],
+    "opening_checkpoint_sha256": "eef81a4b6f069e42f5e9379e9d769105c51adc94eb610581ccff9efb397a4aed",
+    "opening_state_hash": "ba9e9f6435e131d5",
+    "classification": "unpromoted_requires_three_consecutive_terminal_replays",
+    "reproductions": []
+  }
+}

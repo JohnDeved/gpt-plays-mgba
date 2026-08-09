@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "id": "20260809T103810Z-utility-status-service-returns-before-releasing-",
+  "status": "verified",
+  "created_at": "2026-08-09T10:38:10.729410+00:00",
+  "summary": "Utility status service returns before releasing field input",
+  "component": "Pokecenter utility service interface",
+  "symptom": "RAM mode was overworld but movement and nurse navigation were ignored after status application.",
+  "classification": "timing_protocol",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/pre-oracle-implementation-forward-20260809.state",
+    "sha256": "3933ecb49cff2c51670f87cb2d18fec4b92344d0d39dab37284bc43c67ad6ac3",
+    "canonical_state": {
+      "map": [0, 1, 19, 20],
+      "battle_active": false,
+      "process_state": "SIGSTOP idle"
+    },
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "A verified status service returns at a clean field-input boundary.",
+    "actual": "The success message remained visibly pending with field mode zero until one acknowledged A released the script.",
+    "diff": [
+      "field_message_box_mode was zero while the retained success page still owned input",
+      "waiting frames alone never released the script; one acknowledged A did"
+    ],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "A service mutation is complete only when its RAM result is correct and a subsequent field action is accepted; mode=overworld alone is insufficient.",
+    "sources": [
+      "encrypted party status RAM",
+      "field message mode and retained printer page",
+      "two disposable-clone status-then-heal replays"
+    ]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "runtime/session/slateport-center-healed-forward-20260809.ss",
+    "fixture_sha256": "1daec0ee2990dfe5ac1e886044eeb002cb413473c2be007666afc20c48777106",
+    "command": "Run pokecenter_apply_status(0, 'Burn') in disposable_clone, then attempt movement or game_heal_party.",
+    "steps": [
+      "Apply Burn through the mapped utility NPC.",
+      "Verify party status changed while field mode already reports zero.",
+      "Observe movement blocked until the retained success page receives one A."
+    ],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "Both original runs returned mode=overworld but blocked movement and nurse navigation; one A dismissed the retained status-condition page and restored field input."
+  },
+  "hypotheses": [
+    {
+      "claim": "The Center map path from the utility counter to the nurse is disconnected.",
+      "result": "falsified: the same path succeeds immediately after acknowledging the pending success page."
+    },
+    {
+      "claim": "Additional unlocked frames release the field script.",
+      "result": "falsified through 720 waited frames; input remained blocked."
+    }
+  ],
+  "root_cause": {
+    "verified": true,
+    "claim": "The status script sets field mode to zero before its success page is acknowledged, so the old interface returned before the script relinquished input ownership.",
+    "evidence": [
+      "The retained page says the selected Pokémon is now inflicted with a status condition while field mode is zero.",
+      "Movement stays blocked across 720 frames and is accepted immediately after one A.",
+      "Two fixed-fixture replays apply Burn, dismiss exactly one acknowledged page, then heal successfully."
+    ],
+    "alternatives_falsified": [
+      "Center collision/pathfinding failure",
+      "ordinary asynchronous frame settling"
+    ]
+  },
+  "solution": {
+    "kind": "interface_fix",
+    "files": [
+      "games/runbun.py",
+      "runtime/incidents/20260809-status-service-script-lock.json"
+    ],
+    "contract_change": "pokecenter_apply_status now requires the verified retained success text, sends exactly one acknowledgement, and returns only at a clean overworld boundary.",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [
+      {
+        "name": "status then nurse heal replay",
+        "command": "Run pokecenter_apply_status(0, 'Burn') then heal_party() twice in disposable clones.",
+        "passed": true,
+        "evidence": "Both runs changed status 0->16->0 and finished at overworld with HP 57/57 and exact PP."
+      }
+    ],
+    "regression_checks": [
+      {
+        "name": "full Python suite",
+        "command": "python3 -m unittest discover -s tests -q",
+        "passed": true,
+        "evidence": "113 tests passed; one opt-in macOS UI integration test skipped."
+      }
+    ],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "Status mutation returns with field input released so nurse healing can immediately execute.",
+      "actual": "Both runs applied Burn, acknowledged the success page once, navigated to the nurse, and verified status cleared with full HP/PP.",
+      "extra_state_deltas": []
+    },
+    "metrics": {
+      "replays": 2,
+      "maximum_wait_frames_that_failed_to_unlock": 720,
+      "acknowledgements_required": 1,
+      "live_checkpoint_sha256_unchanged": true
+    }
+  },
+  "learning": {
+    "domain_knowledge": [
+      "The utility status script can display a success page while field mode is already zero."
+    ],
+    "regression_cases": [
+      "slateport-center-healed-forward-20260809.ss: apply Burn, acknowledge once, then heal."
+    ],
+    "tooling_contracts": [
+      "A mutating service must prove subsequent field-input ownership; overworld/mode-zero classification alone is not a completion boundary."
+    ]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

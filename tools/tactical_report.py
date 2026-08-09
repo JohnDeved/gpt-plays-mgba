@@ -25,6 +25,8 @@ def main() -> None:
         report = adapter.explain_battle_action(
             observation,
             damage_memory=adapter._damage_memory,
+            type_chart=adapter.rom_data().type_chart(),
+            move_data=adapter.battle_move_data(observation),
         )
     print(json.dumps(report, separators=(",", ":") if not args.pretty else None, indent=2 if args.pretty else None))
 

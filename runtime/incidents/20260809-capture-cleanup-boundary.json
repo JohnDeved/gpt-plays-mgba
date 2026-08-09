@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T113133Z-capture-returned-before-nickname-and-pc-placemen",
+  "status": "verified",
+  "created_at": "2026-08-09T11:31:33.446333+00:00",
+  "summary": "Capture helper missed the field nickname prompt and entered the editor",
+  "component": "games/runbun.py throw_poke_ball_hotkey and advance_battle_until_menu",
+  "symptom": "Togedemaru received Aaaaaaaaaa because post-capture cleanup searched battle printers only, pressed A at the field nickname prompt, and continued through the editor",
+  "classification": "observation_decoder",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/granite-togedemaru-capture-cleanup-forward-20260809.state",
+    "sha256": "849ef5064f460f232e6cd7f248c7d0bbbe12371e58acbbd4688d948dd078b56f",
+    "canonical_state": {"protected_forward_checkpoint_sha256": "ab0d3ff6f490babb644f4bca114cfaacbfb49d1c1ca6fef22608caf16587f24d"},
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "Post-capture cleanup requires an explicit nickname, enters the naming screen once, and verifies the inserted party/storage name",
+    "actual": "The prompt was present in text.current but absent from battle_printers, so the helper pressed A and typed repeated A characters",
+    "diff": ["prompt source was field text.current, while the detector inspected battle_printers only"],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "Field text-printer RAM plus captured Pokémon nickname from decrypted party/storage RAM",
+    "sources": ["games/runbun.py:throw_poke_ball_hotkey", "runtime/session/granite-togedemaru-caught-forward-20260809.state"]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "runtime/session/granite-stable-wild-command.ss",
+    "fixture_sha256": "52e924ec722bc8a7b4e4f8083dbca8a018857bd34fdb2a4256d555ceac44603b",
+    "command": "disposable_clone fixture; throw_poke_ball_hotkey(nickname='CopperPot') until caught",
+    "steps": ["Throw audited L-hotkey balls", "Recognize naming mode from RAM", "Type CopperPot once", "Verify inserted party nickname"],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "Both runs inserted species 878 as Copperpot and returned clean overworld"
+  },
+  "hypotheses": [{"claim": "Naming-screen field mode 10 is the authoritative fallback when prompt text is no longer active", "predicted_discriminator": "Typing only on mode 10 yields the requested decrypted nickname", "evidence_for": "Two party insertions and one full-party PC insertion verified requested names", "evidence_against": "", "result": "supported"}],
+  "root_cause": {
+    "verified": true,
+    "claim": "The cleanup controller relied on battle-printer prompt text and lacked an authoritative naming-screen mode branch, so its generic A fallback became character input",
+    "evidence": ["Original captured record was Aaaaaaaaaa", "Field-current fallback unit regression", "Mode-10 controller produced Copperpot twice and Ohmnomnom in full PC storage"],
+    "alternatives_falsified": ["Keyboard path error: Center and capture flows now share the same verified typer", "Storage decoder error: personality/species/name were read from decrypted inserted records"]
+  },
+  "solution": {
+    "kind": "code_fix",
+    "files": ["games/runbun.py", "games/run_and_bun/capabilities.py", "tests/test_runbun.py", "tests/test_capabilities.py"],
+    "contract_change": "Every capture requires a fitting nickname; field mode 10 invokes the shared typer exactly once and success requires the inserted RAM record to match",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [{"name": "named party and PC capture replays", "command": "disposable clone named Cufant twice plus full-party Togedemaru once", "passed": true, "evidence": "Copperpot twice; Ohmnomnom stored as species 777"}],
+    "regression_checks": [{"name": "full repository unit suite", "command": "python3 -m unittest discover -s tests", "passed": true, "evidence": "130 passed, 1 skipped"}],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "One named party insertion with unchanged target species and clean overworld",
+      "actual": "Both fixed-fixture runs inserted Copperpot species 878 and returned overworld",
+      "extra_state_deltas": []
+    },
+    "metrics": {"named_party_replays": "2/2", "named_full_party_pc_replays": "1/1", "live_checkpoint_changed": false}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": ["nickname prompt present only in text.current"],
+    "tooling_contracts": ["Capture is blocked without a chosen fitting nickname; success requires exact inserted-record name verification"]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

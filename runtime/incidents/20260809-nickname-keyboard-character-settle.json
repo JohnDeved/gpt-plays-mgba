@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T120002Z-nickname-keyboard-dropped-one-cursor-step-after-",
+  "status": "verified",
+  "created_at": "2026-08-09T12:00:02.820040+00:00",
+  "summary": "Nickname keyboard planner omitted the right-side button column from horizontal wrap",
+  "component": "games/runbun.py:pokecenter_change_nickname",
+  "symptom": "BUSHTANK plan wrote Bu htank in a fixed clone",
+  "classification": "prediction_model",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-pre-renames-forward-20260809.state",
+    "sha256": "d2d86e4bb6c8982bf994c113862418fcccee248a50548531fc50d3be705d737e",
+    "canonical_state": {"map": [3, 1, 10, 4], "target_personality": 1476487022, "target_nickname": "Grotle"},
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "Each planned cursor step lands before A and RAM nickname equals normalized target",
+    "actual": "The three-LEFT 8-column wrap intentionally crossed x=8 and landed on row-2 space at x=7 instead of s at x=6",
+    "diff": ["planner modeled 8 horizontal positions; cartridge cursor has 9 including the button column"],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "Decrypted party nickname RAM after commit plus the cartridge cursor-wrap rule",
+    "sources": ["runtime/session/dewford-pre-renames-forward-20260809.state", "games/runbun.py:_nickname_keyboard_plan"]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "runtime/session/dewford-pre-renames-forward-20260809.state",
+    "fixture_sha256": "d2d86e4bb6c8982bf994c113862418fcccee248a50548531fc50d3be705d737e",
+    "command": "disposable_clone fixture; pokecenter_change_nickname(0, 'BushTank')",
+    "steps": ["Open verified nickname service", "Execute generated BUSHTANK key plan", "Read slot-0 nickname from decrypted RAM"],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "Both pre-fix plans produced 'Bu htank'"
+  },
+  "hypotheses": [{"claim": "Horizontal wrap includes x=8 button column", "predicted_discriminator": "Four LEFT presses from x=1 land on s at x=6", "evidence_for": "Two post-fix clones wrote Bushtank", "evidence_against": "", "result": "supported"}],
+  "root_cause": {
+    "verified": true,
+    "claim": "The planner used modulo 8 even though naming-screen horizontal movement wraps over 8 character columns plus one button column",
+    "evidence": ["Modulo-8 plan deterministically produced the adjacent space", "Modulo-9 plan produced Bushtank twice and all nine live names correctly"],
+    "alternatives_falsified": ["Character settle timing: increasing 35 to 90 frames preserved the same wrong space", "Dropped actuator input: the result matched the exact modulo-8 cursor destination"]
+  },
+  "solution": {
+    "kind": "code_fix",
+    "files": ["games/runbun.py", "tests/test_runbun.py"],
+    "contract_change": "Generate horizontal nickname cursor paths modulo 9 and retain a BUSHTANK wrap regression",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [{"name": "two BUSHTANK fixed-fixture replays", "command": "disposable_clone twice; pokecenter_change_nickname(0, 'BushTank')", "passed": true, "evidence": "Both returned Bushtank at (10,4)"}],
+    "regression_checks": [{"name": "full repository unit suite", "command": "python3 -m unittest discover -s tests", "passed": true, "evidence": "127 passed, 1 skipped"}],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "Bushtank with original personality and clean overworld",
+      "actual": "Bushtank, personality 1476487022, overworld (10,4) in both runs",
+      "extra_state_deltas": []
+    },
+    "metrics": {"pre_fix": "0/2", "post_fix": "2/2", "live_batch": "9/9"}
+  },
+  "learning": {
+    "domain_knowledge": ["Naming keyboard horizontal cursor wrap includes the right-side button column"],
+    "regression_cases": ["BushTank requires wrapping from u at x=1 to s at x=6"],
+    "tooling_contracts": ["Nickname success is the decrypted target string and unchanged personality, never inferred cursor position"]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

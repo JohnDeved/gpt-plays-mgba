@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "id": "20260809T123605Z-move-learning-wrapped-text-boundary",
+  "status": "verified",
+  "created_at": "2026-08-09T12:36:05Z",
+  "summary": "Move-learning resolver stalled on a wrapped acknowledgement",
+  "component": "games/runbun.py resolve_field_move_learning",
+  "symptom": "Ohmnomnom's level-12 Fake Out prompt timed out before the forget screen",
+  "classification": "observation_decoder",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-all-catches-renamed-forward-20260809.state",
+    "sha256": "ab0d3ff6f490babb644f4bca114cfaacbfb49d1c1ca6fef22608caf16587f24d",
+    "canonical_state": {"map": [3, 1], "position": [10, 4], "ohmnomnom_level": 8},
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "The resolver advances all verified move-learning pages and reaches field mode 33",
+    "actual": "It stopped on 'already\\nknows four moves' until the frame budget expired",
+    "diff": ["raw text matching did not treat a printer line break as whitespace"],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "Field printer RAM, field message-box mode, and decrypted party move tuples",
+    "sources": ["games/runbun.py:resolve_field_move_learning", "runtime/session/dewford-all-catches-renamed-forward-20260809.state"]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "runtime/session/dewford-all-catches-renamed-forward-20260809.state",
+    "fixture_sha256": "ab0d3ff6f490babb644f4bca114cfaacbfb49d1c1ca6fef22608caf16587f24d",
+    "command": "disposable_clone fixture; level Ohmnomnom to 12; resolve Fake Out into slot 0",
+    "steps": ["Use Endless Candy four times", "Observe wrapped acknowledgement", "Resolve Fake Out into slot 0"],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "Before normalization the resolver deterministically timed out; after normalization two complete level-17 replays returned clean overworld"
+  },
+  "hypotheses": [{
+    "claim": "Printer line wrapping alone prevents the acknowledgement marker from matching",
+    "predicted_discriminator": "Whitespace-normalized pages advance while preserving all existing ownership checks",
+    "evidence_for": "Manual A trace advanced the same page; normalization produced two exact successful replays",
+    "evidence_against": "",
+    "result": "supported"
+  }],
+  "root_cause": {
+    "verified": true,
+    "claim": "Move-learning ownership checks compared phrases against raw wrapped printer text",
+    "evidence": ["RAM page contained 'already\\nknows four moves'", "manual A advanced immediately", "normalized shared decoder passed two replays"],
+    "alternatives_falsified": ["Timing delay: the page remained stable across repeated 30-frame waits", "Wrong prompt: mode and following pages matched the standard four-move flow"]
+  },
+  "solution": {
+    "kind": "code_fix",
+    "files": ["games/runbun.py", "tests/test_runbun.py"],
+    "contract_change": "Move-learning page classification normalizes whitespace before all phrase matching",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [{
+      "name": "two complete Ohmnomnom level-up replays",
+      "command": "disposable clone; levels 8 through 17; Fake Out slot 0; Spark slot 3",
+      "passed": true,
+      "evidence": "Both runs ended overworld at level 17 with moves 252,609,232,209"
+    }],
+    "regression_checks": [{
+      "name": "full repository unit suite",
+      "command": "python3 -m unittest discover -s tests",
+      "passed": true,
+      "evidence": "130 passed, 1 skipped"
+    }],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "Ohmnomnom reaches level 17 with Fake Out and Spark and returns to overworld",
+      "actual": "Both runs ended at level 17 with moves 252,609,232,209 and full HP",
+      "extra_state_deltas": []
+    },
+    "metrics": {"successful_replays": "2/2", "live_checkpoint_changed": false}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": ["move-learning acknowledgement split across a printer newline"],
+    "tooling_contracts": ["Normalize field-printer whitespace before matching semantic move-learning pages"]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

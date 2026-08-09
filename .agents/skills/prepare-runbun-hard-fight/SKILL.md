@@ -33,11 +33,14 @@ Keep the fight tied to the active milestone in `$track-runbun-goals-progress`. P
    - Query `game_wild_encounter_lookup` by needed species/type and with `visited_only=true`. Compare current-area encounters with prior visited maps and backtrack when the ROM index exposes a materially safer counter. Record map ID, method, level range, and slot percentage as preparation evidence.
 
 4. Diagnose the matchup before choosing a team.
+   - Invoke `$develop-runbun-strategies` and query its toolbelt for matching setup, sweep, pivot, status, speed-control, or sacrifice patterns. Reuse only strategies whose requirements and abort rules hold in the current authoritative state.
    - Compare speed order, deterministic damage bounds, priority, accuracy, immunities, resistances, status pressure, setup, target selection, reserve order, and shared weaknesses.
    - For doubles, analyze both enemy actions and both allied actions together. Include Fake Out, Helping Hand, spread moves, redirection, Protect cadence, and replacement timing when present.
    - Separate verified facts from model estimates. Label choices forced, minimax, expected-best, or heuristic; never call a line provably best without complete proof.
 
 5. Prepare the team.
+   - Read `game_pokemon_build_options` and `game_storage_snapshot`; use `game_pc_transfer` for verified deposit, withdrawal, or swaps instead of manual PC inputs.
+   - Read `game_pokecenter_service_catalog` for move, IV, nature, nickname, or status options. Use only mutation paths promoted by clone regression, and verify the resulting party RAM.
    - Heal HP, status, and PP fully.
    - Use Endless Candy only to the verified legal cap.
    - Catch or retrieve counters when the current roster lacks sufficient survivability, damage, speed control, immunity, or party depth.
@@ -46,6 +49,7 @@ Keep the fight tied to the active milestone in `$track-runbun-goals-progress`. P
 
 6. Write the plan before contact.
    - Record target priority, opening actions, expected ranges, reserve responses, switch rules, status contingencies, sacrifice rules, and loss conditions.
+   - Persist the executable selector or deterministic rule table used in clone validation, and execute that same artifact live. Predicate entry-sensitive moves such as Fake Out on certificate transition cause/fresh-entry state; never infer a forced replacement from active species alone. Add a regression fixture for every ambiguous branch found during replay.
    - List every action-changing uncertainty. Resolve it by ROM/RAM inspection or a bounded savestate probe before engagement.
    - After two failures with the same preparation and plan, block a third identical retry. Perform a postmortem and revise the team or plan.
 
@@ -53,6 +57,7 @@ Keep the fight tied to the active milestone in `$track-runbun-goals-progress`. P
    - Generate a skeleton with `python3 .agents/skills/prepare-runbun-hard-fight/scripts/validate_plan.py --emit-template`.
    - Store the populated JSON with the run's durable strategy artifacts.
    - Run `python3 .agents/skills/prepare-runbun-hard-fight/scripts/validate_plan.py PLAN.json`.
+   - Promote `readiness.live_execution_allowed` only after the same persisted policy wins three terminal disposable-clone replays consecutively from the same opening checkpoint. Record the policy and checkpoint SHA-256 on every reproduction; any loss, policy gap, mismatch, or artifact change resets the streak.
    - Do not trigger the trainer unless validation returns `"valid": true`.
 
 8. Execute and learn.

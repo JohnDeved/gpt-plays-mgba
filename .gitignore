@@ -37,3 +37,6 @@ squashfs-root/
 __pycache__/
 *.py[cod]
 .venv/
+*.ss
+
+.DS_Store

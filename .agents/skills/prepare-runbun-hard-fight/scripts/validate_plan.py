@@ -15,6 +15,38 @@ from typing import Any
 SOURCES = {"ram", "rom", "emulator_api", "mixed"}
 FORMATS = {"single", "double"}
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
+REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _promotion_errors(evidence: Any) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(evidence, dict):
+        return ["evidence must be an object"]
+    policy_path = evidence.get("executable_policy")
+    policy_digest = evidence.get("policy_sha256")
+    opening_digest = evidence.get("opening_checkpoint_sha256")
+    policy = REPO_ROOT / policy_path if isinstance(policy_path, str) else Path()
+    if not isinstance(policy_path, str) or not policy.is_file():
+        errors.append("evidence.executable_policy must name an existing repository file")
+    if not isinstance(policy_digest, str) or not SHA256.fullmatch(policy_digest):
+        errors.append("evidence.policy_sha256 must be 64 lowercase hex characters")
+    elif policy.is_file() and hashlib.sha256(policy.read_bytes()).hexdigest() != policy_digest:
+        errors.append("evidence.policy_sha256 does not match executable_policy")
+    runs = evidence.get("reproductions")
+    if not isinstance(runs, list) or len(runs) < 3:
+        errors.append("evidence.reproductions must contain three consecutive terminal clone wins")
+        return errors
+    streak = runs[-3:]
+    if not all(
+        run.get("terminal_win") is True
+        and run.get("source") == "clone"
+        and run.get("policy_sha256") == policy_digest
+        and run.get("opening_checkpoint_sha256") == opening_digest
+        for run in streak
+        if isinstance(run, dict)
+    ) or not all(isinstance(run, dict) for run in streak):
+        errors.append("last three reproductions must be terminal clone wins for the same policy and opening checkpoint")
+    return errors
 
 
 def template() -> dict[str, Any]:
@@ -71,7 +103,14 @@ def template() -> dict[str, Any]:
             "pp_full": False,
             "level_cap_respected": False,
             "moves_and_items_set": False,
+            "live_execution_allowed": False,
             "status": "blocked",
+        },
+        "evidence": {
+            "executable_policy": "games/run_and_bun/fight_policy.py",
+            "policy_sha256": "",
+            "opening_checkpoint_sha256": "",
+            "reproductions": [],
         },
         "failure_history": {"same_plan_attempts": 0},
     }
@@ -231,11 +270,13 @@ def validate(data: Any) -> tuple[list[str], list[str]]:
         "pp_full",
         "level_cap_respected",
         "moves_and_items_set",
+        "live_execution_allowed",
     ):
         if readiness.get(key) is not True:
             errors.append(f"readiness.{key} must be true")
     if readiness.get("status") != "ready":
         errors.append("readiness.status must be ready")
+    errors.extend(_promotion_errors(root.get("evidence")))
 
     history = _dict(root.get("failure_history"), "failure_history", errors)
     attempts = history.get("same_plan_attempts")

@@ -1,4 +1,7 @@
-local PORT = 8765
+local PORT = tonumber(os.getenv("MGBA_RPC_PORT") or "8765")
+if not PORT or PORT < 1 or PORT > 65535 or PORT % 1 ~= 0 then
+  error("MGBA_RPC_PORT must be an integer from 1 to 65535")
+end
 local PROTOCOL = "mgba-rpc/0.3"
 local MAX_RANGE_BYTES = 1024 * 1024
 local MAX_EVENT_QUEUE = 4096

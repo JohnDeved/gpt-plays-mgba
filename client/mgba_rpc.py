@@ -16,9 +16,10 @@ class MGBAError(RuntimeError):
 
 
 class MGBA:
-    def __init__(self, host: str = "127.0.0.1", port: int = 8765, timeout: float = 3.0):
+    def __init__(self, host: str = "127.0.0.1", port: int | None = None, timeout: float = 3.0):
         self.host = host
-        self.port = port
+        self.port = self.resolve_port(port)
+        port = self.port
         self._timeout = timeout
         # An uncapped automation process may be intentionally SIGSTOP'd by
         # the Lua bridge while idle. Resume the sole local listener before
@@ -36,6 +37,13 @@ class MGBA:
         self._paused_pid: int | None = None
         if self.hello.get("type") != "hello":
             raise MGBAError(f"unexpected handshake: {self.hello}")
+
+    @staticmethod
+    def resolve_port(port: int | None = None) -> int:
+        value = int(os.environ.get("MGBA_RPC_PORT", "8765")) if port is None else int(port)
+        if not 1 <= value <= 65535:
+            raise ValueError("mGBA RPC port must be from 1 to 65535")
+        return value
 
     def _read_handshake(self, timeout: float) -> dict:
         """Read hello while repeatedly waking an idle-stopped listener."""

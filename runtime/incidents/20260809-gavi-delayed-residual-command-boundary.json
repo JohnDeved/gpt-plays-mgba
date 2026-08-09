@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "id": "20260809T133342Z-transient-command-prompt-preceded-delayed-leech-",
+  "status": "verified",
+  "created_at": "2026-08-09T13:33:42.670690+00:00",
+  "summary": "Transient command prompt preceded delayed Leech Seed HP changes",
+  "component": "certified battle interface",
+  "symptom": "game_battle_step returned verified at Birdlaw 15 / Sunflora 22; the next no-input observation changed to Birdlaw 10 / Sunflora 27 in battle_text",
+  "classification": "timing_protocol",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/gavi-croakatoa-opening-clone-20260809.state",
+    "sha256": "17043f1813bcacfe8e595b454e2f3c2dbe6132d2ac89884e6d7d796c7298bf10",
+    "canonical_state": {"state_hash": "f82c95f85be31102", "battle_menu": "command_menu"},
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "A verified post-action command boundary must include all residual HP and recovery changes before returning",
+    "actual": "The two-sample 48-frame confirmation accepted a transient command signature before residual HP committed",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "authoritative battle RAM must remain unchanged through the complete command-boundary settling window",
+    "sources": [
+      "battle RAM HP, species, PP, menu state, and text ownership",
+      "games/runbun.py RunBunAdapter.advance_battle_until_menu"
+    ]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "tests/test_runbun.py::RunBunTests.test_command_boundary_waits_through_delayed_residual_hp",
+    "fixture_sha256": null,
+    "command": "python3 -m unittest tests.test_runbun.RunBunTests.test_command_boundary_waits_through_delayed_residual_hp",
+    "steps": [
+      "Present a command menu whose authoritative HP changes only on the third 24-frame settling sample.",
+      "Require advance_battle_until_menu to reject the transient signature and return only the settled HP."
+    ],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "The prior two-sample implementation returned before the third-sample HP delta; the five-sample implementation returns HP 5 in both runs."
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": true,
+    "claim": "The shared command-boundary verifier sampled only 48 frames, while Run & Bun can render a transient command menu before delayed residual HP and recovery effects commit.",
+    "evidence": [
+      "A Gavi clone returned Birdlaw 15 / Sunflora 22, then changed without input to Birdlaw 10 / Sunflora 27.",
+      "The synthetic RAM fixture reproduces the third-sample state delta and fails under the former two-sample loop.",
+      "Five 24-frame samples produced stable post-residual boundaries throughout two complete 23-action Gavi wins."
+    ],
+    "alternatives_falsified": [
+      "No extra controller input occurred between the verified return and the no-input RAM observation.",
+      "The HP deltas match Leech Seed damage and recovery, not stale party decoding."
+    ]
+  },
+  "solution": {
+    "kind": "interface_fix",
+    "files": ["games/runbun.py", "tests/test_runbun.py"],
+    "contract_change": "A command-menu result now requires five consecutive 24-frame authoritative settling samples, covering delayed residual effects without host idling.",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [
+      {
+        "name": "delayed residual command boundary",
+        "command": "python3 -m unittest tests.test_runbun.RunBunTests.test_command_boundary_waits_through_delayed_residual_hp",
+        "passed": true,
+        "evidence": "1 test passed; settled HP is returned after the third-sample delta"
+      }
+    ],
+    "regression_checks": [
+      {
+        "name": "full repository unit suite",
+        "command": "python3 -m unittest discover -s tests -p 'test_*.py'",
+        "passed": true,
+        "evidence": "133 tests passed, 1 skipped"
+      }
+    ],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "No post-return autonomous battle delta and a terminal win under the certified Croakatoa policy.",
+      "actual": "Two complete 23-action cartridge-clone replays ended in victory with every returned boundary stable under no-input observation.",
+      "extra_state_deltas": []
+    },
+    "metrics": {"settling_frames_per_candidate_boundary": 120, "gavi_terminal_replays": 2}
+  },
+  "learning": {
+    "domain_knowledge": ["Leech Seed and similar residual effects may commit after a transient command prompt is rendered."],
+    "regression_cases": ["RunBunTests.test_command_boundary_waits_through_delayed_residual_hp"],
+    "tooling_contracts": ["Never certify a Run & Bun command boundary until HP, species, PP, menu state, and text ownership remain stable through the full settling window."]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

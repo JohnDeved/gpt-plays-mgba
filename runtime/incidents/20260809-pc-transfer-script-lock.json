@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T114016Z-pc-transfer-returns-before-storage-script-releas",
+  "status": "observed",
+  "created_at": "2026-08-09T11:40:16.633913+00:00",
+  "summary": "PC transfer returns before storage script releases field input",
+  "component": "games/runbun.py pc_transfer cleanup",
+  "symptom": "verified swap left player at PC coordinate 10,2 with movement ignored while mode reported overworld",
+  "classification": "timing_protocol",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-togedemaru-party-forward-20260809.state",
+    "sha256": "2693c30e18633dafbfed09a7fc98c0e9fe4b0f03ec87a71fcdf791a6f8789e35",
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "PC swap returns at a clean field-input boundary",
+    "actual": "party and storage identities changed correctly but the storage script retained input ownership",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "rom_sha256": "68ec5b0c02e6def8da8dc2b1857b269505418803d44cc2b816fb7471587bf89d",
+  "strategies": [
+    {
+      "id": "setup-window-sweep",
+      "title": "Create a bounded setup window, then sweep",
+      "status": "candidate",
+      "tags": [
+        "setup",
+        "sweep",
+        "single-battle"
+      ],
+      "intent": "Use immunity, resistance, forced low damage, or deterministic status control to gain boosts before defeating multiple reserves.",
+      "scope": {
+        "format": "single",
+        "claim": "candidate pattern only"
+      },
+      "requirements": [
+        "complete enemy roster and send-out order",
+        "setup user survives every modeled reply during setup",
+        "post-setup speed and damage bounds cover every remaining reserve",
+        "PP and accuracy remain sufficient for the full line"
+      ],
+      "line": [
+        "enter only on a verified setup window",
+        "boost only to the minimum required stage",
+        "sweep in the precomputed move order",
+        "stop immediately when an abort rule becomes true"
+      ],
+      "blockers": [
+        "critical-hit exposure that can cause catastrophic loss",
+        "phazing, Haze, Encore, Taunt, priority KO, status lock, forced switch, or setup denial",
+        "unknown reserve, item, ability, move effect, or AI branch"
+      ],
+      "abort_rules": [
+        "actual HP or stat stage differs from prediction",
+        "opponent reveals an unmodeled move, item, ability, or reserve",
+        "fresh certificate no longer selects the planned action"
+      ],
+      "evidence": {
+        "reproductions": [],
+        "exhaustive_searches": [],
+        "distinct_state_hashes": [],
+        "trainer_keys": [],
+        "counterexamples": []
+      }
+    },
+    {
+      "id": "status-immune-converter-preserved-finisher",
+      "title": "Use a status-immune converter and preserve the endgame finisher",
+      "status": "tested",
+      "tags": [
+        "pivot",
+        "status-immunity",
+        "resource-preservation",
+        "single-battle",
+        "gavi"
+      ],
+      "intent": "Use a status-immune or resistant recruit to convert a hostile status matchup, then spend replaceable pivots while preserving the type-specific endgame attacker.",
+      "scope": {
+        "format": "single",
+        "claim": "tested only against Camper Gavi with the recorded level-17 party and policy"
+      },
+      "requirements": [
+        "complete enemy roster and fresh battle-RAM identity",
+        "full HP and PP with the recorded party order",
+        "Croagunk with Fake Out, Vacuum Wave, Mud Shot, and Sludge",
+        "identity-based switching because active battlers move to party slot 0"
+      ],
+      "line": [
+        "use the ordinary lead and Electric pivot to remove Bibarel",
+        "use the Ground reserve and priority fallback against Ponyta",
+        "introduce the status-immune converter against Eelektrik, then pivot through expendable resources",
+        "preserve Croagunk's Sludge for Sunflora and Staravia's Aerial Ace for Dustox"
+      ],
+      "blockers": [
+        "an unknown trainer reserve, ability, held item, move, or send-out branch",
+        "Croagunk unavailable for Sunflora with no healthy Flying fallback",
+        "Staravia damaged below a freshly certified Dustox survival bound"
+      ],
+      "abort_rules": [
+        "actual HP, PP, status, species, or settled battle text differs from the certified result",
+        "the fresh certificate no longer offers the recorded action",
+        "a no-input observation changes battle state after the verifier returns"
+      ],
+      "evidence": {
+        "reproductions": [
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "f82c95f85be31102",
+            "terminal_win": true,
+            "certified_actions": 23,
+            "all_steps_verified": true
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "f82c95f85be31102",
+            "terminal_win": true,
+            "certified_actions": 23,
+            "all_steps_verified": true
+          }
+        ],
+        "exhaustive_searches": [],
+        "distinct_state_hashes": [
+          "f82c95f85be31102"
+        ],
+        "trainer_keys": [
+          "map:0:25/local:23"
+        ],
+        "counterexamples": []
+      }
+    }
+  ]
+}

@@ -472,14 +472,19 @@ class RunBun:
         # then acts while the intended move was never acknowledged.  Wait at
         # the same acceptance boundary used by the party UI and require a
         # non-selector battle state before recording the transaction.
-        self.gba.wait_frames(settle_frames)
+        acknowledged = None
+        waited = 0
+        while waited < settle_frames:
+            step = min(6, settle_frames - waited)
+            self.gba.wait_frames(step)
+            waited += step
+            acknowledged = RunBunAdapter(self.gba).observe()
+            if acknowledged.get("battle", {}).get("menu", {}).get("state") != "move_menu":
+                break
         self._menu_pause_boundary()
-        acknowledged = RunBunAdapter(self.gba).observe()
-        menu_after = acknowledged.get("battle", {}).get("menu", {}).get("state")
-        if menu_after == "move_menu":
-            raise RuntimeError(
-                f"move_commit_not_acknowledged: move menu still open after A for slot {slot}"
-            )
+        menu_after = (acknowledged or {}).get("battle", {}).get("menu", {}).get("state")
+        if menu_after in {None, "move_menu"}:
+            raise RuntimeError(f"move_commit_not_acknowledged: {menu_after} after A for slot {slot}")
         return {
             "slot": slot,
             "move": self.battle().player.moves[slot],

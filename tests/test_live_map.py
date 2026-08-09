@@ -1,7 +1,14 @@
 import struct
 import unittest
 
-from games.run_and_bun.live_map import LiveMap, read_live_connections, read_live_map, read_live_warps
+from games.run_and_bun.live_map import (
+    MAP_TYPE_UNDERGROUND,
+    LiveMap,
+    is_land_encounter_tile,
+    read_live_connections,
+    read_live_map,
+    read_live_warps,
+)
 
 
 class FakeMapGBA:
@@ -149,16 +156,17 @@ class LiveMapTests(unittest.TestCase):
         self.assertEqual(path, ["UP", "RIGHT", "RIGHT", "RIGHT", "RIGHT", "DOWN"])
         self.assertEqual(len(live.path_to((0, 1), (4, 1), grass_penalty=0)), 4)
 
-    def test_rom_grass_collision_one_is_walkable_but_other_collision_one_is_not(self):
+    def test_secondary_tileset_id_does_not_override_collision(self):
         words = [3 << 12] * 9
-        # Run & Bun Granite Cave grass: collision 1, elevation 0, metatile 520.
+        # 0x208 is grass in one tileset but a blocked tile in Granite Cave.
         words[1 + 1 * 3] = (1 << 10) | 520
-        # A neighboring non-grass collision-1 tile remains blocked.
-        words[2 + 1 * 3] = (1 << 10) | 521
         live = LiveMap(3, 3, 0x02010000, tuple(words), origin=0, active_width=3, active_height=3)
-        self.assertTrue(live.walkable(1, 1))
-        self.assertTrue(live.tile(1, 1)["walkable"])
-        self.assertFalse(live.walkable(2, 1))
+        self.assertFalse(live.walkable(1, 1))
+
+    def test_underground_floor_is_a_land_encounter_surface(self):
+        live = LiveMap(1, 1, 0x02010000, (3 << 12,), origin=0, active_width=1, active_height=1)
+        self.assertTrue(is_land_encounter_tile(live, 0, 0, MAP_TYPE_UNDERGROUND))
+        self.assertFalse(is_land_encounter_tile(live, 0, 0, 0))
 
     def test_layout_exposes_raw_tile_fields_and_ascii(self):
         words = [3 << 12] * 9

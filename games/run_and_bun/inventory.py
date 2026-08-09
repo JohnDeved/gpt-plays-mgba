@@ -37,6 +37,7 @@ UI_POCKETS = {
 VERIFIED_ITEM_NAMES = {
     1: "Poke Ball",
     28: "Potion",
+    152: "Heart Scale",
     520: "Oran Berry",
     711: "Super Rod",
 }

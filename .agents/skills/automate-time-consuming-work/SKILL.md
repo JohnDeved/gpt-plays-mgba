@@ -35,7 +35,7 @@ Do not automate merely to avoid a single short action. Do not add speculative ab
 - Keep the emulator muted, render-blocked, and OS-stopped while idle; resume only for the bounded action or observation.
 - Batch safe observations and input where the interface can still verify each requested postcondition. Do not batch across a battle decision or map transition if that hides an unexpected state.
 - Never let an automation helper choose a battle action without the canonical-state and legal-action checks required by the gameplay controller.
-- Preserve the furthest live state before probing. Reproduce experiments from a copy and restore live progress after testing; never use an older checkpoint just because it makes automation easier.
+- Preserve the furthest live state before probing. Reproduce experiments in `client.mgba_clone.disposable_clone`; historical states are useful fixtures for reaching a relevant UI quickly, but must run in a separate muted/idle-stopped emulator and must never be loaded into or promoted over the live process. Verify protected-state hashes after every clone.
 - A helper that hides mismatches, retries blindly, or relies on screenshots for RAM-available facts is a defect, not an optimization.
 
 ## Completion checklist

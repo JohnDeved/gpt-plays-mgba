@@ -1,0 +1,14 @@
+{
+  "fight": "map:0:25/local:23/trainer:334",
+  "outcome": "live_loss_rewound_to_exact_prefight_checkpoint",
+  "cause": "Sunflora put Bugatti to sleep; Birdlaw then switched back to the still-sleeping Bugatti, creating a damaging pivot loop.",
+  "fix": "Expose bench status in legal switch actions and reject sleeping/frozen Bugatti as the preferred Sunflora pivot.",
+  "regression": "GaviPolicyTests.test_bugatti_is_the_primary_sunflora_counter",
+  "transaction_log": "runtime/session/battle_transactions.jsonl",
+  "live_action_ids": [
+    "83391b11a9d8e005afaf",
+    "ee8fbdc97c4554defbed",
+    "9dcf25b9713f3986867f",
+    "e54c5c16dca96320c550"
+  ]
+}

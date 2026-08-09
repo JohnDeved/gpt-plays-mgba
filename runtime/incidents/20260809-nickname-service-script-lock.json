@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "id": "20260809T115427Z-nickname-service-reports-overworld-before-field-",
+  "status": "verified",
+  "created_at": "2026-08-09T11:54:27.391880+00:00",
+  "summary": "Nickname service reports overworld before field movement owns input",
+  "component": "games/runbun.py:pokecenter_change_nickname",
+  "symptom": "RAM nickname mutation succeeds, but adaptive movement remains at the NPC after dialogue dismissal",
+  "classification": "timing_protocol",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-togedemaru-party-clean-forward-20260809.state",
+    "sha256": "5026dd83af1c864ccb78bd89905ee46b6bd5259dabfb80a353d4bf167729fa55",
+    "canonical_state": {
+      "map": [3, 1, 10, 4],
+      "party_slot_5_personality": 3950252238,
+      "party_slot_5_nickname": "Aaaaaaaaaa",
+      "state_hash": "9d2ebf7595b9a691"
+    },
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "After verified nickname and acknowledgement dismissal, movement changes player position from (12,4)",
+    "actual": "mode=overworld and field mode=0 while 32 movement replans leave position at (12,4)",
+    "diff": [
+      "field_message_box_mode=0 and mode=overworld did not imply field input ownership",
+      "player remained at (12,4) through 32 bounded movement replans"
+    ],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "Party nickname and personality from decrypted RAM, field mode from EWRAM, and player coordinate delta from live map RAM",
+    "sources": [
+      "runtime/session/dewford-togedemaru-party-clean-forward-20260809.state",
+      "games/runbun.py:pokecenter_change_nickname"
+    ]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "runtime/session/dewford-togedemaru-party-clean-forward-20260809.state",
+    "fixture_sha256": "5026dd83af1c864ccb78bd89905ee46b6bd5259dabfb80a353d4bf167729fa55",
+    "command": "disposable_clone fixture; RunBunAdapter.pokecenter_change_nickname(5, 'OhmNomNom')",
+    "steps": [
+      "Select the verified Dewford utility NPC nickname service",
+      "Rename party slot 5 and dismiss the Done acknowledgement",
+      "Attempt adaptive movement to (10,4)"
+    ],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "Both runs wrote Ohmnomnom correctly, reported overworld/mode 0, and remained at (12,4) until B released the retained script command"
+  },
+  "hypotheses": [
+    {
+      "claim": "The utility script retains input ownership for one command after clearing field mode",
+      "predicted_discriminator": "One B will preserve nickname/map and make the next movement change coordinates",
+      "evidence_for": "Two fixed-fixture runs moved to (10,4) only after one B",
+      "evidence_against": "",
+      "result": "supported"
+    }
+  ],
+  "root_cause": {
+    "verified": true,
+    "claim": "The custom nickname script clears visible field state before releasing its retained command/input lock",
+    "evidence": [
+      "Two identical pre-fix clone runs stayed at (12,4) despite overworld/mode 0",
+      "Exactly one B preserved nickname and enabled immediate movement in both runs"
+    ],
+    "alternatives_falsified": [
+      "Insufficient wait: 32 adaptive replans supplied ample frames without releasing ownership",
+      "Nickname mutation failure: decrypted RAM already held Ohmnomnom with the original personality",
+      "A as cleanup: an extra A while facing the NPC reopens the service greeting"
+    ]
+  },
+  "solution": {
+    "kind": "interface_fix",
+    "files": [
+      "games/runbun.py",
+      "tests/test_runbun.py",
+      "tests/test_capabilities.py"
+    ],
+    "contract_change": "After the nickname acknowledgement reaches false-overworld, send exactly one B before proving movement ownership and returning success",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [
+      {
+        "name": "two fixed-fixture nickname service replays",
+        "command": "disposable_clone fixture twice; pokecenter_change_nickname(5, 'OhmNomNom')",
+        "passed": true,
+        "evidence": "Both returned verified=True, Ohmnomnom, overworld, position (10,4)"
+      }
+    ],
+    "regression_checks": [
+      {
+        "name": "nickname planner and capability catalog tests",
+        "command": "python3 -m unittest tests.test_capabilities tests.test_runbun",
+        "passed": true,
+        "evidence": "75 tests passed"
+      }
+    ],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "Nickname changes once, identity is preserved, acknowledgement closes, and movement reaches (10,4)",
+      "actual": "Both runs changed only slot 5 nickname to Ohmnomnom and reached (10,4) in overworld",
+      "extra_state_deltas": []
+    },
+    "metrics": {
+      "pre_fix_success_rate": "0/2",
+      "post_fix_success_rate": "2/2",
+      "cleanup_inputs": 1
+    }
+  },
+  "learning": {
+    "domain_knowledge": [
+      "The Run & Bun naming screen auto-switches from uppercase to lowercase after its first character"
+    ],
+    "regression_cases": [
+      "Dewford utility NPC nickname service from the clean Togedemaru party checkpoint"
+    ],
+    "tooling_contracts": [
+      "A Center service may require an explicit retained-command release even after field mode is zero; prove movement ownership before returning"
+    ]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

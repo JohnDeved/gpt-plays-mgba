@@ -14,12 +14,21 @@ sys.path.insert(0, str(ROOT))
 from games.run_and_bun.capabilities import default_registry
 
 
+def json_object(value: str) -> dict:
+    parsed = json.loads(value)
+    if not isinstance(parsed, dict):
+        raise argparse.ArgumentTypeError("arguments must be a JSON object")
+    return parsed
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--search", metavar="QUERY")
     group.add_argument("--inspect", metavar="NAME")
+    group.add_argument("--execute", metavar="NAME")
     group.add_argument("--authorize", nargs=2, metavar=("INTENT", "PROPOSED_TOOL"))
+    parser.add_argument("--arguments", type=json_object, default={}, metavar="JSON")
     parser.add_argument("--limit", type=int, default=5)
     parser.add_argument("--pretty", action="store_true")
     args = parser.parse_args()
@@ -28,6 +37,8 @@ def main() -> None:
         result = registry.search(args.search, limit=args.limit)
     elif args.inspect is not None:
         result = registry.inspect(args.inspect)
+    elif args.execute is not None:
+        result = registry.execute(args.execute, args.arguments)
     elif args.authorize is not None:
         result = registry.authorize_fallback(args.authorize[0], args.authorize[1])
     else:

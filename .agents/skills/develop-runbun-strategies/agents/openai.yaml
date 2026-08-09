@@ -1,0 +1,4 @@
+interface:
+  display_name: "Develop Run & Bun Strategies"
+  short_description: "Build and reuse evidence-backed Pokémon battle plans"
+  default_prompt: "Use $develop-runbun-strategies to query, test, and promote a reusable Run & Bun battle strategy."

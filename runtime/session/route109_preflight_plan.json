@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "fight": {
+    "id": "map:0:24/local:7",
+    "required": true,
+    "format": "double",
+    "identity_source": "mixed",
+    "roster_complete": true,
+    "expected_roster_count": 6
+  },
+  "checkpoint": {
+    "path": "/Users/johann/gpt-plays-mgba/runtime/session/route109-arrival-forward.ss",
+    "sha256": "d6979fdf209fdb75cdea3e092188d0905578e4d7054b3219d810b193d0351069"
+  },
+  "level_cap": {
+    "value": 17,
+    "source": "mixed"
+  },
+  "enemy_roster": [
+    {"species_id": 619, "level": 14, "moves": [395, 179, 317, 270], "ability_id": 39, "item_id": 431, "source": "rom"},
+    {"species_id": 190, "level": 14, "moves": [458, 252, 332, 28], "ability_id": 50, "item_id": 425, "source": "rom"},
+    {"species_id": 30, "level": 15, "moves": [474, 352, 351, 92], "ability_id": 38, "item_id": 522, "source": "rom"},
+    {"species_id": 404, "level": 14, "moves": [209, 24, 44, 336], "ability_id": 22, "item_id": 522, "source": "rom"},
+    {"species_id": 180, "level": 14, "moves": [351, 7, 109, 86], "ability_id": 9, "item_id": 428, "source": "rom"},
+    {"species_id": 33, "level": 15, "moves": [474, 342, 24, 28], "ability_id": 38, "item_id": 487, "source": "rom"}
+  ],
+  "party": [
+    {"slot": 0, "species_id": 388, "level": 17, "current_hp": 57, "max_hp": 57, "status": 0, "moves": [44, 75, 71, 590], "pp": [25, 25, 25, 10], "max_pp": [25, 25, 25, 10], "role": "bulky grass spread damage and emergency Confide"},
+    {"slot": 1, "species_id": 397, "level": 17, "current_hp": 46, "max_hp": 46, "status": 0, "moves": [283, 45, 98, 332], "pp": [5, 10, 30, 20], "max_pp": [5, 10, 30, 20], "role": "Flying Fighting counter; Aerial Ace priority target pressure"},
+    {"slot": 2, "species_id": 543, "level": 17, "current_hp": 41, "max_hp": 41, "status": 0, "moves": [205, 182, 450, 342], "pp": [20, 10, 20, 25], "max_pp": [20, 10, 20, 25], "role": "Protect scout and Bug Bite reserve; avoid Rollout lock-in unless forced"},
+    {"slot": 3, "species_id": 95, "level": 17, "current_hp": 44, "max_hp": 44, "status": 0, "moves": [33, 225, 317, 103], "pp": [35, 20, 15, 5], "max_pp": [35, 20, 15, 5], "role": "Electric immunity and Rock Tomb speed control"},
+    {"slot": 4, "species_id": 878, "level": 17, "current_hp": 56, "max_hp": 56, "status": 0, "moves": [33, 45, 523, 249], "pp": [35, 10, 20, 15], "max_pp": [35, 10, 20, 15], "role": "Ground spread reserve for Electric/Poison threats"},
+    {"slot": 5, "species_id": 231, "level": 17, "current_hp": 58, "max_hp": 58, "status": 0, "moves": [420, 523, 28, 88], "pp": [30, 20, 5, 15], "max_pp": [30, 20, 5, 15], "role": "Ground immunity to Electric, Bulldoze speed control, Ice Shard priority"}
+  ],
+  "leads": [0, 1],
+  "plan": {
+    "target_priorities": [
+      "Mienfoo first: Fighting pressure plus Helping Hand can amplify the opening turn; Aerial Ace is the verified super-effective line.",
+      "Aipom second: remove Fake Out/Aerial Ace pressure after the first turn.",
+      "Luxio and Flaaffy immediately when they enter: pivot a grounded attacker to Phanpy or Onix and use Ground damage; never leave Staravia exposed to Electric coverage.",
+      "Nidorina/Nidorino next: use non-contact Ground damage or safe spread pressure before Toxic/Venoshock compounds.",
+      "Preserve at least one full-health Ground reserve for the final Electric pair."
+    ],
+    "opening_turn": [
+      {"party_slot": 0, "action": "Razor Leaf", "target": "Mienfoo and Aipom spread"},
+      {"party_slot": 1, "action": "Aerial Ace", "target": "Mienfoo"}
+    ],
+    "contingencies": [
+      "If Aipom Fake Outs Staravia, continue the queued Grotle spread action; do not spend a turn repeating a no-op.",
+      "If Mienfoo survives, keep it the priority target unless the battle RAM shows an immediate guaranteed KO on Aipom; Helping Hand and Force Palm are the highest opening risk.",
+      "When Luxio or Flaaffy appears, switch the threatened grounded lead to Phanpy or Onix before taking Electric damage; Phanpy Bulldoze is safe beside Staravia because Flying is immune to Ground.",
+      "Use Bulldoze against Electric/Poison reserves only when the allied partner is Flying or otherwise verified safe; otherwise use Rock Tomb, Rock Throw, or a switch.",
+      "If Toxic or paralysis lands and no immediate KO is available, pivot to a full-health reserve rather than spending the next turn on a low-confidence attack.",
+      "If a predicted KO, speed order, target, or damage range disagrees with battle RAM, stop, record the mismatch, and re-evaluate from a fresh canonical snapshot before another input."
+    ],
+    "classification": "minimax",
+    "deterministic_evidence": {
+      "source": "verified ROM type chart plus current party RAM stats; integer-conservative damage bounds",
+      "opening": [
+        "Staravia Aerial Ace (slot3) vs Mienfoo: 20-25 damage, super effective; Staravia speed36 vs Mienfoo speed29, so it is modeled first unless priority/AI changes the order.",
+        "Grotle Razor Leaf (slot1) vs Mienfoo: 11-14 damage; vs Aipom: 44-52 damage, modeled as a guaranteed Aipom KO from full HP if it connects and no protective effect intervenes.",
+        "Aipom speed36 ties Staravia and Fake Out has priority; this is the main opening uncertainty, not ignored.",
+        "Phanpy Bulldoze (slot1) vs Luxio: 16-20; vs Flaaffy: 14-18; vs Nidorina: 6-9. It also lowers enemy Speed and is safe beside Flying Staravia because Ground is immune to Flying.",
+        "Phanpy Ice Shard (slot0) vs Mienfoo: 3-5 and priority; preserve it for finishing a low-HP faster threat rather than opening damage."
+      ],
+      "material_uncertainty": [
+        "Exact enemy target selection, Fake Out target, accuracy, critical hits, and damage rolls are resolved from battle RAM after each queued action.",
+        "Spread-move damage reduction and custom trainer AI are rechecked against the first live double-battle result before calling any KO forced."
+      ]
+    }
+  },
+  "uncertainty": {
+    "action_changing": [],
+    "other": [
+      "Enemy target selection and damage random rolls are not forced before battle; read each command/action result from battle RAM and text.",
+      "The current party order is preserved because a RAM-verified party reorder primitive is not yet available; the plan explicitly uses Grotle/Staravia as the opening pair and Phanpy/Onix as reserves."
+    ]
+  },
+  "readiness": {
+    "checkpoint_verified": true,
+    "party_healed": true,
+    "pp_full": true,
+    "level_cap_respected": true,
+    "moves_and_items_set": true,
+    "status": "ready"
+  },
+  "failure_history": {
+    "same_plan_attempts": 0
+  }
+}

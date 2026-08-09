@@ -29,14 +29,14 @@
     {"slot": 2, "species_id": 231, "level": 17, "current_hp": 58, "max_hp": 58, "status": 0, "moves": [420, 523, 28, 88], "pp": [30, 20, 5, 15], "max_pp": [30, 20, 5, 15], "role": "full-health Ponyta pivot; Bulldoze is the verified super-effective line after the opening switch"},
     {"slot": 3, "species_id": 878, "level": 17, "current_hp": 56, "max_hp": 56, "status": 0, "moves": [33, 45, 523, 249], "pp": [35, 10, 20, 15], "max_pp": [35, 10, 20, 15], "role": "full-health Steel reserve for Dustox; do not treat Ground moves as an Eelektrik answer"},
     {"slot": 4, "species_id": 551, "level": 17, "current_hp": 47, "max_hp": 47, "status": 0, "moves": [555, 523, 317, 44], "pp": [10, 20, 15, 25], "max_pp": [10, 20, 15, 25], "role": "Electric-immune emergency pivot; Snarl is a pressure/debuff fallback, never Bulldoze into verified Levitate"},
-    {"slot": 5, "species_id": 111, "level": 17, "current_hp": 59, "max_hp": 59, "status": 0, "moves": [30, 479, 184, 23], "pp": [25, 15, 10, 20], "max_pp": [25, 15, 10, 20], "role": "dedicated Levitate counter; Smack Down grounds Eelektrik, then choose a fresh RAM-verified follow-up"}
+    {"slot": 5, "species_id": 111, "level": 17, "current_hp": 59, "max_hp": 59, "status": 0, "moves": [30, 479, 184, 23], "pp": [25, 15, 10, 20], "max_pp": [25, 15, 10, 20], "role": "rejected Eelektrik counter: verified Mega Drain range 76-92 always KOs full 59-HP Rhyhorn before Smack Down can establish a safe line"}
   ],
   "leads": [0],
   "plan": {
     "target_priorities": [
       "Bibarel first: open with Grotle Razor Leaf and repeat it after the verified Super Fang exchange; the live 24-HP remainder is safely finished before switching.",
       "Ponyta: pivot to full Phanpy slot 2 and use Bulldoze; the live samples show a super-effective two-hit line around the Sitrus threshold, so re-evaluate after every acknowledged exchange.",
-      "Eelektrik next: preserve and switch to full Rhyhorn slot 5. Resolve live ability first; use Smack Down once as the expected-best Levitate-bypass setup, then obtain a fresh canonical state before choosing Stomp, Horn Attack, a switch to Phanpy for Bulldoze, or the Sandile fallback. Never call the follow-up forced until grounding and damage are observed.",
+      "Eelektrik: revision 5 is invalid. Do not send Rhyhorn; verified ROM mechanics give Mega Drain 76-92 into its 59 HP. Rebuild the team around a counter that wins a terminal cartridge branch before contact.",
       "Sunflora: preserve full Staravia, use Aerial Ace before GrassWhistle/Leech Seed, and recompute if the first Energy Ball leaves Staravia below the Dustox survival threshold.",
       "Dustox: use full Cufant as the conservative reserve only when its live HP and incoming Venoshock/Infestation bounds remain survivable; otherwise preserve Staravia for a verified Aerial Ace finish."
     ],
@@ -48,13 +48,13 @@
       "If Bibarel survives the second verified Razor Leaf, stop the line and recompute; do not switch merely because the lead is below half HP when a two-hit KO is proven safe.",
       "Do not queue Ground moves into Eelektrik while live ability is Levitate; its immunity is authoritative and overrides the static type chart.",
       "Do not send Phanpy or Cufant into Eelektrik before the Levitate-bypass state is verified; Rhyhorn's Smack Down is a setup action, not a guaranteed KO.",
-      "Rhyhorn's Smack Down is expected-best, not forced: verify that the live target is grounded and that Rhyhorn survives the opponent's acknowledged action. If the survival gate fails, stop and use the fresh state to rebuild the line rather than sacrifice the team.",
+      "Never retry the Rhyhorn Smack Down line: its survival gate is deterministically false against Mega Drain (76-92 damage versus 59 HP).",
       "Sandile's Snarl is only an Electric-immune fallback: it can lower special pressure but does not guarantee a safe line against Toxic/Mega Drain. Verify HP, status, PP, and Eelektrik's ability after every turn before selecting the next action.",
       "If a move confirmation does not leave the move selector, treat it as a tooling defect and stop before battle resolution; never press through a stale selector.",
       "If Toxic, Leech Seed, GrassWhistle, or Infestation lands and no immediate KO is available, pivot to a full-health reserve.",
       "After every queued action, drain battle text and obtain a fresh canonical RAM state before selecting the next action. Any prediction mismatch becomes an incident record before further input."
     ],
-    "classification": "expected-best",
+    "classification": "rejected_by_verified_counterexample",
     "deterministic_evidence": {
       "source": "ROM trainer table, ROM party records, ROM species base-stat/type records, ROM move-name table, and current party RAM",
       "rom_identity": "event local 23 script 0x082249c7 begins with trainerbattle type 0, trainer ID 334; trainer table record at ROM file offset 0x39bccc points to party records at 0x0837c2d4",
@@ -63,30 +63,30 @@
       "material_uncertainty": [
         "Trainer-specific ability selection is not encoded in the compact party record; initial battle RAM must resolve each ability before relying on Levitate or other ability-sensitive lines.",
         "Exact enemy stats, target choice, speed ties, accuracy, critical hits, damage rolls, and custom AI are resolved from battle RAM after the battle starts.",
-        "Rhyhorn's Smack Down grounding effect, exact damage, and the opponent's first AI move remain action-changing until Eelektrik enters; Sandile's Electric immunity is deterministic, but Mega Drain remains super-effective."
+        "The current team still lacks a verified Eelektrik win; Sandile's Electric immunity does not cover super-effective Mega Drain."
       ]
     }
   },
   "uncertainty": {
     "action_changing": [
-      "At Eelektrik entry, resolve live ability, moves, HP, speed order, Smack Down grounding acknowledgement, and the first AI action before committing Rhyhorn's follow-up; if Rhyhorn cannot survive the verified branch, stop and revise rather than continue."
+      "Select and prepare a different Eelektrik counter, then require two terminal cartridge-clone wins before trainer contact."
     ],
     "other": [
       "Sunflora and Dustox abilities remain unresolved from ROM party data; resolve them from battle RAM before relying on ability-sensitive lines.",
-      "Party order is preserved from the healed RAM state because no verified field-party reorder primitive exists; battle switches will select by stable party identity."
+      "A verified personality-based party reorder primitive now exists; the replacement plan must record and enforce its final build/order hash."
     ]
   },
   "readiness": {
-    "checkpoint_verified": true,
+    "checkpoint_verified": false,
     "party_healed": true,
     "pp_full": true,
     "level_cap_respected": true,
     "moves_and_items_set": true,
-    "status": "ready"
+    "status": "blocked_counterexample"
   },
   "failure_history": {
-    "same_plan_attempts": 0,
-    "plan_revision": 5,
+    "same_plan_attempts": 1,
+    "plan_revision": 6,
     "previous_same_plan_failures": 4,
     "accidental_engagements": 1,
     "last_failure": {
@@ -98,7 +98,7 @@
       "foe_remaining": {"species_id": 192, "name": "Sunflora", "hp": 47, "max_hp": 54},
       "cause": "The navigator accidentally entered Camper Gavi before preparation was ready; Eelektrik consumed the mid-party reserves, Sunflora Energy Ball KO'd 15-HP Grotle despite not being very effective, and Phanpy then fell.",
       "tooling_evidence": "Battle Potion was rejected with Items can't be used now.<CTRL_08>; forced Grotle replacement also resolved an unsolicited queued Bite, so active identity and drained text remain the acknowledgement boundary.",
-      "required_revision": "Rhyhorn was retrieved from verified Box 0 slot 1 and raised to the Lv17 cap with Smack Down and Stomp learned through RAM-verified move screens. Rhyhorn is now slot 5; use Smack Down as the expected-best Levitate-bypass setup, preserve Phanpy for Ponyta and Staravia for Sunflora/Dustox, and stop on any grounding/survival mismatch."
+      "required_revision": "Revision 5 is retired: verified Mega Drain damage 76-92 always KOs full 59-HP Rhyhorn. Build a different counter-team and prove it twice in isolated cartridge clones before re-engagement."
     }
   }
 }

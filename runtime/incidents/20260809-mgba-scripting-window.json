@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "id": "20260809T095808Z-mgba-scripting-helper-obscures-gameplay-after-la",
+  "status": "verified",
+  "created_at": "2026-08-09T09:58:08.083249+00:00",
+  "summary": "mGBA scripting helper obscures gameplay after launcher start",
+  "component": "macOS mGBA launcher UI readiness",
+  "symptom": "The Scripting top-level window remains visible in front of gameplay after launch.",
+  "classification": "timing_protocol",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/pre-oracle-implementation-forward-20260809.state",
+    "sha256": "3933ecb49cff2c51670f87cb2d18fec4b92344d0d39dab37284bc43c67ad6ac3",
+    "canonical_state": {
+      "live_emulator_pid": 20780,
+      "process_state": "SIGSTOP idle",
+      "map_group": 0,
+      "map_num": 1,
+      "player_x": 19,
+      "player_y": 20
+    },
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "A foreground launch exposes exactly one mGBA gameplay window before clients can pause the emulator.",
+    "actual": "mGBA --script unconditionally opens a Scripting top-level window and the prior close race did not reliably dismiss it.",
+    "diff": [
+      "Expected one gameplay top-level window; observed gameplay plus Scripting.",
+      "Expected UI readiness before idle stop; the old helper raced RPC readiness and process suspension."
+    ],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "macOS Accessibility window inventory for the exact clone PID must contain one AXStandardWindow whose title starts with mGBA, no title Scripting, followed by ps state containing T.",
+    "sources": [
+      "System Events Accessibility API scoped by exact Unix PID",
+      "mGBA Qt source src/platform/qt/Window.cpp --script handling and ScriptingView.ui window title",
+      "SHA-256 checks of the disposable fixture and protected live checkpoint"
+    ]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "/Users/johann/gpt-plays-mgba/runtime/session/.clone-museum-frillish-command.state",
+    "fixture_sha256": "3790d1f6566d123da2797d30251af1fb37135b5a69f6b5344b126b451a9c8625",
+    "command": "MGBA_UI_TEST_STATE=runtime/session/.clone-museum-frillish-command.state MGBA_UI_PROTECTED_STATES=runtime/session/pre-oracle-implementation-forward-20260809.state python3 -m unittest tests.test_mgba_ui -v",
+    "steps": [
+      "Launch mGBA with --script through the foreground launcher from a disposable savestate clone.",
+      "Wait for the Lua RPC bridge and inspect exact-PID top-level windows with Accessibility.",
+      "Confirm the original launcher path exposes the unconditional mGBA Scripting window and can be suspended before a focus-based close completes."
+    ],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "Before the fix, mGBA exposed a 480x348 gameplay window and an 843x665 Scripting window; source inspection proves --script opens ScriptingView unconditionally."
+  },
+  "hypotheses": [
+    {
+      "claim": "The scriptingOpen configuration key suppresses the helper.",
+      "result": "falsified: the --script Qt path calls scriptingOpen() unconditionally."
+    },
+    {
+      "claim": "A generic early Cmd-W reliably closes the helper.",
+      "result": "falsified: it races window creation/focus and can be preempted by the client's SIGSTOP."
+    },
+    {
+      "claim": "Exact-PID Accessibility close after RPC readiness is deterministic.",
+      "result": "verified in repeated clone launches."
+    }
+  ],
+  "root_cause": {
+    "verified": true,
+    "claim": "mGBA's --script option unconditionally opens ScriptingView; the previous focus-based close raced Qt window creation and client idle suspension because RPC readiness did not imply UI cleanup readiness.",
+    "evidence": [
+      "Qt source calls scriptingOpen(), openView(view), and script loading in the --script handler.",
+      "Accessibility observed both gameplay and Scripting windows on the affected live process.",
+      "Direct AXCloseButton activation for the exact Scripting title removed it without game input."
+    ],
+    "alternatives_falsified": [
+      "scriptingOpen=0 can suppress the --script helper",
+      "focus-only Cmd-W is a sufficient launch synchronization boundary"
+    ]
+  },
+  "solution": {
+    "kind": "interface_fix",
+    "files": [
+      "scripts/launch_mgba_macos.sh",
+      "client/mgba_clone.py",
+      "tests/test_mgba_ui.py"
+    ],
+    "contract_change": "Foreground launch now publishes MGBA_UI_READY_FILE only after exact-PID Accessibility closes every Scripting window, raises gameplay, and allows Qt destruction to complete; disposable clients wait for UI readiness before connecting and idle-stopping mGBA.",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [
+      {
+        "name": "two-launch exact-PID Accessibility UI replay",
+        "command": "MGBA_UI_TEST_STATE=runtime/session/.clone-museum-frillish-command.state MGBA_UI_PROTECTED_STATES=runtime/session/pre-oracle-implementation-forward-20260809.state python3 -m unittest tests.test_mgba_ui -v",
+        "passed": true,
+        "evidence": "Two clone launches each exposed exactly one mGBA AXStandardWindow, no Scripting window, and a T process state."
+      },
+      {
+        "name": "launcher syntax",
+        "command": "zsh -n scripts/launch_mgba_macos.sh",
+        "passed": true,
+        "evidence": "exit 0"
+      }
+    ],
+    "regression_checks": [
+      {
+        "name": "full Python suite",
+        "command": "python3 -m unittest discover -s tests -q",
+        "passed": true,
+        "evidence": "105 tests passed; one opt-in macOS UI integration test skipped without its fixture environment variable."
+      }
+    ],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "One gameplay window, zero Scripting windows, and idle-stopped clone after observation.",
+      "actual": "Both runs reported one mGBA gameplay AXStandardWindow, zero Scripting windows, and process state T.",
+      "extra_state_deltas": []
+    },
+    "metrics": {
+      "top_level_windows_before": 2,
+      "top_level_windows_after": 1,
+      "scripting_windows_after": 0,
+      "verified_launches": 2,
+      "live_checkpoint_sha256_unchanged": true
+    }
+  },
+  "learning": {
+    "domain_knowledge": [
+      "mGBA 0.11's Qt --script path opens ScriptingView regardless of scriptingOpen configuration."
+    ],
+    "regression_cases": [
+      "tests.test_mgba_ui.MGBAWindowTests.test_clone_hides_scripting_before_idle_stop"
+    ],
+    "tooling_contracts": [
+      "MGBA_UI_READY_FILE, not RPC readiness, is the foreground launch boundary after which a client may suspend the emulator."
+    ]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

@@ -15,6 +15,7 @@ Turn every surprise into verified knowledge, a regression case, or a tooling fix
    - Save a separate replay fixture. Never experiment on the only live checkpoint.
    - If an action overran, record every unintended state delta; a favorable outcome is still a defect.
    - A save-state correction is allowed only when the bad state came from an accidental input/navigation mistake or a tooling/interface failure outside the controller's chosen strategy. Load the newest verified forward checkpoint, never an older historical state, and verify ROM/map/party/progression RAM plus the checkpoint hash after loading. Do not rewind a deliberate strategic loss; preserve it as the live learning state.
+   - Historical savestates may be loaded only as disposable interface/bug regression fixtures through `client.mgba_clone.disposable_clone`. Keep them in a separate muted, idle-stopped emulator process, protect and hash the live checkpoint, discard clone progression, and never load a historical fixture into the live emulator.
 
 2. Open a structured incident.
    - Run `python3 .agents/skills/resolve-unexpected-tooling-issues/scripts/incident.py init INCIDENT.json --summary ... --component ... --symptom ... --predicted ... --actual ...`.

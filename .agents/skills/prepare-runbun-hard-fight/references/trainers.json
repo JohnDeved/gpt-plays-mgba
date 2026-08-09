@@ -611,8 +611,13 @@
       "loss_2026-08-09_after_sequential_single_execution",
       "loss_2026-08-09_after_sunflora_dustox_endgame",
       "loss_2026-08-09_accidental_engagement_before_counter_ready",
-      "loss_2026-08-09_eelektrik_attrition_after_revision3",
-      "loss_2026-08-09_eelektrik_attrition_after_revision4"
+        "loss_2026-08-09_eelektrik_attrition_after_revision3",
+        "loss_2026-08-09_eelektrik_attrition_after_revision4",
+        "revision5_rejected_by_verified_mega_drain_counterexample",
+        "clone_2026-08-09_croakatoa_policy_terminal_win_1",
+        "clone_2026-08-09_croakatoa_policy_terminal_win_2",
+        "clone_2026-08-09_rampage_policy_terminal_win_30_actions",
+        "clone_2026-08-09_rampage_policy_terminal_win_29_actions"
         ],
         "failure_causes": [
           "current six-member team lacked a safe high-confidence Levitate Eelektrik answer",
@@ -627,7 +632,8 @@
       "Eelektrik's Sitrus threshold converted Poison Tail damage from 28 to 19 into a heal back to 32, so the Venipede line could not finish before the next Shock Wave",
       "the static evaluator did not model this custom Levitate Eelektrik matchup tightly enough: observed Rock Smash damage was 8 or 14 on a critical, Shock Wave was 22, and Mega Drain could KO Onix; existing generic suggestions were not safe guarantees",
       "the move interface can report a stale move menu or a queued turn before the intended action is acknowledged; Grotle's final Razor Leaf had unchanged PP and the active battler fainted before execution",
-      "revision 4 still entered Eelektrik with no dedicated Levitate-bypass move: Sandile's Snarl lowered special pressure but Mega Drain attrition consumed Sandile, Phanpy, Cufant, and Staravia before the Sunflora/Dustox endgame"
+      "revision 4 still entered Eelektrik with no dedicated Levitate-bypass move: Sandile's Snarl lowered special pressure but Mega Drain attrition consumed Sandile, Phanpy, Cufant, and Staravia before the Sunflora/Dustox endgame",
+      "revision 5 is structurally invalid: verified ROM damage is 76-92 for Eelektrik Mega Drain into full 59-HP Rhyhorn, so Rhyhorn cannot safely establish Smack Down"
         ],
         "preparation_requirements": [
           "heal HP, status, and PP at a Pokémon Center before re-engagement",
@@ -640,28 +646,36 @@
       "preserve that counter through Bibarel and Ponyta and guarantee its Eelektrik phase entry; one-time Cufant/Staravia chip is insufficient",
       "do not rely on Ground moves against Eelektrik until Levitate is removed or bypassed; require a strong neutral or super-effective move with enough bulk",
       "keep the move acknowledgement/verifier regression blocked until command-menu, HP, PP, species, and drained battle-text stability are all verified",
-      "verify Rhyhorn species 111 at Lv17 with Smack Down and Stomp, use Smack Down as the expected-best grounding setup, and stop if the live grounding or survival gate does not hold"
-    ],
-    "same_plan_failures": 3
-  },
-      "strategy": {
-        "status": "ready",
-        "reason": "revision 5 is prepared: healed Lv17 Rhyhorn is the dedicated Smack Down Levitate-bypass counter, Phanpy is the Ponyta Bulldoze pivot, Staravia is preserved for Sunflora/Dustox, and the Eelektrik follow-up remains expected-best pending live grounding/damage/AI verification",
-        "plan_path": "runtime/session/route110-local23-preflight_plan.json",
-        "plan_sha256": "33c5e55cc06fb8ffdfa25585d20964b80ec189dffdf5d278b9db4cec6322ba6b"
-      },
-      "evidence": {
-        "npc_checkpoint_sha256": "bc6d61df9112bac3e598bfaae96b5d7e4053136d8a56dd234e1a63b4e97f6cd0",
-        "preparation_checkpoint_sha256": "8c29e461c306a471a5b24b2295f92f5ebbdd09853de6487e77ffa3aec498b9ed",
-        "prepared_counter": "Rhyhorn species 111 Lv17 full HP; moves [30,479,184,23] (Horn Attack, Smack Down, Scary Face, Stomp), party slot 5",
-        "battle_text": "Camper Gavi sent out Eelektrik; live battle RAM resolved Levitate and the listed held items/moves",
-        "script_trainerbattle": "0x082249c7: trainerbattle type 0, trainer_id 334"
-      },
-      "uncertainties": [
-        "Sunflora and Dustox ability IDs were not exposed before the loss; 0 means unresolved, not no ability.",
-        "Trainer AI send-out order is action-dependent; ROM party order is recorded but live send-outs must remain authoritative.",
-        "Exact damage rolls, critical hits, accuracy, item thresholds, Smack Down grounding, and Eelektrik's first AI move remain runtime facts; stop if Rhyhorn's full-health survival gate fails."
+        "never use Rhyhorn as an Eelektrik or Sunflora counter; preserve it exclusively for Dustox Smack Down",
+        "use the exact Bushtank, Lildozer, Ohmnomnom, Birdlaw, Croakatoa, Rampage order at full HP and PP",
+        "resolve switch targets by personality from each fresh battle certificate"
       ],
+      "same_plan_failures": 0
+    },
+    "strategy": {
+      "status": "ready",
+      "reason": "the identity-based Rampage policy won complete 30-action and 29-action cartridge-clone replays through different send-out orders; it is a tested heuristic because RNG and AI branches were not exhaustively searched",
+      "plan_path": "runtime/session/route110-local23-croakatoa-plan-20260809.json",
+      "plan_sha256": "3c76b56e9e9ca0374a4918281457e7a2e5315fd046f12d2de6ca97114d422815"
+    },
+    "evidence": {
+      "npc_checkpoint_sha256": "bc6d61df9112bac3e598bfaae96b5d7e4053136d8a56dd234e1a63b4e97f6cd0",
+      "preparation_checkpoint_sha256": "49b0c1d2b7fda2469304d5c1c2f99ccda83bb798204ae5173177191963c07f45",
+      "opening_checkpoint_sha256": "1159ad886ec36e6dc651ff05d9694f964dd648ca983f0115a96b173c8111dda6",
+      "opening_state_hash": "194460b49a39a772",
+      "prepared_counter": "Croakatoa remains the Eelektrik/Sunflora converter; Rampage, Rhyhorn species 111 Lv17, full HP with Smack Down, is preserved exclusively for Dustox",
+      "isolated_replays": [
+        {"terminal_win": true, "certified_actions": 30, "controller": "games/run_and_bun/gavi_policy.py:GaviPolicy", "survivor_hp": {"Bushtank": 18, "Rampage": 59}},
+        {"terminal_win": true, "certified_actions": 29, "controller": "games/run_and_bun/gavi_policy.py:GaviPolicy", "survivor_hp": {"Bushtank": 11, "Ohmnomnom": 3, "Rampage": 56}}
+      ],
+      "battle_text": "Camper Gavi sent out Eelektrik; live battle RAM resolved Levitate and the listed held items/moves",
+      "script_trainerbattle": "0x082249c7: trainerbattle type 0, trainer_id 334"
+    },
+    "uncertainties": [
+      "Sunflora and Dustox ability IDs were not exposed before the loss; 0 means unresolved, not no ability.",
+      "Trainer AI send-out order is action-dependent; ROM party order is recorded but live send-outs must remain authoritative.",
+      "The policy is tested rather than exact-proven: damage, accuracy, critical-hit, and custom-AI branches were not exhaustively enumerated."
+    ],
       "key": "map:0:25/local:23"
     },
     "map:0:21/local:4": {

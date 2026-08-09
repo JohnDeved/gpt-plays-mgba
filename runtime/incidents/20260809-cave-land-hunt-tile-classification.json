@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T111833Z-granite-cave-hunt-treats-blocked-tile-520-as-wal",
+  "status": "verified",
+  "created_at": "2026-08-09T11:18:33.354399+00:00",
+  "summary": "Granite Cave hunt treats blocked tile 520 as walkable grass",
+  "component": "games/run_and_bun/live_map.py and games/runbun.py hunt_wild_species",
+  "symptom": "hunter exceeded adaptive navigation replans at x22 y8 targeting x23 y8",
+  "classification": "observation_decoder",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/granite-togedemaru-hunt-forward-20260809.state",
+    "sha256": "0ff7ce36200d95b39b6b5cc6328b5527ef039aff6c12aedf96dccea572fa05cf",
+    "canonical_state": {"map": [24, 7], "position": [22, 8], "mode": "overworld", "state_hash": "b34337777fe5073e"},
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "tile 520 accepts movement and provides a two-tile encounter loop",
+    "actual": "two isolated cartridge clones remain at x22 y8 after RIGHT; collision-0 cave floor is the encounter surface",
+    "diff": ["metatile 0x208 changed from walkable encounter grass to blocked secondary-tileset tile"],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "Run & Bun cartridge SaveBlock coordinates after frame-synchronized input",
+    "sources": ["runtime/session/granite-togedemaru-hunt-forward-20260809.state", "RAM MapHeader mapType byte at 0x020368f3"]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "runtime/session/granite-togedemaru-hunt-forward-20260809.state",
+    "fixture_sha256": "0ff7ce36200d95b39b6b5cc6328b5527ef039aff6c12aedf96dccea572fa05cf",
+    "command": "disposable_clone fixture; press RIGHT for 3 frames; wait 30; observe SaveBlock map position",
+    "steps": ["load fixture in clone", "press RIGHT", "read map and battle state"],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "both runs remained at map 24:7 position 22,8 with no battle"
+  },
+  "hypotheses": ["0x208 is a globally stable grass metatile", "0x208 is secondary-tileset-local and blocked in Granite Cave"],
+  "root_cause": {
+    "verified": true,
+    "claim": "The decoder incorrectly treated secondary metatile ID 0x208 as globally walkable; Granite Cave uses it as a collision-1 obstruction, while map type 4 rolls land encounters on collision-free cave floor.",
+    "evidence": ["two cartridge clone replays rejected the 22,8 -> 23,8 edge", "RAM word for 23,8 is metatile 0x208 collision 1", "MapHeader mapType is 4 and the corrected hunter selects collision-0 pair 22,8 <-> 21,8"],
+    "alternatives_falsified": ["No NPC occupies the edge: authoritative live object list is empty", "The failure is not random encounter interruption: battle.active remained false"]
+  },
+  "solution": {
+    "kind": "code_fix",
+    "files": ["games/run_and_bun/live_map.py", "games/runbun.py", "tests/test_live_map.py"],
+    "contract_change": "Secondary tileset IDs no longer override collision globally; underground map type 4 uses walkable cave floor as its land-encounter surface.",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [{"name": "map decoder and underground surface tests", "command": "python3 -m unittest tests.test_live_map", "passed": true, "evidence": "all targeted tests passed"}],
+    "regression_checks": [{"name": "full repository tests", "command": "python3 -m unittest discover -s tests", "passed": true, "evidence": "121 tests passed; 1 skipped"}],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "corrected hunt selects floor pair [(22,8),(21,8)] without targeting blocked 0x208",
+      "actual": "both runs selected [(22,8),(21,8)] and completed one bounded step without adaptive-path failure",
+      "extra_state_deltas": []
+    },
+    "metrics": {"adaptive_replan_failures_before": 1, "adaptive_replan_failures_after": 0}
+  },
+  "learning": {
+    "domain_knowledge": ["Gen III secondary metatile IDs are tileset-local; underground map type 4 encounters occur on ordinary walkable cave floor."],
+    "regression_cases": ["tests.test_live_map.LiveMapTests.test_secondary_tileset_id_does_not_override_collision", "tests.test_live_map.LiveMapTests.test_underground_floor_is_a_land_encounter_surface"],
+    "tooling_contracts": ["Never use a secondary metatile ID alone to override collision across maps."]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

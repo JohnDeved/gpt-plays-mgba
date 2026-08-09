@@ -5,6 +5,62 @@ The project has two parallel goals:
 1. Complete Pokémon Run & Bun through normal game inputs.
 2. Continuously improve the emulator interface so each future decision requires less fragile low-level work.
 
+## Current gameplay interface plan
+
+Verified and available:
+
+- Muted, foreground gameplay launch with the Scripting window closed before UI readiness
+- OS-stop while idle and bounded resume for RPC work
+- RAM map identity, transition graph, direct-edge/event-warp/scripted-ferry travel, and identity-based NPC seeking
+- Trainer database keyed to overworld map/local NPC identity
+- ROM wild-encounter lookup with visited-map filtering
+- PC storage snapshot plus verified deposit, withdrawal, and swap
+- Six-entry Pokécenter utility-NPC catalog; `apply_status` is the first promoted mutation
+- Hard-fight preparation, tooling-incident, progress-tracking, automation, and reusable-strategy skills
+
+The active backlog merges the three exact-oracle plans retained in the Codex
+session log at lines `26317`, `26483`, and `26523` of
+`/Users/johann/.codex/sessions/2026/08/08/rollout-2026-08-08T18-09-34-019fe223-0720-7821-9dee-5020985af310.jsonl`.
+
+### Exact battle oracle
+
+- [x] Decode the verified 20-byte ROM move table and corrected 19×19 type chart.
+- [ ] Finish cartridge-accurate mechanics for criticals, accuracy, abilities, held items, berries, fixed/multi-hit/drain/residual effects; retain known-matchup regression ranges. Verified expanded species records and level-up learnsets are decoded.
+- [x] Route important single-battle mutations through certified `game_battle_step` with fresh hashes, legal actions, PP attribution, and predicted/actual evidence.
+- [x] Tighten `game_battle_step` to require two stable canonical observations and automatically open an incident on any mismatch.
+- [x] Replace context-free tactical samples with experience schema v2; preserve raw history but quarantine contradictory or incomplete v1 bounds.
+- [x] Add isolated `game_battle_branch_search` with real-cartridge successor savestates, unique-port disposable clones, exact-state transposition cache, lexicographic scoring, bounded proof labels, replay support, and live-hash preservation.
+- [ ] Re-enable `game_battle_branch_search` only after semantic-cycle pruning, losing-terminal classification, and a strict wall-clock budget have objective regressions; use bounded persisted-policy replays until then.
+- [ ] Obtain two terminal winning reproductions for the prepared Gavi build; fixed-checkpoint search still explicitly excludes input-delay RNG variants.
+- [ ] Add canonical legal-action evaluation and certified execution for true double battles.
+
+### Complete team preparation
+
+- [x] Add direct capability execution and a compact authoritative progression snapshot.
+- [x] Decode all PC boxes and provide verified deposit, withdrawal, and swap.
+- [x] Upgrade PC operations to require a fresh storage hash and stable personality/OT references; expose nature, ability slot, friendship, exact box location, and explicit boxed-status unavailability.
+- [x] Decode verified species growth IDs so boxed experience converts to an authoritative level.
+- [x] Expand `game_pokemon_build_options` with stable party references, legal ROM relearn moves, nature/IV/status/build facts, costs, and current Heart Scale availability.
+- [x] Extend identity-based NPC seeking with loaded-map ROM `script_address`, including the utility NPC at `0x082A741E`.
+- [x] Add verified personality-based party reordering and Pokécenter healing (full HP, cleared status, exact ROM-derived PP).
+- [ ] Expose globally available field moves as navigation capabilities—especially Fly—even when no party Pokémon has learned the corresponding battle move; decode destination legality and verify every arrival map from RAM.
+- [ ] Add held-item give, take, and swap interfaces with stable Pokémon/item references.
+- [ ] Promote the remaining utility-NPC mutations: remember move, forget move, maximize one IV, and change nature; status and nickname application are verified.
+- [ ] Add atomic `game_team_prepare(plan)` to coordinate healing, PC transfers, candy/move resolution, utility services, held items, and exact party order with a final build hash.
+- [ ] Add `game_counter_plan(trainer_key)` using party, PC, reachable ROM encounters, legal builds, and the exact branch oracle before recommending a capture.
+- [x] Expose certified `game_capture_target`: require a fitting nickname, reach the lowest crit-safe HP, add verified sleep/paralysis when available, throw with L only after catch-factor preparation, and audit the inserted RAM record.
+- [x] Add a bounded RAM/ROM-driven wild target hunter that flees non-targets and stops at a fresh target command state.
+- [ ] Add verified hold-L plus D-pad ball-type selection when multiple ball types are available.
+- [ ] Resolve unknown overworld trainers directly from event script and ROM trainer tables, then upsert the trainer database before contact.
+
+### Proven strategy toolbelt and enforcement
+
+- [x] Add the repository strategy skill, schema/database tooling, proof states, counterexample retention, and the `setup-window-sweep` candidate.
+- [ ] Add `game_strategy_query` to match scoped strategies against trainer, party, PC, obtainable counters, and legal build requirements.
+- [ ] Add `game_strategy_validate` to instantiate a strategy through branch search, retain replay hashes, and promote/demote only at the recorded proof threshold.
+- [ ] Add hard preflight enforcement for complete roster/mechanics, exact party build/order hash, zero action-changing uncertainty, two terminal clone wins, and fewer than two failures for the same proof tuple.
+- [ ] Prove every mutating interface in disposable muted clones, with protected checkpoint hashes and full regressions, before live use.
+
 ## Completed milestone: RPC v0.1
 
 Implemented and tested against mGBA development build `0.11-9122-afd6f14ea` and Pokémon Run & Bun v1.07:

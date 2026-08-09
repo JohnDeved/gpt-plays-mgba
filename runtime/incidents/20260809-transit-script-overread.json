@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T110602Z-transit-discovery-classifies-unrelated-slateport",
+  "status": "observed",
+  "created_at": "2026-08-09T11:06:02.431886+00:00",
+  "summary": "Transit discovery classifies unrelated Slateport NPCs as ferries",
+  "component": "ROM scripted transit discovery",
+  "symptom": "game_map_transit_options returned six unrelated Slateport NPCs with the same job-posting text",
+  "classification": "unknown",
+  "severity": "medium",
+  "live_state": {
+    "required": false,
+    "preserved": false,
+    "artifact": null,
+    "sha256": null,
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "Only an NPC whose own bounded script contains voyage dialogue is selectable",
+    "actual": "Every nearby NPC inherited sailing text from a fixed 256-byte cross-script scan",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}
