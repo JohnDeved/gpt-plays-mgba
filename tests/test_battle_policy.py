@@ -134,6 +134,16 @@ class BattlePolicyTests(unittest.TestCase):
         self.assertNotEqual(decision["action"]["move_id"], 252)
         self.assertTrue(any("strategy:" in item for items in decision["vetoes"].values() for item in items))
 
+    def test_gavi_fake_out_is_preferred_once_on_fresh_ohmnomnom_entry(self):
+        profile = load_profile(Path("games/run_and_bun/policy_profiles/gavi.json"))
+        policy = BattlePolicy(profile, strategies=load_strategies())
+        cert = certificate(player_species=777, opponent_species=192, move_ids=(252, 232))
+        first = policy.choose(cert)
+        policy.record_verified(cert, first)
+        second = policy.choose(cert)
+        self.assertEqual(first["move_id"], 252)
+        self.assertEqual(second["move_id"], 232)
+
 
 class BattleReviewTests(unittest.TestCase):
     def transition(self, *, uncertainty=False):
@@ -159,6 +169,8 @@ class BattleReviewTests(unittest.TestCase):
     def test_clean_win_qualifies_only_without_action_changing_findings(self):
         review = review_episode([self.transition()], terminal="win", source="cartridge_clone", opening_state_hash="open", behavior_hash="b" * 64, policy_id="fixture")
         self.assertEqual(review["status"], "clean")
+        self.assertEqual(review["postmortem"]["what_went_wrong"], [])
+        self.assertEqual(review["postmortem"]["what_could_improve"][0]["kind"], "no_action_changing_defect")
         with tempfile.TemporaryDirectory() as directory:
             ledger = QualificationLedger(Path(directory) / "qualification.json")
             for _ in range(2):
@@ -175,6 +187,8 @@ class BattleReviewTests(unittest.TestCase):
     def test_loss_resets_qualification_and_records_cause(self):
         review = review_episode([self.transition()], terminal="loss", source="cartridge_clone", opening_state_hash="open", behavior_hash="b" * 64, policy_id="fixture")
         self.assertEqual(review["classification"], "tactical_error")
+        self.assertEqual(review["postmortem"]["what_went_wrong"][0]["kind"], "tactical_error")
+        self.assertEqual(review["postmortem"]["what_could_improve"][0]["layer"], "reusable_executable_strategy")
         with tempfile.TemporaryDirectory() as directory:
             ledger = QualificationLedger(Path(directory) / "qualification.json")
             ledger.record(review)

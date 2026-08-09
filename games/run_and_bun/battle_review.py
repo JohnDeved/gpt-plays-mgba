@@ -74,6 +74,73 @@ def _finding(kind: str, summary: str, transition: dict[str, Any] | None = None, 
     return result
 
 
+def _improvement_layer(kind: str) -> str:
+    return {
+        "tooling_mismatch": "shared_observation_execution_tooling",
+        "unexpected_action_outcome": "shared_observation_execution_tooling",
+        "suboptimal_action": "generic_tactical_scorer",
+        "action_changing_uncertainty": "bounded_counterfactual_or_scorer",
+        "policy_gap": "reusable_executable_strategy",
+        "tactical_error": "reusable_executable_strategy",
+        "preparation_team_failure": "hard_fight_preparation",
+    }.get(kind, "battle_policy_review")
+
+
+def _postmortem(
+    transitions: list[dict[str, Any]],
+    *,
+    terminal: str,
+    findings: list[dict[str, Any]],
+    counterfactuals: list[dict[str, Any]],
+    status: str,
+) -> dict[str, Any]:
+    """Produce the compact human/audit list required before another clone."""
+    comparisons = []
+    for transition in transitions:
+        actual = transition.get("actual") or {}
+        decision = transition.get("policy_decision") or {}
+        comparisons.append({
+            "action_id": transition.get("action_id"),
+            "predicted_action": decision.get("action"),
+            "verified_action": transition.get("action"),
+            "verified": transition.get("verified") is True,
+            "actual_outcome": actual.get("allied_action_outcome"),
+            "enemy_move_id": actual.get("enemy_move_id"),
+            "allied_pp_deltas": actual.get("allied_pp_deltas", []),
+            "opponent_pp_deltas": actual.get("opponent_pp_deltas", []),
+            "discrepancies": transition.get("discrepancies", []),
+        })
+    improvements = [
+        {
+            "kind": finding.get("kind"),
+            "summary": finding.get("summary"),
+            "layer": _improvement_layer(str(finding.get("kind"))),
+            "state_hash": finding.get("state_hash"),
+            "action_id": finding.get("action_id"),
+        }
+        for finding in findings
+    ]
+    if counterfactuals:
+        improvements.append({
+            "kind": "bounded_counterfactual_review",
+            "summary": f"replay {len(counterfactuals)} materially plausible alternative action(s) once before retry",
+            "layer": "bounded_counterfactual_or_scorer",
+        })
+    if not improvements and terminal == "win" and status == "clean":
+        improvements.append({
+            "kind": "no_action_changing_defect",
+            "summary": "no verified action-changing problem; retain the unchanged bundle for qualification",
+            "layer": "none",
+        })
+    return {
+        "terminal_authoritative": terminal in {"win", "loss"},
+        "what_went_wrong": findings,
+        "what_could_improve": improvements,
+        "prediction_comparisons": comparisons,
+        "next_step": "apply every action-changing improvement before retry" if improvements and not (len(improvements) == 1 and improvements[0]["kind"] == "no_action_changing_defect") else "qualify unchanged bundle",
+    }
+
+
 def review_episode(
     transitions: list[dict[str, Any]],
     *,
@@ -154,8 +221,15 @@ def review_episode(
     }
     if profile_strategy_ids is not None:
         matched_strategy_ids = matched_strategy_ids & applied_ids
+    postmortem = _postmortem(
+        transitions,
+        terminal=terminal,
+        findings=findings,
+        counterfactuals=counterfactuals,
+        status=status,
+    )
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "created_at": _now(),
         "terminal": terminal,
         "source": source,
@@ -166,6 +240,7 @@ def review_episode(
         "matched_strategy_ids": sorted(matched_strategy_ids),
         "certified_actions": len(transitions),
         "findings": findings,
+        "postmortem": postmortem,
         "counterfactuals": counterfactuals,
         "status": status,
         "classification": classification,

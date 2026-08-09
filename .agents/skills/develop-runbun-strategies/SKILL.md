@@ -19,6 +19,12 @@ Build a small evidence-backed toolbelt, not a list of generic Pokémon tips. Que
 7. Execute live only after hard-fight readiness validates. Use a fresh battle certificate and `game_battle_step` for every important single-battle action.
 8. Append evidence after each verified result. Run `strategy_db.py promote ID`; let the script enforce proof thresholds. Demote or retire a strategy after a counterexample.
 9. For executable tactics, add the fixed `executable.when` predicates and `directives` block to the strategy record. Use `tools/run_battle_policy.py` for the clone attempt so the postmortem and bounded counterfactual queue are written before the next attempt. Evidence and prose may change without changing the executable behavior hash.
+10. After every fight—win or loss—stop and complete the persisted postmortem before another clone or live attempt. Review every verified transaction against its prediction and list:
+    - what went wrong: tooling mismatches, terminal/action errors, avoidable faints, reserve misuse, resource loss, and slower-than-needed actions;
+    - what was suboptimal: only choices lexicographically dominated by a verified legal alternative or confirmed by a bounded replay;
+    - what remains uncertain: only action-changing uncertainty gets a bounded one-replay counterfactual;
+    - what could improve: assign each item to shared tooling, generic scorer, reusable executable strategy, or genuine trainer exception.
+    Persist the review, regression state, counterexample, and reusable lesson. Apply every action-changing improvement before retrying; a clean win records that no action-changing defect was found and may count toward qualification, but a win with an unresolved improvement cannot.
 
 ## Evidence Rules
 

@@ -131,7 +131,8 @@
               "active_role": "ohmnomnom",
               "opponent_species": [
                 77
-              ]
+              ],
+              "fresh_entry": false
             },
             "directives": [
               {
@@ -141,6 +142,26 @@
                   "role": "lildozer"
                 }
               }
+            ]
+          },
+          {
+            "when": {
+              "active_role": "ohmnomnom",
+              "opponent_species": [77, 192],
+              "fresh_entry": true
+            },
+            "directives": [
+              {"kind": "prefer", "action": {"kind": "move", "move_id": 252}}
+            ]
+          },
+          {
+            "when": {
+              "active_role": "ohmnomnom",
+              "opponent_species": [192],
+              "fresh_entry": false
+            },
+            "directives": [
+              {"kind": "prefer", "action": {"kind": "move", "move_id": 232}}
             ]
           },
           {
@@ -266,39 +287,75 @@
           {
             "when": {
               "active_role": "croakatoa",
-              "opponent_species": [77, 192, 269]
+              "opponent_species": [
+                77,
+                192,
+                269
+              ]
             },
             "directives": [
-              {"kind": "forbid", "action": {"kind": "move", "move_id": 252}}
+              {
+                "kind": "forbid",
+                "action": {
+                  "kind": "move",
+                  "move_id": 252
+                }
+              }
             ]
           },
           {
             "when": {
               "active_role": "croakatoa",
-              "opponent_species": [603],
+              "opponent_species": [
+                603
+              ],
               "fresh_entry": false
             },
             "directives": [
-              {"kind": "forbid", "action": {"kind": "move", "move_id": 252}}
+              {
+                "kind": "forbid",
+                "action": {
+                  "kind": "move",
+                  "move_id": 252
+                }
+              }
             ]
           },
           {
             "when": {
               "active_role": "ohmnomnom",
-              "opponent_species": [77, 192],
+              "opponent_species": [
+                77,
+                192
+              ],
               "fresh_entry": false
             },
             "directives": [
-              {"kind": "forbid", "action": {"kind": "move", "move_id": 252}}
+              {
+                "kind": "forbid",
+                "action": {
+                  "kind": "move",
+                  "move_id": 252
+                }
+              }
             ]
           },
           {
             "when": {
               "active_role": "ohmnomnom",
-              "opponent_species": [269, 603]
+              "opponent_species": [
+                269,
+                603
+              ]
             },
             "directives": [
-              {"kind": "forbid", "action": {"kind": "move", "move_id": 252}}
+              {
+                "kind": "forbid",
+                "action": {
+                  "kind": "move",
+                  "move_id": 252
+                }
+              }
             ]
           },
           {
@@ -521,6 +578,13 @@
             "kind": "tactical_error",
             "summary": "the verified party and policy did not produce a terminal win",
             "state_hash": "6141c5c364e44cba",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "afc8daedbba904f70986",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "2abef8b2c49b68e1",
             "trainer_key": "map:0:25/local:23"
           }
         ]
