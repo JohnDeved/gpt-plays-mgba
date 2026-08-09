@@ -13,10 +13,10 @@ Each strategy requires:
 - `blockers`: opposing moves, abilities, items, field states, or reserve patterns that invalidate the line.
 - `abort_rules`: observable RAM conditions that force a stop or replan.
 - `evidence`: `reproductions`, `exhaustive_searches`, `distinct_state_hashes`, `trainer_keys`, and `counterexamples`.
-- `executable` (optional): a fixed `when` predicate object and non-empty
-  `directives` array. Directives are only `prefer`, `forbid`, or `reserve`, and
-  action selectors contain only legal action fields such as `kind`, `move_id`,
-  `species`, `slot`, or a bound party `role`.
+- `executable` (optional): one legacy fixed `when`/`directives` block or a
+  `rules` array of those blocks. Directives are only `prefer`, `forbid`, or
+  `reserve`, and action selectors contain only legal action fields such as
+  `kind`, `move_id`, `species`, `slot`, or a bound party `role`.
 
 Supported predicates are `active_role`, `opponent_species`, `forced_switch`,
 `fresh_entry`, player/opponent HP thresholds, `player_status_any`,

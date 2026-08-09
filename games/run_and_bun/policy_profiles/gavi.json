@@ -17,38 +17,5 @@
     {"role": "birdlaw", "for_opponent_species": [192, 269]},
     {"role": "bugatti", "for_opponent_species": [192]}
   ],
-  "constraints": [
-    {
-      "id": "gavi-bibarel-first-razor",
-      "when": {
-        "active_role": "bushtank",
-        "opponent_species": [400],
-        "action_count": {"role": "bushtank", "move_id": 75, "equals": 0}
-      },
-      "directives": [
-        {"kind": "prefer", "action": {"kind": "move", "move_id": 75}}
-      ]
-    },
-    {
-      "id": "gavi-ponyta-lildozer-pivot",
-      "when": {"active_role": "ohmnomnom", "opponent_species": [77]},
-      "directives": [
-        {"kind": "prefer", "action": {"kind": "switch", "role": "lildozer"}}
-      ]
-    },
-    {
-      "id": "gavi-dustox-birdlaw-finish",
-      "when": {"active_role": "birdlaw", "opponent_species": [269]},
-      "directives": [
-        {"kind": "prefer", "action": {"kind": "move", "move_id": 332}}
-      ]
-    },
-    {
-      "id": "gavi-sunflora-bugatti-finish",
-      "when": {"active_role": "bugatti", "opponent_species": [192]},
-      "directives": [
-        {"kind": "prefer", "action": {"kind": "move", "move_id": 342}}
-      ]
-    }
-  ]
+  "constraints": []
 }

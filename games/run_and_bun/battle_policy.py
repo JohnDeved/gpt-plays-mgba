@@ -392,11 +392,17 @@ class BattlePolicy:
         for strategy in self.strategies:
             if strategy.get("id") in wanted and isinstance(strategy.get("executable"), dict):
                 executable = strategy["executable"]
-                rules.append({
-                    "id": f"strategy:{strategy['id']}",
-                    "when": executable.get("when", {}),
-                    "directives": executable.get("directives", []),
-                })
+                blocks = executable.get("rules")
+                if not isinstance(blocks, list):
+                    blocks = [executable]
+                rules.extend(
+                    {
+                        "id": f"strategy:{strategy['id']}",
+                        "when": block.get("when", {}),
+                        "directives": block.get("directives", []),
+                    }
+                    for block in blocks
+                )
         return rules
 
     def _directive_effects(self, certificate: dict[str, Any]) -> tuple[dict[str, int], dict[str, list[str]], list[str]]:

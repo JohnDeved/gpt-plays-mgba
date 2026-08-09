@@ -46,19 +46,30 @@ def validate(data: dict) -> list[str]:
             if not isinstance(executable, dict):
                 errors.append(f"{prefix}.executable must be an object")
             else:
-                when = executable.get("when", {})
-                if not isinstance(when, dict):
-                    errors.append(f"{prefix}.executable.when must be an object")
-                else:
-                    for key in sorted(set(when) - PREDICATES):
-                        errors.append(f"{prefix}.executable.when.{key} is unsupported")
-                directives = executable.get("directives", [])
-                if not isinstance(directives, list) or not directives:
-                    errors.append(f"{prefix}.executable.directives must be a non-empty array")
-                else:
-                    for directive in directives:
-                        if not isinstance(directive, dict) or directive.get("kind") not in {"prefer", "forbid", "reserve"}:
-                            errors.append(f"{prefix}.executable has unsupported directive")
+                blocks = executable.get("rules")
+                if blocks is None:
+                    blocks = [executable]
+                if not isinstance(blocks, list) or not blocks:
+                    errors.append(f"{prefix}.executable.rules must be a non-empty array")
+                    blocks = []
+                for block_index, block in enumerate(blocks):
+                    block_prefix = f"{prefix}.executable.rules[{block_index}]"
+                    if not isinstance(block, dict):
+                        errors.append(f"{block_prefix} must be an object")
+                        continue
+                    when = block.get("when", {})
+                    if not isinstance(when, dict):
+                        errors.append(f"{block_prefix}.when must be an object")
+                    else:
+                        for key in sorted(set(when) - PREDICATES):
+                            errors.append(f"{block_prefix}.when.{key} is unsupported")
+                    directives = block.get("directives", [])
+                    if not isinstance(directives, list) or not directives:
+                        errors.append(f"{block_prefix}.directives must be a non-empty array")
+                    else:
+                        for directive in directives:
+                            if not isinstance(directive, dict) or directive.get("kind") not in {"prefer", "forbid", "reserve"}:
+                                errors.append(f"{block_prefix} has unsupported directive")
         evidence = strategy.get("evidence", {})
         for field in ("reproductions", "exhaustive_searches", "distinct_state_hashes", "trainer_keys", "counterexamples"):
             if not isinstance(evidence.get(field), list):

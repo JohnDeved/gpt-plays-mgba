@@ -41,13 +41,18 @@
       "executable": {
         "when": {
           "active_role": "croakatoa",
-          "opponent_species": [603],
+          "opponent_species": [
+            603
+          ],
           "fresh_entry": true
         },
         "directives": [
           {
             "kind": "prefer",
-            "action": {"kind": "move", "move_id": 252}
+            "action": {
+              "kind": "move",
+              "move_id": 252
+            }
           }
         ]
       },
@@ -97,6 +102,62 @@
         "the fresh certificate no longer offers the recorded action",
         "a no-input observation changes battle state after the verifier returns"
       ],
+      "executable": {
+        "rules": [
+          {
+            "when": {"active_role": "bushtank", "opponent_species": [400], "action_count": {"role": "bushtank", "move_id": 75, "equals": 0}},
+            "directives": [{"kind": "prefer", "action": {"kind": "move", "move_id": 75}}]
+          },
+          {
+            "when": {"active_role": "ohmnomnom", "opponent_species": [77]},
+            "directives": [{"kind": "prefer", "action": {"kind": "switch", "role": "lildozer"}}]
+          },
+          {
+            "when": {"active_role": "lildozer", "opponent_species": [77], "player_hp_gte": 20},
+            "directives": [{"kind": "prefer", "action": {"kind": "move", "move_id": 523}}]
+          },
+          {
+            "when": {"active_role": "lildozer", "opponent_species": [77], "opponent_hp_lte": 3},
+            "directives": [{"kind": "prefer", "action": {"kind": "move", "move_id": 420}}]
+          },
+          {
+            "when": {"active_role": "bushtank", "opponent_species": [603], "action_count": {"role": "bushtank", "move_id": 75, "equals": 0}},
+            "directives": [{"kind": "prefer", "action": {"kind": "move", "move_id": 75}}]
+          },
+          {
+            "when": {"active_role": "bushtank", "opponent_species": [603], "action_count": {"role": "bushtank", "move_id": 75, "gte": 1}},
+            "directives": [{"kind": "forbid", "action": {"kind": "move", "move_id": 75}}]
+          },
+          {
+            "when": {"active_role": "croakatoa", "opponent_species": [603], "fresh_entry": true},
+            "directives": [{"kind": "prefer", "action": {"kind": "move", "move_id": 252}}]
+          },
+          {
+            "when": {"active_role": "croakatoa", "opponent_species": [603], "fresh_entry": false, "action_count": {"role": "croakatoa", "move_id": 609, "equals": 0}},
+            "directives": [{"kind": "prefer", "action": {"kind": "move", "move_id": 609}}]
+          },
+          {
+            "when": {"active_role": "croakatoa", "opponent_species": [603], "player_hp_lte": 10, "action_count": {"role": "croakatoa", "move_id": 609, "gte": 1}},
+            "directives": [{"kind": "prefer", "action": {"kind": "switch", "role": "ohmnomnom"}}]
+          },
+          {
+            "when": {"active_role": "ohmnomnom", "opponent_species": [603]},
+            "directives": [{"kind": "prefer", "action": {"kind": "move", "move_id": 249}}]
+          },
+          {
+            "when": {"active_role": "birdlaw", "opponent_species": [603], "opponent_hp_lte": 7},
+            "directives": [{"kind": "prefer", "action": {"kind": "move", "move_id": 98}}]
+          },
+          {
+            "when": {"active_role": "birdlaw", "opponent_species": [269]},
+            "directives": [{"kind": "prefer", "action": {"kind": "move", "move_id": 332}}]
+          },
+          {
+            "when": {"active_role": "bugatti", "opponent_species": [192]},
+            "directives": [{"kind": "prefer", "action": {"kind": "move", "move_id": 342}}]
+          }
+        ]
+      },
       "evidence": {
         "reproductions": [
           {
