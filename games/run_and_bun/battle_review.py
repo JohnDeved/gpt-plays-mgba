@@ -13,6 +13,17 @@ ROOT = Path(__file__).resolve().parents[2]
 REVIEW_PATH = ROOT / "runtime" / "session" / "battle_reviews.jsonl"
 QUALIFICATION_PATH = ROOT / "runtime" / "session" / "policy_qualification.json"
 MAX_COUNTERFACTUALS = 3
+SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+DEFAULT_SEVERITY = {
+    "terminal_loss": "critical",
+    "preparation_team_failure": "critical",
+    "tooling_mismatch": "high",
+    "unexpected_action_outcome": "high",
+    "policy_gap": "high",
+    "tactical_error": "high",
+    "action_changing_uncertainty": "high",
+    "suboptimal_action": "medium",
+}
 
 
 def _now() -> str:
@@ -67,7 +78,7 @@ def bounded_counterfactuals(
 
 
 def _finding(kind: str, summary: str, transition: dict[str, Any] | None = None, **extra: Any) -> dict[str, Any]:
-    result = {"kind": kind, "summary": summary, **extra}
+    result = {"kind": kind, "severity": extra.pop("severity", DEFAULT_SEVERITY.get(kind, "medium")), "summary": summary, **extra}
     if transition:
         result["state_hash"] = transition.get("pre_state_hash")
         result["action_id"] = transition.get("action_id")
@@ -86,11 +97,62 @@ def _improvement_layer(kind: str) -> str:
     }.get(kind, "battle_policy_review")
 
 
+def _fight_observations(transitions: list[dict[str, Any]], terminal: str) -> list[dict[str, Any]]:
+    """List non-blocking facts that still deserve review after every fight."""
+    observations: list[dict[str, Any]] = []
+    switches = sum(transition.get("action", {}).get("kind") == "switch" for transition in transitions)
+    moves = sum(transition.get("action", {}).get("kind") == "move" for transition in transitions)
+    pp_spent = sum(
+        len((transition.get("actual") or {}).get("allied_pp_deltas") or [])
+        for transition in transitions
+    )
+    prevented = sum(
+        (transition.get("actual") or {}).get("allied_action_outcome") == "prevented_by_status"
+        for transition in transitions
+    )
+    seen_faints: set[str] = set()
+    for transition in transitions:
+        feedback = str(((transition.get("actual") or {}).get("resolution") or {}).get("feedback", ""))
+        if "fainted" in feedback.casefold():
+            summary = " ".join(feedback.split())[-240:]
+            if summary not in seen_faints:
+                seen_faints.add(summary)
+                observations.append({
+                    "kind": "faint_observed",
+                    "severity": "high",
+                    "summary": f"a party faint was observed; determine whether the earliest causal action was avoidable: {summary}",
+                    "action_changing": False,
+                    "requires_bounded_replay": True,
+                })
+    if switches >= 8:
+        observations.append({
+            "kind": "switch_tempo_observation",
+            "severity": "medium",
+            "summary": f"{switches} switches occurred across {len(transitions)} verified actions; inspect whether each pivot preserved a reserve or only extended the line",
+            "action_changing": False,
+        })
+    if len(transitions) > 25:
+        observations.append({
+            "kind": "long_line_observation",
+            "severity": "low",
+            "summary": f"the fight required {len(transitions)} verified actions; seek a verified shorter line only if it changes the lexicographic result",
+            "action_changing": False,
+        })
+    observations.append({
+        "kind": "resource_tempo_summary",
+        "severity": "info",
+        "summary": f"verified usage: {moves} move actions, {pp_spent} allied PP decrements, {switches} switches, {prevented} status-prevented actions; terminal={terminal}",
+        "action_changing": False,
+    })
+    return observations
+
+
 def _postmortem(
     transitions: list[dict[str, Any]],
     *,
     terminal: str,
     findings: list[dict[str, Any]],
+    observations: list[dict[str, Any]],
     counterfactuals: list[dict[str, Any]],
     status: str,
 ) -> dict[str, Any]:
@@ -113,6 +175,7 @@ def _postmortem(
     improvements = [
         {
             "kind": finding.get("kind"),
+            "severity": finding.get("severity", "medium"),
             "summary": finding.get("summary"),
             "layer": finding.get("root_layer") or _improvement_layer(str(finding.get("kind"))),
             "state_hash": finding.get("state_hash"),
@@ -120,13 +183,20 @@ def _postmortem(
         }
         for finding in findings
     ]
+    improvements.extend({
+        "kind": observation.get("kind"),
+        "severity": observation.get("severity", "info"),
+        "summary": observation.get("summary"),
+        "layer": _improvement_layer(str(observation.get("kind"))),
+        "action_changing": observation.get("action_changing", False),
+    } for observation in observations)
     if counterfactuals:
         improvements.append({
             "kind": "bounded_counterfactual_review",
             "summary": f"replay {len(counterfactuals)} materially plausible alternative action(s) once before retry",
             "layer": "bounded_counterfactual_or_scorer",
         })
-    if not improvements and terminal == "win" and status == "clean":
+    if not findings and not counterfactuals and terminal == "win" and status == "clean":
         improvements.append({
             "kind": "no_action_changing_defect",
             "summary": "no verified action-changing problem; retain the unchanged bundle for qualification",
@@ -136,8 +206,12 @@ def _postmortem(
         "terminal_authoritative": terminal in {"win", "loss"},
         "what_went_wrong": findings,
         "what_could_improve": improvements,
+        "prioritized_items": sorted(
+            [*findings, *observations],
+            key=lambda item: SEVERITY_ORDER.get(str(item.get("severity", "medium")), 2),
+        ),
         "prediction_comparisons": comparisons,
-        "next_step": "apply every action-changing improvement before retry" if improvements and not (len(improvements) == 1 and improvements[0]["kind"] == "no_action_changing_defect") else "qualify unchanged bundle",
+        "next_step": "apply every action-changing improvement before retry" if any(item.get("action_changing") for item in improvements) else "qualify unchanged bundle or monitor non-blocking observations",
     }
 
 
@@ -217,8 +291,13 @@ def review_episode(
     if terminal == "loss" and not findings:
         kind = "tactical_error" if any(item.get("policy_decision") for item in transitions) else "preparation_team_failure"
         findings.append(_finding(kind, "the verified party and policy did not produce a terminal win", transitions[-1] if transitions else None, action_changing=True))
+    if terminal == "loss":
+        findings.append(_finding("terminal_loss", "authoritative battle state ended in a loss/whiteout", transitions[-1] if transitions else None, action_changing=True))
+    if terminal == "action_limit":
+        findings.append(_finding("incomplete_fight", "the bounded runner reached its action limit before terminal verification", transitions[-1] if transitions else None, severity="high", action_changing=True))
 
     counterfactuals = bounded_counterfactuals(transitions)
+    observations = _fight_observations(transitions, terminal)
     blocking = [item for item in findings if item.get("action_changing")]
     status = "clean" if terminal == "win" and not blocking and not counterfactuals else "needs_improvement"
     if terminal == "loss" and findings:
@@ -240,6 +319,7 @@ def review_episode(
         transitions,
         terminal=terminal,
         findings=findings,
+        observations=observations,
         counterfactuals=counterfactuals,
         status=status,
     )
@@ -255,6 +335,7 @@ def review_episode(
         "matched_strategy_ids": sorted(matched_strategy_ids),
         "certified_actions": len(transitions),
         "findings": findings,
+        "observations": observations,
         "postmortem": postmortem,
         "counterfactuals": counterfactuals,
         "status": status,

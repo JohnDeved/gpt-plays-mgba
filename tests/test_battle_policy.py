@@ -178,7 +178,8 @@ class BattleReviewTests(unittest.TestCase):
         review = review_episode([self.transition()], terminal="win", source="cartridge_clone", opening_state_hash="open", behavior_hash="b" * 64, policy_id="fixture")
         self.assertEqual(review["status"], "clean")
         self.assertEqual(review["postmortem"]["what_went_wrong"], [])
-        self.assertEqual(review["postmortem"]["what_could_improve"][0]["kind"], "no_action_changing_defect")
+        self.assertTrue(any(item["kind"] == "no_action_changing_defect" for item in review["postmortem"]["what_could_improve"]))
+        self.assertTrue(all("severity" in item for item in review["postmortem"]["prioritized_items"]))
         with tempfile.TemporaryDirectory() as directory:
             ledger = QualificationLedger(Path(directory) / "qualification.json")
             for _ in range(2):
@@ -207,7 +208,9 @@ class BattleReviewTests(unittest.TestCase):
         review = review_episode([self.transition()], terminal="loss", source="cartridge_clone", opening_state_hash="open", behavior_hash="b" * 64, policy_id="fixture")
         self.assertEqual(review["classification"], "tactical_error")
         self.assertEqual(review["postmortem"]["what_went_wrong"][0]["kind"], "tactical_error")
-        self.assertEqual(review["postmortem"]["what_could_improve"][0]["layer"], "reusable_executable_strategy")
+        tactical = next(item for item in review["postmortem"]["what_could_improve"] if item["kind"] == "tactical_error")
+        self.assertEqual(tactical["layer"], "reusable_executable_strategy")
+        self.assertEqual(next(item for item in review["findings"] if item["kind"] == "terminal_loss")["severity"], "critical")
         with tempfile.TemporaryDirectory() as directory:
             ledger = QualificationLedger(Path(directory) / "qualification.json")
             ledger.record(review)

@@ -24,7 +24,8 @@ Build a small evidence-backed toolbelt, not a list of generic Pokémon tips. Que
     - what was suboptimal: only choices lexicographically dominated by a verified legal alternative or confirmed by a bounded replay;
     - what remains uncertain: only action-changing uncertainty gets a bounded one-replay counterfactual;
     - what could improve: assign each item to shared tooling, generic scorer, reusable executable strategy, or genuine trainer exception.
-    Persist the review, regression state, counterexample, and reusable lesson. Apply every action-changing improvement before retrying; a clean win records that no action-changing defect was found and may count toward qualification, but a win with an unresolved improvement cannot.
+    List every observed item, not only the first causal failure. Assign `critical`, `high`, `medium`, `low`, or `info` severity, sort the ledger highest first, and work the highest-severity reusable cause before lower-severity polish. A terminal loss/whiteout is critical; tooling or action-changing defects are high; verified dominated choices are medium; unverified tempo/resource observations are low/info until replay proves they change the action.
+    Persist the complete review, regression state, counterexample, and reusable lesson. Apply every action-changing improvement before retrying; a clean win records that no action-changing defect was found and may count toward qualification, but a win with an unresolved improvement cannot.
 
 ## Evidence Rules
 
