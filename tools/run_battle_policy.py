@@ -48,6 +48,27 @@ def _terminal_from_result(result: dict) -> str | None:
     return None
 
 
+def _tool_error_transition(certificate: dict, decision: dict, action: dict, error: Exception, pre_state_path: Path | None = None) -> dict:
+    result = {
+        "action_id": None,
+        "verified": False,
+        "certificate_id": certificate.get("certificate_id"),
+        "certificate": {
+            "state": certificate.get("state"),
+            "compact_state": certificate.get("compact_state"),
+            "boundary": certificate.get("boundary"),
+        },
+        "pre_state_hash": certificate.get("state_hash"),
+        "action": action,
+        "policy_decision": decision,
+        "actual": {"allied_action_outcome": "tool_error", "error": str(error)},
+        "discrepancies": [f"{type(error).__name__}: {error}"],
+    }
+    if pre_state_path:
+        result["pre_state_path"] = str(pre_state_path.resolve())
+    return result
+
+
 def _stable(adapter: RunBunAdapter, gba: MGBA) -> tuple[dict, dict] | None:
     for _ in range(5):
         try:
@@ -202,16 +223,23 @@ def main() -> int:
             if review_state_dir and not args.live:
                 pre_state_path = review_state_dir / f"turn-{turn:03d}.state"
                 gba.save_state(pre_state_path.resolve())
-            result = _battle_step({
-                "state_hash": compact["state_hash"],
-                "certificate_id": certificate["certificate_id"],
-                "action": action,
-                "policy_decision": decision,
-                "battle_id": args.battle_id or profile.get("trainer_key"),
-                "max_frames": 1800,
-            }, adapter=adapter, persist=True)
-            if pre_state_path:
-                result["pre_state_path"] = str(pre_state_path.resolve())
+            try:
+                result = _battle_step({
+                    "state_hash": compact["state_hash"],
+                    "certificate_id": certificate["certificate_id"],
+                    "action": action,
+                    "policy_decision": decision,
+                    "battle_id": args.battle_id or profile.get("trainer_key"),
+                    "max_frames": 1800,
+                }, adapter=adapter, persist=True)
+                if pre_state_path:
+                    result["pre_state_path"] = str(pre_state_path.resolve())
+            except (CapabilityError, RuntimeError, ValueError) as error:
+                result = _tool_error_transition(certificate, decision, action, error, pre_state_path)
+                transitions.append(result)
+                terminal = "step_mismatch"
+                stop = {"error": str(error), "certificate": certificate}
+                break
             transitions.append(result)
             if not result["verified"]:
                 terminal = "step_mismatch"

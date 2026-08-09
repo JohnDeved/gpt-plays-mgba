@@ -29,6 +29,13 @@ class BattlePolicyRunnerTests(unittest.TestCase):
         result = {"actual": {"resolution": {"feedback": "You got money for winning!"}}}
         self.assertEqual(MODULE._terminal_from_result(result), "win")
 
+    def test_tool_error_becomes_reviewable_unverified_transition(self):
+        certificate = {"certificate_id": "cert", "state_hash": "state", "state": {}, "compact_state": {}, "boundary": {}}
+        transition = MODULE._tool_error_transition(certificate, {"policy_id": "p"}, {"kind": "switch", "slot": 1}, RuntimeError("switch_failed"))
+        self.assertFalse(transition["verified"])
+        self.assertEqual(transition["actual"]["allied_action_outcome"], "tool_error")
+        self.assertIn("switch_failed", transition["discrepancies"][0])
+
 
 if __name__ == "__main__":
     unittest.main()
