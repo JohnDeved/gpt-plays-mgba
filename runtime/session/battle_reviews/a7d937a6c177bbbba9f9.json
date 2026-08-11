@@ -1,0 +1,112 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T18:55:15.348829+00:00",
+  "review_id": "a7d937a6c177bbbba9f9",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "5d3ba87823b47419423f802a0cec667b4a42984aed27aaa2fe332106bd087c32",
+  "behavior_hash": "fe9a7fa77fc1a04f53491394911a6b0ab2a62263f8c94640d19552243014a089",
+  "policy_id": "gavi-coppertop-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 31,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 31,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The second Coppertop clone ended in whiteout after 31 verified actions.",
+        "state": "runtime/session/battle_reviews/states/1786301667312445000/turn-031.state",
+        "action_id": "ecab62f4976ec8bd319d",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The turn-001 fixed-damage replay selected Spark and the turn-008 status-fallback replay rejected burned Lildozer; both corrected actions executed with no discrepancy. The invalid bundle will not be retried.",
+          "behavior_hash": "dd60965b699a89f20243356411c352faa75c4b509e7cc1ea33ee552743c2ae7d",
+          "replay_states": [
+            "runtime/session/battle_reviews/states/1786301667312445000/turn-001.state",
+            "runtime/session/battle_reviews/states/1786301667312445000/turn-008.state"
+          ]
+        }
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "critical",
+        "summary": "Turn 1 abandoned the proven Spark opening and switched healthy Bushtank into Bibarel because the scorer doubled fixed Super Fang damage as if it were an ordinary critical-hit roll.",
+        "state": "runtime/session/battle_reviews/states/1786301667312445000/turn-001.state",
+        "action_id": "c6010b3c1622a7ebe347",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Turn-001 replay reported a 26-damage Super Fang critical bound, selected Spark, and executed Spark with no discrepancy.",
+          "behavior_hash": "dd60965b699a89f20243356411c352faa75c4b509e7cc1ea33ee552743c2ae7d"
+        },
+        "root_layer": "generic_tactical_scorer",
+        "alternative": {
+          "kind": "move",
+          "move_id": 209
+        },
+        "why_bad": "Super Fang is fixed half-current-HP damage; applying the ordinary critical multiplier created a false catastrophic threat and broke the opening policy.",
+        "improvement": "Use the fixed-damage exception in critical bounds and preserve the verified two-Spark Bibarel line."
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "The false opening threat produced 22 switches in 31 actions and only 9 attacks; the policy repeatedly spent enemy turns without improving the board.",
+        "state": "runtime/session/battle_reviews/states/1786301667312445000/turn-008.state",
+        "action_id": "8fd1362f2969b66ae165",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Turn-008 replay vetoed the burned Lildozer voluntary switch and selected healthy Ohmnomnom instead; the action executed with no discrepancy.",
+          "behavior_hash": "dd60965b699a89f20243356411c352faa75c4b509e7cc1ea33ee552743c2ae7d"
+        },
+        "root_layer": "generic_tactical_scorer",
+        "improvement": "Do not pivot from a healthy active line when the corrected fixed-damage threat is survivable; preserve the action economy for verified attacks."
+      },
+      {
+        "kind": "preparation_team_failure",
+        "severity": "high",
+        "summary": "This attempt cannot validate Coppertop as a team answer because the invalid fixed-damage threat corrupted the entire opening before the matchup plan began.",
+        "state": "runtime/session/battle_reviews/states/1786301667312445000/turn-001.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The preparation finding was invalidated as a scorer-corrupted attempt: corrected turn-001 and turn-008 replays reached legal battle decisions without observation or execution discrepancies. A fresh full clone is required before judging Coppertop.",
+          "behavior_hash": "dd60965b699a89f20243356411c352faa75c4b509e7cc1ea33ee552743c2ae7d"
+        },
+        "root_layer": "hard_fight_preparation",
+        "improvement": "Re-evaluate the prepared team only after a corrected opening reaches Ponyta and Eelektrik."
+      },
+      {
+        "kind": "switch_tempo",
+        "severity": "medium",
+        "summary": "22 switches consumed the line and left Coppertop at 13 HP for the final Eelektrik entry; the tempo loss was avoidable.",
+        "action_changing": true,
+        "root_layer": "reusable_executable_strategy"
+      },
+      {
+        "kind": "line_length",
+        "severity": "low",
+        "summary": "The fight again reached 31 verified actions; speed remains secondary to repairing the opening survival model."
+      }
+    ],
+    "correct_choices": [
+      "Every action result and the terminal whiteout were RAM-verified with no tooling discrepancy.",
+      "The few attacks that occurred were legal and their PP changes were verified.",
+      "Coppertop's Bulldoze into Ponyta at turn 25 was a correct matchup action, but it occurred after the line was already unrecoverable."
+    ],
+    "next_test": "Run Clone 3 with behavior hash dd60965b; review every action before any retry."
+  }
+}

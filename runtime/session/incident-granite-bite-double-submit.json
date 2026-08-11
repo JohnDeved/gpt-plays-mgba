@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "id": "20260809T063000Z-granite-bite-double-submit",
+  "status": "observed",
+  "created_at": "2026-08-09T06:30:00+02:00",
+  "summary": "Granite Cave capture Bite was submitted twice across commit/verify",
+  "component": "battle transaction boundary",
+  "symptom": "A single committed Bite was observed first at 27 -> 10 HP, then the verification phase advanced another Bite and fainted the wild Aron.",
+  "classification": "tooling_contract",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/granite-counter-hunt-start-forward-20260809.ss",
+    "sha256": "",
+    "canonical_state": {
+      "pre_state_hash": "6a680dbe563f4174",
+      "map": [24, 7],
+      "position": [23, 7],
+      "player": {"species": 388, "hp": 57, "max_hp": 57},
+      "opponent": {"species": 304, "hp": 27, "max_hp": 27}
+    },
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "One Bite would be nonlethal under the modeled 17-22 damage interval and leave Aron available for a ball after verification.",
+    "actual": "The commit returned Aron at 10/27 and PP 24, while subsequent verification reported another Bite and Aron fainted; final Grotle Bite PP was 23.",
+    "diff": ["one requested move produced two PP decrements", "wild target fainted despite the first observed HP being nonzero"],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "live RAM plus drained battle text",
+    "sources": ["game_battle_commit", "game_battle_verify"]
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "game_battle_commit(state_hash=6a680dbe563f4174, action=move slot 0) followed by game_battle_verify",
+    "steps": ["canonical snapshot", "commit Bite", "observe target 10/27 and PP 24", "verify transaction", "observe faint and PP 23"],
+    "run_count": 1,
+    "same_outcome": false,
+    "observed": "single requested action crossed an unstable queued-action boundary"
+  },
+  "hypotheses": [
+    "commit's choose_move returned before the queued action fully resolved",
+    "verify treated a still-live command/menu marker as permission to advance another action"
+  ],
+  "root_cause": {
+    "verified": false,
+    "claim": "the commit/verify acknowledgement contract is not stable at command-menu return",
+    "evidence": ["PP 25 -> 24 at commit, then 24 -> 23 during verify", "first post-commit target HP was 10, final text reported a second Bite"],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": "workaround_pending",
+    "files": [],
+    "contract_change": "Do not use game_battle_commit followed immediately by game_battle_verify until a stable post-action boundary is implemented and regression-tested.",
+    "workaround": "Use one direct state-controller action, wait for drained battle text and stable HP/PP/species across two observations, then evaluate the next action."
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {"passed": false, "runs": 0, "expected": "one PP decrement", "actual": "two PP decrements", "extra_state_deltas": []},
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": ["A nonlethal normal-damage estimate is not sufficient if a transaction can submit twice."],
+    "regression_cases": ["wild Aron 304 at 27/27, Grotle 388 Bite slot 0 at command menu"],
+    "tooling_contracts": ["A command-menu observation is provisional until post-action HP/PP/species and feedback are stable."]
+  },
+  "action_changing_unknowns": ["whether commit or verify owns queued action resolution"],
+  "next_experiments": ["restore forward hunt checkpoint", "test a single direct controller action with explicit stable-boundary polling", "add a regression test before promoting a transaction fix"]
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T004932Z-route-110-bibarel-super-fang-model-mismatch",
+  "status": "observed",
+  "created_at": "2026-08-09T00:49:32.229165+00:00",
+  "summary": "Route 110 Bibarel Super Fang model mismatch",
+  "component": "battle damage evaluator",
+  "symptom": "The first enemy action dealt half of Grotle's HP through Super Fang while the evaluator predicted a 2-4 damage maximum.",
+  "classification": "prediction_model",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/route110-local23-bibarel-turn1-forward-20260809.ss",
+    "sha256": "25bb1e929b1bba1c6016f2ae5b6479d50405261938549642e9b6fc84d2e41736",
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "Incoming Bibarel damage maximum 4; Razor Leaf 37-45 damage.",
+    "actual": "Bibarel used Super Fang and dealt 28 damage (57 to 29); Razor Leaf dealt 32 damage (56 to 24) and was super effective.",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

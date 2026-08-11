@@ -1,0 +1,57 @@
+{
+  "path": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-center-gavi-pre-cufant-forward-20260810.state",
+  "sha256": "37ba72db324db29507295f3a9618a48ded8400acd34cfe0ddc7995422f970314",
+  "state_hash": "12002ad444c6e9eb",
+  "frame": 18512873,
+  "map": {
+    "group": 3,
+    "number": 1,
+    "x": 10,
+    "y": 2,
+    "warp_id": 0
+  },
+  "party": [
+    {
+      "slot": 0,
+      "species": 388,
+      "personality": 1476487022,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 1,
+      "species": 231,
+      "personality": 1744238455,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 2,
+      "species": 777,
+      "personality": 3325952935,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 3,
+      "species": 397,
+      "personality": 1813210531,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 4,
+      "species": 453,
+      "personality": 506087644,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 5,
+      "species": 111,
+      "personality": 2559287137,
+      "ot_id": 3307282159,
+      "level": 17
+    }
+  ]
+}

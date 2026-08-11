@@ -1,21 +1,167 @@
 {
   "schema_version": 1,
-  "id": "gavi-hybrid-v1",
+  "id": "gavi-bushtank-bugatti-v3",
   "trainer_key": "map:0:25/local:23",
   "tactical_scorer_version": "runbun-tactical-v1",
   "roles": {
-    "ohmnomnom": {"species": 777},
-    "lildozer": {"species": 231},
-    "bushtank": {"species": 388},
-    "birdlaw": {"species": 397},
-    "croakatoa": {"species": 453},
-    "bugatti": {"species": 543}
+    "bushtank": {"personality": 1476487022, "species": 388},
+    "lildozer": {"personality": 1744238455, "species": 231},
+    "ohmnomnom": {"personality": 3325952935, "species": 777},
+    "birdlaw": {"personality": 1813210531, "species": 397},
+    "croakatoa": {"personality": 506087644, "species": 453},
+    "bugatti": {"personality": 2609223149, "species": 543}
   },
-  "strategy_ids": ["status-immune-converter-preserved-finisher"],
+  "strategy_ids": [],
   "reserve_objectives": [
+    {"role": "bushtank", "for_opponent_species": [400]},
     {"role": "lildozer", "for_opponent_species": [77]},
+    {"role": "croakatoa", "for_opponent_species": [77, 603, 192]},
     {"role": "birdlaw", "for_opponent_species": [192, 269]},
     {"role": "bugatti", "for_opponent_species": [192]}
   ],
-  "constraints": []
+  "constraints": [
+    {
+      "id": "bushtank-commit-razor-leaf-bibarel",
+      "when": {"active_role": "bushtank", "opponent_species": [400], "forced_switch": false},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 75}},
+        {"kind": "forbid", "action": {"kind": "switch"}}
+      ]
+    },
+    {
+      "id": "croakatoa-to-ohmnomnom-eelektrik",
+      "when": {"active_role": "croakatoa", "opponent_species": [603], "fresh_entry": false, "forced_switch": false, "role_available": "ohmnomnom"},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "switch", "role": "ohmnomnom"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "birdlaw"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "bugatti"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "bushtank"}}
+      ]
+    },
+    {
+      "id": "ohmnomnom-fresh-fake-out-eelektrik",
+      "when": {"active_role": "ohmnomnom", "opponent_species": [603], "fresh_entry": true, "forced_switch": false},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 252}},
+        {"kind": "forbid", "action": {"kind": "switch"}}
+      ]
+    },
+    {
+      "id": "ohmnomnom-nuzzle-eelektrik-once",
+      "when": {"active_role": "ohmnomnom", "opponent_species": [603], "fresh_entry": false, "forced_switch": false},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 609}},
+        {"kind": "forbid", "action": {"kind": "switch"}}
+      ]
+    },
+    {
+      "id": "ohmnomnom-metal-claw-after-nuzzle-eelektrik",
+      "when": {"active_role": "ohmnomnom", "opponent_species": [603], "forced_switch": false, "action_count": {"role": "ohmnomnom", "move_id": 609, "gte": 1}},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 232}},
+        {"kind": "forbid", "action": {"kind": "move", "move_id": 609}},
+        {"kind": "forbid", "action": {"kind": "switch"}}
+      ]
+    },
+    {
+      "id": "ohmnomnom-to-birdlaw-dustox",
+      "when": {"active_role": "ohmnomnom", "opponent_species": [269], "forced_switch": false, "role_available": "birdlaw"},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "switch", "role": "birdlaw"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "bugatti"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "croakatoa"}}
+      ]
+    },
+    {
+      "id": "birdlaw-commit-aerial-ace-sunflora",
+      "when": {"active_role": "birdlaw", "opponent_species": [192], "forced_switch": false},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 332}},
+        {"kind": "forbid", "action": {"kind": "switch"}}
+      ]
+    },
+    {
+      "id": "avoid-bushtank-bite-into-ponyta-flame-body",
+      "when": {"active_role": "bushtank", "opponent_species": [77]},
+      "directives": [{"kind": "forbid", "action": {"kind": "move", "move_id": 44}}]
+    },
+    {
+      "id": "croakatoa-mud-shot-ponyta-finish",
+      "when": {"active_role": "croakatoa", "opponent_species": [77], "forced_switch": false},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 341}},
+        {"kind": "forbid", "action": {"kind": "switch"}}
+      ]
+    },
+    {
+      "id": "birdlaw-commit-aerial-ace-dustox",
+      "when": {"active_role": "birdlaw", "opponent_species": [269], "forced_switch": false},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 332}},
+        {"kind": "forbid", "action": {"kind": "switch"}}
+      ]
+    },
+    {
+      "id": "forced-ohmnomnom-finish-low-dustox",
+      "when": {"forced_switch": true, "opponent_species": [269], "opponent_hp_lte": 12, "role_available": "ohmnomnom"},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "switch", "role": "ohmnomnom"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "bushtank"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "croakatoa"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "bugatti"}}
+      ]
+    },
+    {
+      "id": "ohmnomnom-spark-finish-low-dustox",
+      "when": {"active_role": "ohmnomnom", "opponent_species": [269], "opponent_hp_lte": 12, "forced_switch": false},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 209}},
+        {"kind": "forbid", "action": {"kind": "switch"}}
+      ]
+    },
+    {
+      "id": "forced-croakatoa-after-lildozer-ponyta-sack",
+      "when": {"forced_switch": true, "opponent_species": [77], "role_available": "croakatoa"},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "switch", "role": "croakatoa"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "ohmnomnom"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "bushtank"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "birdlaw"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "bugatti"}}
+      ]
+    },
+    {
+      "id": "lildozer-commit-bulldoze-after-speed-drop",
+      "when": {"active_role": "lildozer", "opponent_species": [77], "player_hp_gte": 20, "action_count": {"role": "lildozer", "move_id": 523, "gte": 1}},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 523}},
+        {"kind": "forbid", "action": {"kind": "switch"}}
+      ]
+    },
+    {
+      "id": "lildozer-priority-sack-low-ponyta",
+      "when": {"active_role": "lildozer", "opponent_species": [77], "opponent_hp_lte": 30, "player_hp_lte": 15},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 420}},
+        {"kind": "forbid", "action": {"kind": "switch"}}
+      ]
+    },
+    {
+      "id": "forced-bugatti-counter-sunflora",
+      "when": {"forced_switch": true, "opponent_species": [192], "role_available": "bugatti"},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "switch", "role": "bugatti"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "bushtank"}},
+        {"kind": "forbid", "action": {"kind": "switch", "role": "croakatoa"}}
+      ]
+    },
+    {
+      "id": "bugatti-commit-poison-tail-sunflora",
+      "when": {"active_role": "bugatti", "opponent_species": [192], "forced_switch": false},
+      "directives": [
+        {"kind": "prefer", "action": {"kind": "move", "move_id": 342}},
+        {"kind": "forbid", "action": {"kind": "switch"}}
+      ]
+    }
+  ]
 }

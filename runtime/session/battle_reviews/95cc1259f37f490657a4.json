@@ -1,0 +1,89 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T18:59:24.194922+00:00",
+  "review_id": "95cc1259f37f490657a4",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "5d3ba87823b47419423f802a0cec667b4a42984aed27aaa2fe332106bd087c32",
+  "behavior_hash": "dd60965b699a89f20243356411c352faa75c4b509e7cc1ea33ee552743c2ae7d",
+  "policy_id": "gavi-coppertop-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 31,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 31,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The clone ended in a verified whiteout; live execution remains forbidden.",
+        "action_changing": true,
+        "observed_fact": "All six party members fainted while Sunflora remained at 34/54 HP."
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "At the earliest causal divergence, the policy switched Birdlaw into Ponyta instead of using the verified one-turn Bulldoze finish with Lildozer.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786301915899857000/turn-005.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Bounded replay from turn 005 used Lildozer Bulldoze; Ponyta fainted immediately, no enemy reply occurred, and the step had no discrepancy."
+        },
+        "observed_fact": "The selected switch was followed by a critical Play Rough and began the subsequent attrition loop."
+      },
+      {
+        "kind": "preparation_team_failure",
+        "severity": "high",
+        "summary": "The failed branch reached Sunflora with every viable answer already in critical condition; this was downstream of the Ponyta switch loop, not a reason to keep retrying the same party line.",
+        "action_changing": true,
+        "observed_fact": "At Sunflora entry Ohmnomnom was 10/52, Birdlaw 18/46, Croakatoa 17/44, Bushtank 22/57, and Lildozer 5/58; direct Birdlaw and Croakatoa switches were each verified KOs."
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "The declarative strategy had no Birdlaw Aerial Ace preference for Sunflora, despite the recorded endgame role and verified damage evidence.",
+        "action_changing": true,
+        "improvement": "Added the reusable Birdlaw/Aerial Ace-versus-Sunflora rule to the strategy record."
+      },
+      {
+        "kind": "status_and_reserve_misuse",
+        "severity": "high",
+        "summary": "The forced-switch scorer selected poisoned, seeded, and sleeping Coppertop as the least-bad reserve, then spent two turns on prevented Tackle actions while the endgame was already lost.",
+        "action_changing": true,
+        "observed_fact": "Coppertop entered at 24/56 with status, both Tackle actions were prevented, and the status-bearing finisher fainted before dealing damage."
+      },
+      {
+        "kind": "switch_tempo_observation",
+        "severity": "medium",
+        "summary": "Nineteen switches in 31 actions traded away HP without removing Ponyta or creating a safe Sunflora entry.",
+        "action_changing": false
+      },
+      {
+        "kind": "resource_tempo_observation",
+        "severity": "medium",
+        "summary": "The line spent 12 move actions, 19 switches, and six allied faints; the losses were primarily HP and reserve access rather than PP.",
+        "action_changing": false
+      },
+      {
+        "kind": "long_line_observation",
+        "severity": "low",
+        "summary": "The 31-action line was longer than the verified 22-action historical win; speed work is secondary until the survival line is restored.",
+        "action_changing": false
+      }
+    ],
+    "correct_choices": [
+      "Spark removed Bibarel while preserving the lead through Super Fang.",
+      "The corrected fixed-damage handling did not repeat the prior Super Fang critical-bound error.",
+      "All 31 action results matched authoritative RAM without an execution or observation discrepancy."
+    ],
+    "next_test": "Start the next disposable clone only after this review is persisted; verify the turn-005 Bulldoze exception, then check that Sunflora is met with a healthy preserved answer before qualification continues."
+  }
+}

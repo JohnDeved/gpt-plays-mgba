@@ -1,0 +1,109 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T10:18:15.946327+00:00",
+  "review_id": "eac81e2a482d58489867",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "b1647fff942597b9cbf75746bdf765765e3575c2ac6534bca6999c1b19675d57",
+  "behavior_hash": "d64e8fba25252bf6673e106c97ef2676057b1df37047512d07866d6af5b8abf2",
+  "policy_id": "gavi-coppertop-bugatti-v2",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 26,
+  "status": "needs_improvement",
+  "classification": "preparation_team_failure",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 26,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The clone ended in a verified whiteout, so the bundle is retired and live execution remains forbidden.",
+        "state": "runtime/session/battle_reviews/states/gavi-coppertop-bugatti-clone1/turn-026.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The losing Coppertop bundle was retired. The new exact opening checkpoint selects Bushtank Razor Leaf and forbids switches; the next attempt restarts at Clone 1.",
+          "behavior_hash": "74a90bec6aebd825eb9502aab8051de9a9c83696e5daf41824ad1724832eb599"
+        },
+        "observed_fact": "Dustox remained at 18 HP before Roost while Ohmnomnom was the only surviving party member at 5 HP."
+      },
+      {
+        "kind": "role_allocation_failure",
+        "severity": "critical",
+        "summary": "Ohmnomnom was spent on Bibarel instead of being preserved as the Electric-resistant, poison-immune Eelektrik answer.",
+        "state": "runtime/session/battle_reviews/states/gavi-coppertop-bugatti-clone1/turn-001.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Decision-only replay from the new checkpoint selected Bushtank Razor Leaf for the Bibarel opening, leaving Ohmnomnom untouched at 50/50 for Eelektrik.",
+          "behavior_hash": "74a90bec6aebd825eb9502aab8051de9a9c83696e5daf41824ad1724832eb599"
+        },
+        "observed_fact": "Two Sparks removed Bibarel but Super Fang and contact damage reduced Ohmnomnom from 50 to 13 before Eelektrik appeared."
+      },
+      {
+        "kind": "invalid_matchup_assignment",
+        "severity": "high",
+        "summary": "Coppertop was assigned to Eelektrik despite lacking the damage or special bulk to win that matchup.",
+        "state": "runtime/session/battle_reviews/states/gavi-coppertop-bugatti-clone1/turn-010.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Coppertop was swapped into the PC through forward gameplay. Bushtank now leads and the profile assigns full-health Ohmnomnom, not Coppertop, to Eelektrik.",
+          "behavior_hash": "74a90bec6aebd825eb9502aab8051de9a9c83696e5daf41824ad1724832eb599"
+        },
+        "observed_fact": "Coppertop dealt 7 with Tackle, took 31 from Shock Wave, and was left at 6 HP against Eelektrik at 47/54."
+      },
+      {
+        "kind": "reserve_attrition",
+        "severity": "high",
+        "summary": "The forced-switch selector sacrificed Birdlaw and Bugatti into Eelektrik because one-turn survival margin outranked their later finisher roles.",
+        "state": "runtime/session/battle_reviews/states/gavi-coppertop-bugatti-clone1/turn-012.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The new profile routes Croakatoa to Ohmnomnom at Eelektrik and explicitly preserves Birdlaw and Bugatti. The old forced-relay bundle will not be retried.",
+          "behavior_hash": "74a90bec6aebd825eb9502aab8051de9a9c83696e5daf41824ad1724832eb599"
+        },
+        "observed_fact": "Birdlaw and Bugatti each entered Eelektrik, attacked twice, and fainted; this removed the reserved Dustox and Sunflora answers before either target appeared."
+      },
+      {
+        "kind": "ineffective_endgame_action",
+        "severity": "high",
+        "summary": "Croakatoa used three weak Mud Shots into Dustox after the reserved finisher had already been lost.",
+        "state": "runtime/session/battle_reviews/states/gavi-coppertop-bugatti-clone1/turn-021.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The new profile hands Dustox directly from Ohmnomnom to Birdlaw and commits Aerial Ace; it no longer leaves Croakatoa using Mud Shot into Black Sludge recovery.",
+          "behavior_hash": "74a90bec6aebd825eb9502aab8051de9a9c83696e5daf41824ad1724832eb599"
+        },
+        "observed_fact": "Each Mud Shot dealt only enough damage for Dustox to return to 48, 44, and 40 HP after Black Sludge while Infestation and Venoshock removed Croakatoa."
+      },
+      {
+        "kind": "tempo",
+        "severity": "medium",
+        "summary": "The Eelektrik phase consumed four party members across a forced replacement relay instead of using one prepared counter.",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "Coppertop, Birdlaw, Bugatti, and Croakatoa were used sequentially against the same Eelektrik."
+      }
+    ],
+    "correct_choices": [
+      "Lildozer's two Bulldozes and priority Ice Shard reduced Ponyta to a safe forced-finish state.",
+      "Croakatoa's priority Vacuum Wave was a guaranteed KO on 7-HP Ponyta; Fake Out was legal but not required for safety.",
+      "The voluntary-switch anti-spam gates blocked unsafe reversals and repeated no-action switching.",
+      "All 26 action outcomes and the terminal whiteout were verified from RAM with no observation mismatch."
+    ],
+    "next_test": "Replace Coppertop with boxed Bushtank without rewinding progress. Let Bushtank handle Bibarel, preserve full-health Ohmnomnom for Eelektrik, and preserve Birdlaw/Bugatti for Dustox/Sunflora. Decision-replay the attached opening and forced-switch states before restarting Clone 1."
+  }
+}

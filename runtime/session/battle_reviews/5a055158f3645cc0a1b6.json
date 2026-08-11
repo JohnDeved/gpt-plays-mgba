@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-08-09T16:34:31.401731+00:00",
+  "review_id": "5a055158f3645cc0a1b6",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "32a13d3158c76c28",
+  "behavior_hash": "81b14eb29b3dd2394a21973b13b4a1d6a1b1382b280b1d55204e27bf30d37f26",
+  "policy_id": "gavi-hybrid-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [],
+  "certified_actions": 29,
+  "status": "needs_improvement",
+  "classification": "tactical_error"
+}

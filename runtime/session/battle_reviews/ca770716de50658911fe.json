@@ -1,0 +1,99 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T11:38:01.814666+00:00",
+  "review_id": "ca770716de50658911fe",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "21c15455ad1d2cf872829db6e77f9966dd39e51f7b76223ede62bccdc1ced917",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 28,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "Action 10 let 18-HP Croakatoa commit Vacuum Wave into faster Shock Wave and faint without dealing damage; switching to full-HP Bushtank preserved Croakatoa and entered the intended Eelektrik matchup at 51/57 HP.",
+        "action_changing": true,
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v16-clone2/turn-010.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "One bounded cartridge replay verified Bushtank took only 6 Shock Wave damage; hybrid-policy-v16 now selects that switch with a positive two-hit survival margin.",
+          "evidence": "runtime/session/battle_reviews/states/gavi-bugatti-v16-clone2/turn-010-switch-bushtank-post.state"
+        }
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "The verifier called action 10 executed because Vacuum Wave PP fell, although battle text and HP proved Croakatoa fainted before the move took effect.",
+        "action_changing": true,
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v16-clone2/turn-010.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "battle-step-v5 replays the same state/action as interrupted_before_execution while retaining the real PP decrement and no discrepancies.",
+          "evidence": "runtime/session/battle_reviews/states/gavi-bugatti-v16-clone2/turn-010-vacuum-verifier-v5-post.state"
+        }
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "Action 19 spent 13-HP Ohmnomnom on Nuzzle into Sunflora instead of pivoting to the preserved Grass-resistant Bugatti.",
+        "action_changing": true,
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v16-clone2/turn-019.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "One bounded replay verified Bugatti survived Energy Ball at 30/41 HP; the corrected type evidence now makes the policy select Bugatti and preserve Ohmnomnom.",
+          "evidence": "runtime/session/battle_reviews/states/gavi-bugatti-v16-clone2/turn-019-switch-bugatti-post.state"
+        }
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer fainted after its second burned Bulldoze, but it acted twice, reduced Ponyta to its Sitrus line, and every available switch was exposed to a possible critical KO; no verified alternative dominated.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bushtank attempted a fourth Razor Leaf at 2 HP and fainted before acting; at that recorded state every replacement still failed the conservative entry bound, so this was not proven avoidable, while the earlier Croakatoa pivot fix should prevent reaching the same state.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Seeded Bugatti missed its locked Rollout sequence and fainted to Infestation plus Venoshock. A bounded immediate Birdlaw pivot fell to 15 HP after one Aerial Ace with Dustox still outside guaranteed KO range, so it did not dominate the winning line.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The branch needed 28 decisions, four more than corrected Clone 1; the two resolved pivots should reduce forced replacements and late cleanup.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "The only voluntary switch was Ohmnomnom to Lildozer, and Lildozer attacked twice; no Pokémon switched in and immediately switched back out.",
+      "Croakatoa used fresh-entry Fake Out once, then two Mud Shots, without Fake Out spam.",
+      "Bushtank was reserved for Eelektrik and dealt three verified Razor Leaf hits before its terminal attempt.",
+      "Bugatti used two Bug Bites to remove Sunflora and Birdlaw completed Dustox with three Aerial Aces.",
+      "The cartridge terminal state authoritatively verified victory with Birdlaw at 32 HP."
+    ],
+    "next_test": "Restart qualification at Clone 1 with behavior hash db3909fe2d25ab5dc0263b9e30dab28df2505d937e5486298f90867721d46ff7; verify the purposeful Croakatoa-to-Bushtank and Ohmnomnom-to-Bugatti pivots, no switch reversal, and improved survivor count."
+  }
+}

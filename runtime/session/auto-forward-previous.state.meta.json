@@ -1,0 +1,57 @@
+{
+  "path": "/Users/johann/gpt-plays-mgba/runtime/session/auto-forward-latest.state",
+  "sha256": "098f79719e6ca0f12b1a8ffe18c167144dcd37f1430a6740f807c6ff0a7c42eb",
+  "state_hash": "b1bc56c3f4d79e31",
+  "frame": 18945988,
+  "map": {
+    "group": 0,
+    "number": 1,
+    "x": 19,
+    "y": 20,
+    "warp_id": 0
+  },
+  "party": [
+    {
+      "slot": 0,
+      "species": 777,
+      "personality": 3325952935,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 1,
+      "species": 453,
+      "personality": 506087644,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 2,
+      "species": 388,
+      "personality": 1476487022,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 3,
+      "species": 231,
+      "personality": 1744238455,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 4,
+      "species": 543,
+      "personality": 2609223149,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 5,
+      "species": 397,
+      "personality": 1813210531,
+      "ot_id": 3307282159,
+      "level": 17
+    }
+  ]
+}

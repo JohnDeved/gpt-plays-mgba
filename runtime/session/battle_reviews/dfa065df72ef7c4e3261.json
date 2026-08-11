@@ -1,0 +1,124 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T18:46:21.986270+00:00",
+  "review_id": "dfa065df72ef7c4e3261",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "5d3ba87823b47419423f802a0cec667b4a42984aed27aaa2fe332106bd087c32",
+  "behavior_hash": "ab6d1491bb87d6866ad0249e0ff7908c543f316af3a9900fd075c2a5810cdff5",
+  "policy_id": "gavi-coppertop-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 31,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 31,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The Coppertop clone still ended in whiteout after 31 verified actions.",
+        "state": "runtime/session/battle_reviews/states/1786301134701238000/turn-031.state",
+        "action_id": "1db33a643517806c915d",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The critical-bound and unsafe-fallback scorer fixes were replayed from turns 13, 15, and 26; each selected a different safer line and executed with no discrepancy. The unchanged losing bundle will not be retried.",
+          "behavior_hash": "fe9a7fa77fc1a04f53491394911a6b0ab2a62263f8c94640d19552243014a089",
+          "replay_states": [
+            "runtime/session/battle_reviews/states/1786301134701238000/turn-013.state",
+            "runtime/session/battle_reviews/states/1786301134701238000/turn-015.state",
+            "runtime/session/battle_reviews/states/1786301134701238000/turn-026.state"
+          ]
+        }
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "At turn 13, Coppertop remained in front of Eelektrik at 35 HP with no critical-hit survival margin; a critical Shock Wave fainted it before Tackle could execute.",
+        "state": "runtime/session/battle_reviews/states/1786301134701238000/turn-013.state",
+        "action_id": "f98e29d42087315cab67",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Turn-013 replay selected healthy Birdlaw instead of staying with 35-HP Coppertop; the switch executed with no discrepancy under the critical bound.",
+          "behavior_hash": "fe9a7fa77fc1a04f53491394911a6b0ab2a62263f8c94640d19552243014a089"
+        },
+        "root_layer": "generic_tactical_scorer",
+        "alternative": {
+          "kind": "switch",
+          "role": "birdlaw"
+        },
+        "why_bad": "The safety model used the normal incoming bound and did not reserve survival for a verified critical-hit bound.",
+        "improvement": "Score critical-hit survival before damage and switch when the active line cannot survive the conservative critical bound."
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "At turn 15, the policy switched full-HP Birdlaw into 6-HP Bushtank even though every candidate was unsafe; this donated an Eelektrik turn and created the later switch loop.",
+        "state": "runtime/session/battle_reviews/states/1786301134701238000/turn-015.state",
+        "action_id": "434cc74b08bb796da3d3",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Turn-015 replay selected the higher-margin Ohmnomnom fallback instead of 6-HP Bushtank; the switch executed with no discrepancy.",
+          "behavior_hash": "fe9a7fa77fc1a04f53491394911a6b0ab2a62263f8c94640d19552243014a089"
+        },
+        "root_layer": "generic_tactical_scorer",
+        "alternative": {
+          "kind": "move",
+          "move_id": 98
+        },
+        "why_bad": "When no candidate was marked safe, raw outgoing damage outranked the active battler's much better survival margin.",
+        "improvement": "Use survival margin as the next lexicographic key and never prefer a catastrophically unsafe low-HP switch over a higher-margin active move."
+      },
+      {
+        "kind": "preparation_team_failure",
+        "severity": "high",
+        "summary": "Coppertop was a better reserve than Bugatti but was not yet a verified Eelektrik answer under the actual critical-hit line; the prepared team still lacked a certified safe continuation.",
+        "state": "runtime/session/battle_reviews/states/1786301134701238000/turn-012.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Turn-013 replay verified Coppertop exits before its second Eelektrik reply, and turn-026 replay verified Croakatoa keeps Mud Shot rather than sacrificing the 4-HP Birdlaw reserve; both corrected actions executed with no discrepancy.",
+          "behavior_hash": "fe9a7fa77fc1a04f53491394911a6b0ab2a62263f8c94640d19552243014a089"
+        },
+        "root_layer": "hard_fight_preparation",
+        "why_bad": "The team replacement was validated by one historical win but not against the current critical-survival requirement.",
+        "improvement": "Revalidate Coppertop's Eelektrik entry after the scorer fix, or prepare a different reserve/leveling plan before another clone."
+      },
+      {
+        "kind": "switch_tempo",
+        "severity": "medium",
+        "summary": "16 switches in 31 actions repeatedly traded a healthy active position for damaged reserves and did not close Eelektrik quickly.",
+        "action_changing": true,
+        "resolved": false,
+        "root_layer": "reusable_executable_strategy",
+        "improvement": "Preserve the highest-margin active battler and pivot only when the replacement's verified margin is better."
+      },
+      {
+        "kind": "line_length",
+        "severity": "low",
+        "summary": "The line took 31 verified actions and consumed 16 switches before whiteout; speed is secondary until survival is repaired.",
+        "action_changing": false
+      }
+    ],
+    "correct_choices": [
+      "Spark removed Bibarel in two verified actions.",
+      "Bulldoze was used twice into Ponyta and Croakatoa finished Ponyta with Mud Shot.",
+      "Razor Leaf was used against Eelektrik and Coppertop entered with full HP.",
+      "Fake Out plus Sludge eventually removed Eelektrik.",
+      "Every one of the 31 action results and the terminal whiteout was RAM-verified with no tooling discrepancy."
+    ],
+    "next_test": "Run Clone 2 with the unchanged Coppertop opening and behavior hash fe9a7fa7; review all actions before any retry."
+  }
+}

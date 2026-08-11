@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260811T100536Z-ferry-helper-ignores-expected-destination-choice",
+  "status": "observed",
+  "created_at": "2026-08-11T10:05:36.687672+00:00",
+  "summary": "Ferry helper ignores expected destination choice",
+  "component": "RunBunAdapter.travel_live_transit",
+  "symptom": "Dewford transit to expected Route104 accepts Slateport prompt and reaches Route109",
+  "classification": "actuator_input",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/auto-forward-latest.state",
+    "sha256": "d73361ae941dbaac0f742d4054347e32eb66ec032597379aa33ff291a6d4d244",
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "Reject Slateport prompt, accept Petalburg prompt, verify map 0:19",
+    "actual": "Two identical runs reached map 0:24 despite expected_destination 0:19",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

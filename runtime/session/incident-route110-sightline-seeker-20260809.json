@@ -1,0 +1,17 @@
+{
+  "id": "20260809T061500Z-route110-sightline-seeker",
+  "date": "2026-08-09",
+  "summary": "NPC seeker entered Camper Gavi's sight ray before interaction",
+  "scope": "tooling_navigation",
+  "symptom": "follow_live_path_to_npc(local_id=23, interact=false) moved the player to Route 110 (14,91), opened Gavi's prebattle dialogue, and stopped in field mode 2 instead of reaching a side-adjacent interaction tile.",
+  "authoritative_evidence": {
+    "map": [0, 25, 14, 91],
+    "trainer": {"local_id": 23, "graphics_id": 31, "position": [14, 89], "sight_radius": 5, "facing": "down"},
+    "blocked_ray": [[14, 89], [14, 90], [14, 91], [14, 92], [14, 93], [14, 94]],
+    "field_mode": 2,
+    "text": "I found some cool Pokémon in the grass!"
+  },
+  "root_cause": "follow_live_path_to_npc used the NPC approach path without merging the RAM/ROM trainer sight-line exclusion set. The general adaptive route helper has this exclusion, but the NPC-specific seeker did not.",
+  "recovery": "Allowed forward correction: load the newest verified preparation checkpoint slateport-sandile-l17-forward-20260809.state; do not load any historical or strategic-loss state.",
+  "required_fix": "Before every NPC-seeker path chunk, block live/template trainer sight tiles and replan to a side-adjacent interaction tile; add a regression that rejects (14,91) for Gavi from the south entrance."
+}

@@ -1,0 +1,108 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T15:51:27.485849+00:00",
+  "review_id": "eecd02ef9a9b0bdccbea",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "291ffc53ce922b208e0bfdebb38bb873bc5132600107c7d648d425677bbd682c",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [],
+  "certified_actions": 25,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 25,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer fainted after two Bulldozes and Ice Shard completed the Ponyta setup.",
+        "action_changing": false,
+        "observed_fact": "Lildozer fainted after two Bulldozes and Ice Shard completed the Ponyta setup.",
+        "strategic_judgment": "Lildozer fainted after two Bulldozes and Ice Shard completed the Ponyta setup.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          5
+        ],
+        "next_test": "Run clone 3 unchanged with behavior hash 291ffc53 and the identical opening; review before qualification.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Ohmnomnom fainted after Super Fang recoil damage, Fake Out, and two Sparks created the Bushtank Eelektrik finish.",
+        "action_changing": false,
+        "observed_fact": "Ohmnomnom fainted after Super Fang recoil damage, Fake Out, and two Sparks created the Bushtank Eelektrik finish.",
+        "strategic_judgment": "Ohmnomnom fainted after Super Fang recoil damage, Fake Out, and two Sparks created the Bushtank Eelektrik finish.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          13
+        ],
+        "next_test": "Run clone 3 unchanged with behavior hash 291ffc53 and the identical opening; review before qualification.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bushtank and Birdlaw finished at 6 and 8 HP respectively; the line won but retained little critical-hit margin late.",
+        "action_changing": false,
+        "observed_fact": "Bushtank and Birdlaw finished at 6 and 8 HP respectively; the line won but retained little critical-hit margin late.",
+        "strategic_judgment": "Bushtank and Birdlaw finished at 6 and 8 HP respectively; the line won but retained little critical-hit margin late.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          16,
+          25
+        ],
+        "next_test": "Run clone 3 unchanged with behavior hash 291ffc53 and the identical opening; review before qualification.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Grass Whistle missed Croakatoa after the Bugatti relay; the unchanged bundle must also survive future hit outcomes.",
+        "action_changing": false,
+        "observed_fact": "Grass Whistle missed Croakatoa after the Bugatti relay; the unchanged bundle must also survive future hit outcomes.",
+        "strategic_judgment": "Grass Whistle missed Croakatoa after the Bugatti relay; the unchanged bundle must also survive future hit outcomes.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          18
+        ],
+        "next_test": "Run clone 3 unchanged with behavior hash 291ffc53 and the identical opening; review before qualification.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The win took 25 actions and eight switches; both relay sequences absorbed a matchup move and were followed by attacks, with no zero-progress loop.",
+        "action_changing": false,
+        "observed_fact": "The win took 25 actions and eight switches; both relay sequences absorbed a matchup move and were followed by attacks, with no zero-progress loop.",
+        "strategic_judgment": "The win took 25 actions and eight switches; both relay sequences absorbed a matchup move and were followed by attacks, with no zero-progress loop.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          10,
+          14,
+          17,
+          18
+        ],
+        "next_test": "Run clone 3 unchanged with behavior hash 291ffc53 and the identical opening; review before qualification.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "Ohmnomnom made three attacks between Bushtank exits, so the return was a finisher handoff rather than switch spam.",
+      "Bugatti absorbed Sludge Bomb before Croakatoa entered and swept Sunflora.",
+      "Birdlaw entered directly on its declared Dustox target and finished in two Aerial Aces."
+    ],
+    "next_test": "Run clone 3 unchanged with behavior hash 291ffc53 and the identical opening; review before qualification."
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "path": "/Users/johann/gpt-plays-mgba/runtime/session/route110-gavi-coppertop-bugatti-precontact-forward-20260811.state",
+  "sha256": "b1647fff942597b9cbf75746bdf765765e3575c2ac6534bca6999c1b19675d57",
+  "state_hash": "3a198750fbe56eeb",
+  "frame": 18665642,
+  "map": {
+    "group": 0,
+    "number": 25,
+    "x": 15,
+    "y": 89,
+    "warp_id": 255
+  },
+  "party": [
+    {
+      "slot": 0,
+      "species": 777,
+      "personality": 3325952935,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 1,
+      "species": 231,
+      "personality": 1744238455,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 2,
+      "species": 878,
+      "personality": 4082287436,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 3,
+      "species": 397,
+      "personality": 1813210531,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 4,
+      "species": 543,
+      "personality": 2609223149,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 5,
+      "species": 453,
+      "personality": 506087644,
+      "ot_id": 3307282159,
+      "level": 17
+    }
+  ]
+}

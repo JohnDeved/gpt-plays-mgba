@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T09:05:00.388404+00:00",
+  "review_id": "8292e5f381cc9ad234f5",
+  "terminal": "step_mismatch",
+  "source": "cartridge_clone",
+  "opening_state_hash": "c4d6179c434a5c5442c5a661ebe476db18fc0f962b7ce69150bb918e32b70f73",
+  "behavior_hash": "43e751d397bfa1b4587505c8575eda5123cfb738cd712ee1583398fe2faa8f1b",
+  "policy_id": "gavi-coppertop-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 15,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 15,
+    "findings": [
+      {
+        "kind": "switch_spam",
+        "severity": "high",
+        "summary": "Turn 14 switched 14-HP Ohmnomnom into Bushtank, conceding a free Energy Ball and exposing Bushtank to GrassWhistle before it produced damage.",
+        "state": "runtime/session/battle_reviews/states/gavi-coppertop-qualified-clone1-20260811/turn-014.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "state": "runtime/session/battle_reviews/states/gavi-coppertop-qualified-clone1-20260811/turn-014-croakatoa-sludge-replay.state",
+          "observed": "Bounded replay used two verified Metal Claws for 32 damage, then a forced Croakatoa replacement that consumed no enemy action; faster Sludge KO'd Sunflora before it acted. No switch target absorbed a hit."
+        },
+        "root_layer": "trainer_profile",
+        "why_bad": "The survival scorer valued Bushtank's switch-in bulk above immediate damage even though Ohmnomnom could act twice and create a free forced replacement.",
+        "improvement": "Commit non-fresh Ohmnomnom to Metal Claw and use Croakatoa only at the forced low-Sunflora replacement.",
+        "next_test": "Require the same attack-first Sunflora line in the next full clone."
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "Turn 15 mislabeled a move stopped by newly inflicted sleep as a missing allied PP delta.",
+        "state": "runtime/session/battle_reviews/states/gavi-coppertop-qualified-clone1-20260811/turn-015.state",
+        "action_changing": false,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "state": "runtime/session/battle_reviews/states/gavi-coppertop-qualified-clone1-20260811/turn-015-grasswhistle-verifier-fixed.state",
+          "observed": "The verifier now checks pre- and post-turn status. A focused regression proves newly inflicted sleep with no allied PP spend is prevented_by_status; all 144 battle/capability tests pass, and the exact state replay completed with no discrepancy."
+        },
+        "root_layer": "shared_observation_execution_tooling",
+        "why_bad": "Only pre-turn status was considered, so GrassWhistle applying sleep before the selected move looked like an execution failure.",
+        "improvement": "Recognize execution-preventing status from the union of pre- and post-turn status bits.",
+        "next_test": "Keep the new-sleep regression in the capability suite."
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Gavi sent Sunflora before Eelektrik, and the equal-speed Bushtank/Sunflora turn can resolve in either order; the old line was not robust to either variation.",
+        "action_changing": true,
+        "root_layer": "trainer_profile",
+        "improvement": "Use the attack-first Sunflora line, which avoids the speed tie and preserves Bushtank for Eelektrik.",
+        "next_test": "Observe all send-out orders encountered across the next three clones."
+      }
+    ],
+    "correct_choices": [
+      "Actions 1-13 were verified and made direct progress; no immediate switch reversal occurred.",
+      "The corrected Dustox handoff used Birdlaw attacks, a forced Ohmnomnom entry, and Spark rather than Croakatoa switch stalling.",
+      "Lildozer and Birdlaw fainted only after executing matchup damage; these were progress-making sacrifices, not passive switch targets."
+    ],
+    "next_test": "Qualification remains zero. Run clone 1 with the new behavior hash; no live fight is permitted."
+  }
+}

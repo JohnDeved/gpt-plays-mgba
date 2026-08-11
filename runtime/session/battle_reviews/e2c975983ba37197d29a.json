@@ -1,0 +1,82 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T19:09:20.107567+00:00",
+  "review_id": "e2c975983ba37197d29a",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "5d3ba87823b47419423f802a0cec667b4a42984aed27aaa2fe332106bd087c32",
+  "behavior_hash": "84daa74937293cf8f8d11b740978cae094ea0296e06323ee94faba765f24665e",
+  "policy_id": "gavi-coppertop-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 30,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 30,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The clone ended in a verified whiteout; live execution remains forbidden.",
+        "action_changing": true,
+        "observed_fact": "Birdlaw fainted to Eelektrik's Shock Wave with Eelektrik still at 42/54 HP."
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "The Ponyta branch again pivoted at the first unsafe-looking boundary instead of using the verified two-Bulldoze line.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786302510212148000/turn-005.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Replay from turn 005 used Bulldoze twice: the first action left Lildozer alive at 10/58 with Ponyta at 5/49, and the second action fainted Ponyta with no enemy reply. The new profile now enforces this exact two-turn line when its verified HP predicates match."
+        },
+        "observed_fact": "The selected switch sequence consumed 10 additional actions before Coppertop finally removed Ponyta."
+      },
+      {
+        "kind": "preparation_team_failure",
+        "severity": "high",
+        "summary": "Because the Ponyta branch spent 21 switches and depleted the team, the status-safe Croakatoa converter was no longer a survivable Eelektrik entry.",
+        "action_changing": true,
+        "observed_fact": "At Eelektrik entry Croakatoa was 17/44 and the policy chose Bushtank at 23/57; Croakatoa then fainted on a later Shock Wave."
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "The Eelektrik policy had no verified healthy-converter guard at the Coppertop boundary, so it selected a poisoned Razor Leaf pivot and spent the remaining party as emergency switches.",
+        "action_changing": true,
+        "observed_fact": "Bushtank was poisoned on its first Razor Leaf, used it again, fainted, and the remaining line made 15 further switches without a KO."
+      },
+      {
+        "kind": "resource_attrition",
+        "severity": "high",
+        "summary": "The line used 21 switches and only nine move actions; six party members were consumed before Eelektrik was removed.",
+        "action_changing": true
+      },
+      {
+        "kind": "status_and_reserve_misuse",
+        "severity": "medium",
+        "summary": "The policy continued the poisoned Bushtank Razor Leaf line after the first status confirmation instead of preserving a clean reserve for the converter transition.",
+        "action_changing": true
+      },
+      {
+        "kind": "long_line_observation",
+        "severity": "low",
+        "summary": "The 30-action loss was much slower than the historical 22-action win; tempo remains secondary to restoring a safe Eelektrik entry.",
+        "action_changing": false
+      }
+    ],
+    "correct_choices": [
+      "Spark removed Bibarel with verified Super Fang handling.",
+      "Coppertop's Bulldoze correctly finished the weakened Ponyta once it was finally selected.",
+      "All 30 action results matched authoritative RAM without an execution or observation discrepancy."
+    ],
+    "next_test": "Do not start another clone until this review is persisted. Verify the enforced two-Bulldoze Ponyta branch first; then test whether a healthy Croakatoa Fake Out/Sludge Eelektrik line is available before adding another exception."
+  }
+}

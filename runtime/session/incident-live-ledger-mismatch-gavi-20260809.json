@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "id": "20260809T192120Z-live-emulator-is-paused-at-gavi-battle-intro-wit",
+  "status": "observed",
+  "created_at": "2026-08-09T19:21:20.884235+00:00",
+  "summary": "Live emulator is paused at Gavi battle intro with the older Bugatti party while the progress ledger points to the healed Slateport Rhyhorn checkpoint.",
+  "component": "live_state_reconciliation",
+  "symptom": "authoritative live map 0:25 battle active, party slot5 species543 Bugatti; ledger says latest checkpoint Slateport map 9:11 with slot5 Rhyhorn species111 and no active battle.",
+  "classification": "unknown",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/live-reconciliation-gavi-bugatti-20260809.state",
+    "sha256": "42d58610dcf8a8cbf2deb05d6426c93dd5ca2f0bdd5aa3d0b45be8a50fc7fdb8",
+    "canonical_state": {
+      "state_hash": "623151e0e033e167",
+      "frame": 19298098,
+      "map": [0, 25, 14, 90],
+      "mode": "dialogue",
+      "battle_active": true,
+      "battle_menu": "battle_text",
+      "party_species": [777, 231, 388, 397, 453, 543],
+      "party_hp": [52, 58, 57, 46, 44, 41],
+      "battle_species": [777, 400, 543, 404]
+    },
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "Live state should match the reconciled furthest forward Slateport/Rhyhorn checkpoint or a documented deliberate post-checkpoint battle.",
+    "actual": "RAM reports Route 110 Gavi battle intro, Ohmnomnom active, enemy species 400, party species [777,231,388,397,453,543].",
+    "diff": [
+      "live frame 19298095 is earlier than the last recorded Gavi action frames near 19380532",
+      "live map is Route 110 battle intro instead of ledger checkpoint Slateport Center overworld",
+      "live slot 5 is Bugatti species 543 instead of checkpoint Rhyhorn species 111"
+    ],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "RAM-backed canonical state, emulator frame monotonicity, transaction-log action frames, and verified checkpoint SHA-256",
+    "sources": [
+      "tools/state_compact.py and RunBunAdapter observation at frame 19298098",
+      "runtime/session/battle_transactions.jsonl latest recorded Gavi action frames",
+      "runtime/session/run_progress.json furthest checkpoint and SHA-256",
+      "runtime/session/slateport-rhyhorn-l17-forward-20260809.state"
+    ]
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [
+    {
+      "claim": "A Gavi opening fixture or other non-forward savestate was loaded into the live emulator after the last recorded clone/loss.",
+      "discriminator": "live frame is lower than the last transaction frame and party/map match a Gavi opening fixture rather than the furthest checkpoint",
+      "evidence_for": ["frame regression", "opening party and battle roster", "no newer live transaction after the recorded loss"],
+      "evidence_against": []
+    }
+  ],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": [
+    {
+      "hypothesis": "Loading the newest verified forward checkpoint restores the ledger state without changing progression.",
+      "action": "Load slateport-rhyhorn-l17-forward-20260809.state into the live emulator once, then observe RAM.",
+      "expected_discriminator": "map 9:11 overworld, six full-health party members, slot 5 species 111, no battle",
+      "risk": "The preserved stale opening is discarded from live RAM, but remains recoverable as the incident artifact.",
+      "cost": "one state load and canonical observation",
+      "rollback": "Do not load older states; retain the preserved live artifact and stop if any expected field mismatches."
+    }
+  ]
+}

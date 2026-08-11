@@ -1,0 +1,72 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T11:58:40.436129+00:00",
+  "review_id": "3b8ddd51e250a8675c8a",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "52d25ff80e71d93069e0e4f79b0e82c9621fec1deb02e80bb95475a8810d6bb9",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 25,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 25,
+    "findings": [
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "Action 16 reused Fake Out after Ohmnomnom had already used fresh-entry Fake Out and Spark; the move could not execute outside fresh entry, made no progress, and let 3-HP Eelektrik KO Ohmnomnom.",
+        "action_changing": true,
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v18-clone2/turn-016.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "hybrid-policy-v18 generically vetoes non-fresh Fake Out and selects Nuzzle; one exact replay verified Nuzzle KO'd Eelektrik before any reply and preserved Ohmnomnom at 4 HP.",
+          "evidence": "runtime/session/battle_reviews/states/gavi-bugatti-v18-clone2/turn-016-nuzzle-post.state"
+        }
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer and Bushtank fainted after completing Ponyta and Eelektrik damage roles; neither was cycled through a no-action switch.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Birdlaw and Bugatti converted the Dustox endgame into a forced Rollout KO and Sunflora damage before fainting; full-HP Croakatoa then safely finished.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "All eight switches were purposeful matchup entries or forced replacements. Every voluntary replacement acted before leaving; there was no switch reversal or no-action switch spam.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The battle used 25 decisions; replacing the failed second Fake Out with the verified immediate KO should shorten the next branch and preserve Ohmnomnom.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "Fresh-entry Fake Out was effective at actions 14 and 18; the only defect was the now-vetoed non-fresh reuse at action 16.",
+      "Croakatoa pivoted to Bushtank for Eelektrik and later to Birdlaw for Dustox, with both replacements attacking before leaving.",
+      "No action was wasted into deterministic sleep or freeze.",
+      "The terminal state authoritatively verified victory with Croakatoa at 46/46 HP."
+    ],
+    "next_test": "Restart qualification at Clone 1 with behavior hash 6cf0074fd534fd0e99a480ec2d2e622e5e8d6f70a997ada44693e04d0fb8348a; verify Fake Out only on fresh entry, preserved Ohmnomnom after the Eelektrik KO, and no switch spam."
+  }
+}

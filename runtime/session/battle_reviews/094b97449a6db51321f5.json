@@ -1,0 +1,66 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T12:24:01.441673+00:00",
+  "review_id": "094b97449a6db51321f5",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "48575e91466ff521446c39c42a85bde6a918812b1c563141df95da626547f71b",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 26,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 26,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer fainted after two Bulldozes and Ice Shard against Ponyta; its forced replacement finished safely. It acted on every available turn and was never used as a no-action pivot.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bushtank fainted after four Razor Leafs into Eelektrik. The sacrifice produced a free Ohmnomnom entry and preserved Croakatoa, Bugatti, and Birdlaw for the terminal sequence.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Ohmnomnom converted 13 HP into two legal fresh-entry Fake Outs plus one damaging move before fainting to Sunflora. This enabled Birdlaw to enter for free and sweep the last two opponents.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "All seven switches were forced replacements, matchup entries, or the verified sleep escape. Every voluntary entrant acted before leaving; there were zero true no-action reversals and zero consecutive switch stalls.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The win required 26 decisions and 19 executed attacks, five fewer decisions than the rejected sleep-stall win. No shorter line was verified to improve survival or reliability.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "The Ohmnomnom-to-Bugatti-to-Ohmnomnom relay contained Fake Out, Bug Bite, and another fresh Fake Out; it was productive tempo, not switch spam.",
+      "Bugatti escaped sleep immediately after acting once and survived at 31 HP; no status-prevented action occurred.",
+      "Birdlaw entered only after Ohmnomnom fainted, then used four consecutive Aerial Aces to finish Sunflora and Dustox without switching.",
+      "The authoritative terminal state verified victory with Croakatoa 13 HP, Bugatti 31 HP, and Birdlaw 32 HP."
+    ],
+    "next_test": "Run unchanged-bundle Clone 2 from the identical opening; repeat the no-action-switch, fresh-only Fake Out, deterministic-status, incapacitated-entry, and survivor audits."
+  }
+}

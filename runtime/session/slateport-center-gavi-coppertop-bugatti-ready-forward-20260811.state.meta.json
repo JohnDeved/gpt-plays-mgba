@@ -1,0 +1,57 @@
+{
+  "path": "/Users/johann/gpt-plays-mgba/runtime/session/slateport-center-gavi-coppertop-bugatti-ready-forward-20260811.state",
+  "sha256": "88e3a1293ac46fcb93bedc224c1877b8712a484e510db66968bf9cd2063f1298",
+  "state_hash": "d86cb302f0d79195",
+  "frame": 18658929,
+  "map": {
+    "group": 9,
+    "number": 11,
+    "x": 10,
+    "y": 2,
+    "warp_id": 0
+  },
+  "party": [
+    {
+      "slot": 0,
+      "species": 777,
+      "personality": 3325952935,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 1,
+      "species": 231,
+      "personality": 1744238455,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 2,
+      "species": 878,
+      "personality": 4082287436,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 3,
+      "species": 397,
+      "personality": 1813210531,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 4,
+      "species": 543,
+      "personality": 2609223149,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 5,
+      "species": 453,
+      "personality": 506087644,
+      "ot_id": 3307282159,
+      "level": 17
+    }
+  ]
+}

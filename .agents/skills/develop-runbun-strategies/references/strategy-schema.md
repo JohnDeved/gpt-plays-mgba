@@ -18,10 +18,18 @@ Each strategy requires:
   `reserve`, and action selectors contain only legal action fields such as
   `kind`, `move_id`, `species`, `slot`, or a bound party `role`.
 
-Supported predicates are `active_role`, `opponent_species`, `forced_switch`,
-`fresh_entry`, player/opponent HP thresholds, `player_status_any`,
-`role_available`, and verified `action_count`. Arbitrary expressions and
-Python callbacks are not valid strategy data.
+Supported predicates are battle format, active role, opponent species,
+forced switch, fresh entry, usable move IDs, active/opponent types and
+abilities, player/opponent HP and status, speed relation, critical-hit
+survival, guaranteed KO, role availability, and verified action count.
+Automatic matching must include at least one state discriminator beyond
+battle format; empty wildcard matchers are rejected. Arbitrary expressions
+and Python callbacks are not valid strategy data.
+
+The policy bundle validator rejects duplicate rule IDs, unknown roles, and
+exact overlapping `prefer`/`forbid` directives before clone launch. Prose
+requirements remain explanatory; every condition needed for unattended use
+must also be represented by a supported executable predicate.
 
 A reproduction contains a pre-state hash, terminal result, action certificate IDs, and source (`clone` or `live`). An exhaustive-search entry records its root hash, search/tool version, legal-action coverage, RNG/AI assumptions, and terminal result. Trainer keys use `map_group:map_number:local_id`.
 

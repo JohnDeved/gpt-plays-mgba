@@ -5,7 +5,8 @@
     {
       "id": "setup-window-sweep",
       "title": "Create a bounded setup window, then sweep",
-      "status": "candidate",
+      "status": "retired",
+      "superseded_by": ["fresh-entry-fake-out-tempo", "trainer-profile:gavi"],
       "tags": [
         "setup",
         "sweep",
@@ -67,7 +68,8 @@
     {
       "id": "status-immune-converter-preserved-finisher",
       "title": "Use a status-immune converter and preserve the endgame finisher",
-      "status": "candidate",
+      "status": "retired",
+      "superseded_by": ["trainer-profile:gavi", "generic-tactical-scorer"],
       "tags": [
         "pivot",
         "status-immunity",
@@ -86,13 +88,14 @@
         "Croagunk with Fake Out, Vacuum Wave, Mud Shot, and Sludge",
         "identity-based switching because active battlers move to party slot 0",
         "a certified replacement for the burned-Lildozer Ponyta branch",
-        "each named Eelektrik pivot enters above its verified worst-case reply-survival bound"
+        "each named Eelektrik pivot enters above its verified worst-case reply-survival bound",
+        "repeat Razor Leaf while it remains the safest legal damage line; pivot only when a replacement is actually survivable"
       ],
       "line": [
         "use the ordinary lead and Electric pivot to remove Bibarel",
         "use the Ground reserve and priority fallback against Ponyta",
         "if Lildozer is burned, stop the clean two-Bulldoze line and use only a certified replacement",
-        "introduce the status-immune converter against Eelektrik, then pivot through expendable resources",
+        "introduce the status-immune converter against Eelektrik, then spend at most two safe Razor Leaf turns before reevaluating the replacement",
         "never spend a depleted reserve merely to satisfy its preferred matchup",
         "preserve Croagunk's Sludge for Sunflora and Staravia's Aerial Ace for Dustox"
       ],
@@ -157,7 +160,8 @@
               "active_role": "ohmnomnom",
               "opponent_species": [
                 77,
-                192
+                192,
+                603
               ],
               "fresh_entry": true
             },
@@ -195,22 +199,19 @@
               "opponent_species": [
                 77
               ],
-              "player_status_any": 16,
-              "player_hp_lte": 23
+              "player_hp_gte": 20,
+              "action_count": {
+                "role": "lildozer",
+                "move_id": 523,
+                "gte": 1
+              }
             },
             "directives": [
               {
-                "kind": "prefer",
-                "action": {
-                  "kind": "switch",
-                  "role": "croakatoa"
-                }
-              },
-              {
                 "kind": "forbid",
                 "action": {
-                  "kind": "move",
-                  "move_id": 523
+                  "kind": "switch",
+                  "role": "birdlaw"
                 }
               }
             ]
@@ -256,85 +257,11 @@
               "active_role": "bushtank",
               "opponent_species": [
                 603
-              ],
-              "player_hp_lte": 10
+              ]
             },
             "directives": [
               {
                 "kind": "prefer",
-                "action": {
-                  "kind": "switch",
-                  "role": "croakatoa"
-                }
-              },
-              {
-                "kind": "forbid",
-                "action": {
-                  "kind": "move",
-                  "move_id": 75
-                }
-              }
-            ]
-          },
-          {
-            "when": {
-              "active_role": "bushtank",
-              "opponent_species": [
-                603
-              ],
-              "action_count": {
-                "role": "bushtank",
-                "move_id": 75,
-                "equals": 0
-              }
-            },
-            "directives": [
-              {
-                "kind": "prefer",
-                "action": {
-                  "kind": "move",
-                  "move_id": 75
-                }
-              }
-            ]
-          },
-          {
-            "when": {
-              "active_role": "bushtank",
-              "opponent_species": [
-                603
-              ],
-              "action_count": {
-                "role": "bushtank",
-                "move_id": 75,
-                "gte": 1
-              }
-            },
-            "directives": [
-              {
-                "kind": "prefer",
-                "action": {
-                  "kind": "switch",
-                  "role": "croakatoa"
-                }
-              }
-            ]
-          },
-          {
-            "when": {
-              "active_role": "bushtank",
-              "opponent_species": [
-                603
-              ],
-              "action_count": {
-                "role": "bushtank",
-                "move_id": 75,
-                "gte": 1
-              }
-            },
-            "directives": [
-              {
-                "kind": "forbid",
                 "action": {
                   "kind": "move",
                   "move_id": 75
@@ -367,7 +294,8 @@
                 77,
                 192,
                 269
-              ]
+              ],
+              "fresh_entry": false
             },
             "directives": [
               {
@@ -420,8 +348,7 @@
             "when": {
               "active_role": "ohmnomnom",
               "opponent_species": [
-                269,
-                603
+                269
               ]
             },
             "directives": [
@@ -443,7 +370,7 @@
               "fresh_entry": false,
               "action_count": {
                 "role": "croakatoa",
-                "move_id": 609,
+                "move_id": 410,
                 "equals": 0
               }
             },
@@ -452,7 +379,7 @@
                 "kind": "prefer",
                 "action": {
                   "kind": "move",
-                  "move_id": 609
+                  "move_id": 410
                 }
               }
             ]
@@ -466,7 +393,7 @@
               "player_hp_lte": 10,
               "action_count": {
                 "role": "croakatoa",
-                "move_id": 609,
+                "move_id": 410,
                 "gte": 1
               }
             },
@@ -508,6 +435,42 @@
           },
           {
             "when": {
+              "active_role": "croakatoa",
+              "opponent_species": [
+                269
+              ],
+              "role_available": "birdlaw"
+            },
+            "directives": [
+              {
+                "kind": "prefer",
+                "action": {
+                  "kind": "switch",
+                  "role": "birdlaw"
+                }
+              }
+            ]
+          },
+          {
+            "when": {
+              "active_role": "bugatti",
+              "opponent_species": [
+                269
+              ],
+              "role_available": "birdlaw"
+            },
+            "directives": [
+              {
+                "kind": "prefer",
+                "action": {
+                  "kind": "switch",
+                  "role": "birdlaw"
+                }
+              }
+            ]
+          },
+          {
+            "when": {
               "active_role": "birdlaw",
               "opponent_species": [
                 603
@@ -529,6 +492,23 @@
               "active_role": "birdlaw",
               "opponent_species": [
                 269
+              ]
+            },
+            "directives": [
+              {
+                "kind": "prefer",
+                "action": {
+                  "kind": "move",
+                  "move_id": 332
+                }
+              }
+            ]
+          },
+          {
+            "when": {
+              "active_role": "birdlaw",
+              "opponent_species": [
+                192
               ]
             },
             "directives": [
@@ -640,12 +620,217 @@
             "clean_review": true,
             "behavior_hash": "2fe615a5909a8a6ed78f3b2a6e67ca1d9d5190f7b966a4f599868823acd17b2f",
             "certified_actions": 22
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "c4d6179c434a5c5442c5a661ebe476db18fc0f962b7ce69150bb918e32b70f73",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "4ef8a6d6d40964821574ec18d7b5e489aeb82c04acddabf6b6f87f4181670064",
+            "certified_actions": 28
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "c4d6179c434a5c5442c5a661ebe476db18fc0f962b7ce69150bb918e32b70f73",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "f918a48fcf6ccda4d30e64bf6aed5737887a638f9892b7351edc2da5d7c6fe9e",
+            "certified_actions": 29
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "581c6c54a0cd02f3606cf2fd930533a21d739f4d64c189557835ed01ae14c9e5",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "252adf26a5ce44ad1a1854f9b3fd2c06a7902d1a62dae4679c8a4954c6189c66",
+            "certified_actions": 28
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "581c6c54a0cd02f3606cf2fd930533a21d739f4d64c189557835ed01ae14c9e5",
+            "terminal_win": true,
+            "clean_review": false,
+            "behavior_hash": "7950d85aa492c3b7900defafb3ac3eddad886535cae827031279a3d2de2ac4f7",
+            "certified_actions": 23
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "581c6c54a0cd02f3606cf2fd930533a21d739f4d64c189557835ed01ae14c9e5",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "7950d85aa492c3b7900defafb3ac3eddad886535cae827031279a3d2de2ac4f7",
+            "certified_actions": 25
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "51e1d8c69a55f5bd56f0f468dc18502ea8db092914f0daac143c26cf9604923c",
+            "certified_actions": 28
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "54bf2d527012f0a3a0f3ef318b552896965d21a38b898bf9368b91293ed895ee",
+            "certified_actions": 27
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "e08a21907041a6e4a631a533b21fc6efc44214e97e8eb6a134538c2b84ab5669",
+            "certified_actions": 27
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "e08a21907041a6e4a631a533b21fc6efc44214e97e8eb6a134538c2b84ab5669",
+            "certified_actions": 24
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "21c15455ad1d2cf872829db6e77f9966dd39e51f7b76223ede62bccdc1ced917",
+            "certified_actions": 24
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "21c15455ad1d2cf872829db6e77f9966dd39e51f7b76223ede62bccdc1ced917",
+            "certified_actions": 28
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "db3909fe2d25ab5dc0263b9e30dab28df2505d937e5486298f90867721d46ff7",
+            "certified_actions": 29
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "52d25ff80e71d93069e0e4f79b0e82c9621fec1deb02e80bb95475a8810d6bb9",
+            "certified_actions": 28
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "52d25ff80e71d93069e0e4f79b0e82c9621fec1deb02e80bb95475a8810d6bb9",
+            "certified_actions": 25
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "6cf0074fd534fd0e99a480ec2d2e622e5e8d6f70a997ada44693e04d0fb8348a",
+            "certified_actions": 27
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "47dc4d1933206238cefcdb92e700ac86bd74cf8a412c673ec42550b155d04241",
+            "certified_actions": 28
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "4d294d8a4eeed854db837092144f8b45cfe7329b05f92e5032a87050a060c43f",
+            "certified_actions": 31
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "48575e91466ff521446c39c42a85bde6a918812b1c563141df95da626547f71b",
+            "certified_actions": 26
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "48575e91466ff521446c39c42a85bde6a918812b1c563141df95da626547f71b",
+            "certified_actions": 23
+          },
+          {
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "48575e91466ff521446c39c42a85bde6a918812b1c563141df95da626547f71b",
+            "certified_actions": 23
+          },
+          {
+            "source": "live",
+            "pre_state_hash": "6bda67d09d08d3c7",
+            "terminal_win": true,
+            "clean_review": true,
+            "review_id": "7e1f73af1a81f4069e64",
+            "behavior_hash": "48575e91466ff521446c39c42a85bde6a918812b1c563141df95da626547f71b",
+            "certified_actions": 28,
+            "no_action_switch_cycles": 0
+          },
+          {
+            "review_id": "cddc6d4293ce15ee1feb",
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "ee589577d15b855a6438e58060b2e7d566655dc54cfdfaf4431e65b64d3f6164",
+            "certified_actions": 29
+          },
+          {
+            "review_id": "2490e90afa6585c13cd9",
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "ee589577d15b855a6438e58060b2e7d566655dc54cfdfaf4431e65b64d3f6164",
+            "certified_actions": 25
+          },
+          {
+            "review_id": "7d100612b05553a06ca0",
+            "source": "cartridge_clone",
+            "pre_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "ee589577d15b855a6438e58060b2e7d566655dc54cfdfaf4431e65b64d3f6164",
+            "certified_actions": 27
           }
         ],
         "exhaustive_searches": [],
         "distinct_state_hashes": [
           "f82c95f85be31102",
-          "5d3ba87823b47419423f802a0cec667b4a42984aed27aaa2fe332106bd087c32"
+          "5d3ba87823b47419423f802a0cec667b4a42984aed27aaa2fe332106bd087c32",
+          "31ecbc151bf257b3927071ac14a62f944f229c43ae55966a0207db66d5e72ba4",
+          "8026e0d9670af59d2443f6126501f7e67530937970cec05d9c84c596f13d6698",
+          "c4d6179c434a5c5442c5a661ebe476db18fc0f962b7ce69150bb918e32b70f73",
+          "b087f7b4a37b45126ef645f3e77cff725e820672bc722d1c9dcfb034e805e516",
+          "b1647fff942597b9cbf75746bdf765765e3575c2ac6534bca6999c1b19675d57",
+          "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+          "581c6c54a0cd02f3606cf2fd930533a21d739f4d64c189557835ed01ae14c9e5",
+          "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238"
         ],
         "trainer_keys": [
           "map:0:25/local:23"
@@ -692,8 +877,462 @@
             "summary": "authoritative battle state ended in a loss/whiteout",
             "state_hash": "a87e9487ae64ff9b",
             "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "25d9b59cd8385d90e90d",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "a30d97d6dd9005db",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "25d9b59cd8385d90e90d",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "a30d97d6dd9005db",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "dfa065df72ef7c4e3261",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "be7f9f1a4d31d48c",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "dfa065df72ef7c4e3261",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "be7f9f1a4d31d48c",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "a7d937a6c177bbbba9f9",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "c86cf9bdc000a774",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "a7d937a6c177bbbba9f9",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "c86cf9bdc000a774",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "95cc1259f37f490657a4",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "92eb458bf532640c",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "95cc1259f37f490657a4",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "92eb458bf532640c",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "e2c975983ba37197d29a",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "b7fae66dd4b2dc51",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "e2c975983ba37197d29a",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "b7fae66dd4b2dc51",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "d198ed3c9196070fc144",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "467341724db5f2e4",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "d198ed3c9196070fc144",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "467341724db5f2e4",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "0a74d420493c1cc644c6",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "06677338c1181385",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "0a74d420493c1cc644c6",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "06677338c1181385",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "1642e9546f0c248909da",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "ac8bba013fa6280f",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "1642e9546f0c248909da",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "ac8bba013fa6280f",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "b493c545746402c7952e",
+            "kind": "policy_gap",
+            "summary": "the declarative profile had no safe legal action",
+            "state_hash": null,
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "8292e5f381cc9ad234f5",
+            "kind": "tooling_mismatch",
+            "summary": "selected move PP delta was missing, expected exactly one",
+            "state_hash": "7d8f8fc2b45dd5be",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "b87066b2c6dbc9bfb12a",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "881e41ec6c5cb1e1",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "b87066b2c6dbc9bfb12a",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "881e41ec6c5cb1e1",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "fc15a41410d51b5c522e",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "6d4968d1a5df6596",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "fc15a41410d51b5c522e",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "6d4968d1a5df6596",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "eac81e2a482d58489867",
+            "kind": "tactical_error",
+            "summary": "fresh-entry Fake Out was legal and a matched strategy applied, but the scorer selected another action",
+            "state_hash": "48f5d12173a3c203",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "eac81e2a482d58489867",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "27cb75d7ffefb58b",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "e0228e9aae312830f4f6",
+            "kind": "tactical_error",
+            "summary": "fresh-entry Fake Out was legal and a matched strategy applied, but the scorer selected another action",
+            "state_hash": "2b32d05b96a1775c",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "e0228e9aae312830f4f6",
+            "kind": "policy_gap",
+            "summary": "the declarative profile had no safe legal action",
+            "state_hash": null,
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "213a3e068cac7cc2ce08",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "b6ca2d42f7bf78eb",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "213a3e068cac7cc2ce08",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "b6ca2d42f7bf78eb",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "3f9feb4be2d471333cc0",
+            "kind": "tactical_error",
+            "summary": "fresh-entry Fake Out was legal and a matched strategy applied, but the scorer selected another action",
+            "state_hash": "093ee2f1859266b7",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "b5568725bbec00041eb4",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "d01c682b604c7714",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "b5568725bbec00041eb4",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "d01c682b604c7714",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "8f102440e8933b2dc23d",
+            "kind": "tooling_mismatch",
+            "summary": "battle step ended at unverified boundary timeout",
+            "state_hash": "8f371d5d04da15fe",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "a6f52cc3e652244249d2",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "daf70b353314eb0b",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "a6f52cc3e652244249d2",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "daf70b353314eb0b",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "9cd63e991d0a4940ea71",
+            "kind": "tactical_error",
+            "summary": "the verified party and policy did not produce a terminal win",
+            "state_hash": "8c08b7e2795d9be3",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "9cd63e991d0a4940ea71",
+            "kind": "terminal_loss",
+            "summary": "authoritative battle state ended in a loss/whiteout",
+            "state_hash": "8c08b7e2795d9be3",
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "0b5f7b7ebe2d6314faf6",
+            "kind": "reserve_misuse",
+            "summary": "Bushtank abandoned its Eelektrik sacrifice line after one Razor Leaf on turn 15.",
+            "state_hash": null,
+            "trainer_key": "map:0:25/local:23",
+            "behavior_hash": "d97eea10090da85df4170e32fd407917191cabe9824e785b149ca81341b967b1",
+            "requirements_matched": true,
+            "resolved": true
           }
         ]
+      }
+    },
+    {
+      "id": "fresh-entry-fake-out-tempo",
+      "title": "Take the fresh-entry Fake Out tempo when it is mechanically safe",
+      "status": "candidate",
+      "tags": [
+        "fake-out",
+        "tempo",
+        "unknown-trainer",
+        "single-battle"
+      ],
+      "intent": "Reuse the one-turn flinch window after any compatible user enters, without tying the rule to a trainer, species, or nickname.",
+      "scope": {
+        "format": "single",
+        "claim": "generic fixed-predicate policy; the tactical scorer still vetoes immunity, speed, and survival failures"
+      },
+      "requirements": [
+        "the active Pokémon has usable Fake Out",
+        "the active Pokémon entered since its previous action",
+        "the target does not invalidate the flinch or damage line"
+      ],
+      "line": [
+        "prefer Fake Out on a fresh entry",
+        "forbid Fake Out after the entry turn",
+        "let survival and immunity evidence outrank the preference"
+      ],
+      "blockers": [
+        "Fake Out has no PP",
+        "the active Pokémon is not on its fresh-entry turn",
+        "verified target mechanics prevent the intended tempo"
+      ],
+      "abort_rules": [
+        "RAM history cannot prove fresh entry",
+        "the action is unsafe under the current tactical certificate"
+      ],
+      "auto_match": {
+        "battle_formats": [
+          "single"
+        ],
+        "active_move_ids_any": [
+          252
+        ]
+      },
+      "executable": {
+        "rules": [
+          {
+            "id": "fresh-prefer",
+            "when": {
+              "fresh_entry": true
+            },
+            "directives": [
+              {
+                "kind": "prefer",
+                "action": {
+                  "kind": "move",
+                  "move_id": 252
+                },
+                "priority": 2
+              }
+            ]
+          },
+          {
+            "id": "stale-forbid",
+            "when": {
+              "fresh_entry": false
+            },
+            "directives": [
+              {
+                "kind": "forbid",
+                "action": {
+                  "kind": "move",
+                  "move_id": 252
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "evidence": {
+        "reproductions": [],
+        "exhaustive_searches": [],
+        "distinct_state_hashes": [],
+        "trainer_keys": [],
+        "counterexamples": []
+      }
+    },
+    {
+      "id": "major-status-safe-pivot",
+      "title": "Prefer a verified safe pivot out of sleep or freeze",
+      "status": "retired",
+      "superseded_by": ["generic-tactical-scorer"],
+      "tags": [
+        "status",
+        "pivot",
+        "unknown-trainer",
+        "single-battle"
+      ],
+      "intent": "Avoid spending turns on an active Pokémon that is deterministically unable to act when a survivable replacement exists.",
+      "scope": {
+        "format": "single",
+        "claim": "generic preference; switch survival and trap legality remain scorer-owned"
+      },
+      "requirements": [
+        "the active Pokémon is asleep or frozen",
+        "at least one legal switch survives the modeled entry sequence"
+      ],
+      "line": [
+        "prefer legal switches",
+        "rank those switches by verified survival and strategic preservation"
+      ],
+      "blockers": [
+        "switching is trapped",
+        "every replacement fails the survival gate"
+      ],
+      "abort_rules": [
+        "the active status no longer prevents action",
+        "no safe legal switch remains"
+      ],
+      "auto_match": {
+        "battle_formats": [
+          "single"
+        ],
+        "player_status_any": 39
+      },
+      "executable": {
+        "rules": [
+          {
+            "id": "incapacitated-pivot",
+            "when": {
+              "player_status_any": 39
+            },
+            "directives": [
+              {
+                "kind": "prefer",
+                "action": {
+                  "kind": "switch"
+                },
+                "priority": 2
+              }
+            ]
+          }
+        ]
+      },
+      "evidence": {
+        "reproductions": [],
+        "exhaustive_searches": [],
+        "distinct_state_hashes": [],
+        "trainer_keys": [],
+        "counterexamples": []
+      }
+    },
+    {
+      "id": "verified-volatile-trap-no-switch",
+      "title": "Respect a verified volatile trap before switching",
+      "status": "retired",
+      "superseded_by": ["battle-history:verified-volatile-trap"],
+      "tags": [
+        "volatile-status",
+        "switch-control",
+        "unknown-trainer"
+      ],
+      "intent": "When a verified enemy move prevents voluntary switching, continue only with legal actions until the volatile effect expires or the active battler changes.",
+      "scope": {
+        "format": "single",
+        "claim": "generic Run & Bun controller rule; exact duration remains conservative"
+      },
+      "requirements": [
+        "enemy move identity verified from battle RAM or settled battle text",
+        "the active battler remains the trapped identity",
+        "at least one legal non-switch action remains"
+      ],
+      "line": [
+        "record the verified trapping move",
+        "forbid voluntary switches while the trap is active",
+        "re-evaluate at every verified boundary and clear the trap on active-identity change or expiry"
+      ],
+      "blockers": [
+        "forced party replacement",
+        "unverified move identity",
+        "no legal action remains after the trap is applied"
+      ],
+      "abort_rules": [
+        "authoritative RAM contradicts the recorded active identity",
+        "the effect duration or clearing event differs from the conservative replay model"
+      ],
+      "evidence": {
+        "reproductions": [],
+        "exhaustive_searches": [],
+        "distinct_state_hashes": [],
+        "trainer_keys": [],
+        "counterexamples": []
       }
     }
   ]

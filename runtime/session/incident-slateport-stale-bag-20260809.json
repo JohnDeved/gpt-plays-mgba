@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "id": "20260809T194433Z-slateport-forward-checkpoint-contained-a-hidden-",
+  "status": "verified",
+  "created_at": "2026-08-09T19:44:33.159470+00:00",
+  "summary": "Slateport forward checkpoint contained a hidden Bag task that rejected movement",
+  "component": "runbun_observation_navigation",
+  "symptom": "RAM showed the verified full-health Slateport party and map, but an active Key Items Bag task owned input while the canonical observation reported overworld and navigation directions produced no coordinate delta.",
+  "classification": "observation_decoder",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/incident-slateport-stale-bag-20260809.state",
+    "sha256": "71364631419b26d78cdc69c05c48d6c043882d62dbe09a0a6b582e694a55672d",
+    "canonical_state": {
+      "state_hash": "dd39ce6630a28646",
+      "map": [9, 11, 10, 2],
+      "mode": "overworld",
+      "field_bag_open": true,
+      "party_species": [388, 397, 231, 878, 551, 111],
+      "party_hp": [57, 46, 58, 56, 47, 59]
+    },
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "A saved post-preparation checkpoint should leave the field input owner in clean overworld state and a route request should move the player.",
+    "actual": "The checkpoint had an active verified Bag task (pocket 4, mode 8) with field_message_box_mode 0; DOWN completed as an RPC action but map position stayed (10,2).",
+    "diff": [
+      "active Bag task owned input while field_message_box_mode remained 0",
+      "navigation action acknowledged done without changing map position"
+    ],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "RAM task payload, field UI flags, map coordinates, and unchanged party species/HP/moves before and after cleanup",
+    "sources": [
+      "RunBunAdapter.observe with tasks=True and the verified Bag cursor payload",
+      "runtime/session/incident-slateport-stale-bag-20260809.state SHA-256 71364631419b26d78cdc69c05c48d6c043882d62dbe09a0a6b582e694a55672d",
+      "live cleanup result: two B actions removed Bag/Start layers with map and party unchanged"
+    ]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "runtime/session/incident-slateport-stale-bag-20260809.state",
+    "fixture_sha256": "71364631419b26d78cdc69c05c48d6c043882d62dbe09a0a6b582e694a55672d",
+    "command": "python3 disposable_clone observation of field_bag_open",
+    "steps": [
+      "load the hashed fixture in a muted disposable clone",
+      "observe canonical map, mode, field_bag_open, and battle_active without input"
+    ],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "Both runs reported map 9:11 at (10,2), mode overworld, battle inactive, and field_bag_open=true."
+  },
+  "hypotheses": [
+    {
+      "claim": "The navigation actuator ignored movement because the Bag task, not overworld movement, owned the input queue.",
+      "discriminator": "The fixed task-payload decoder reports field_bag_open=true on two identical fixture replays while map and party remain unchanged.",
+      "evidence_for": ["verified Bag task payload", "two identical clone observations", "B-only cleanup restored movement ownership"],
+      "evidence_against": ["Route 110 clone movement from a clean overworld state changed position"]
+    }
+  ],
+  "root_cause": {
+    "verified": true,
+    "claim": "The canonical observation omitted a verified Bag-task ownership flag, so navigation treated a hidden Key Items menu as clean overworld and sent directions into the wrong input owner.",
+    "evidence": [
+      "The fixture task has the stable Bag payload: data[1]=512, data[3]=2077, data[4]=51445, data[5]=2077, pocket=4, menu mode=8.",
+      "The same fixture reports field_bag_open=true on two deterministic clone runs after the fix.",
+      "The live B-only cleanup closed two UI layers and preserved map, party species, HP, and moves."
+    ],
+    "alternatives_falsified": [
+      "Route geometry was not the cause: the decoded live path to the target had length 9.",
+      "The RPC action was not merely unfinished: it returned done and advanced frames while the map stayed fixed.",
+      "A global movement failure was not present: a clean Route 110 fixture moved from (15,89) to (16,89)."
+    ]
+  },
+  "solution": {
+    "kind": "interface_fix",
+    "files": [
+      "games/runbun.py",
+      "tests/test_runbun.py"
+    ],
+    "contract_change": "RunBunAdapter.observe exposes ui.field_bag_open and follow_route refuses battle or field-menu ownership before sending any direction; close_field_bag performs bounded B-only cleanup with postconditions.",
+    "workaround": "Use close_field_bag only after field_bag_open is verified; never send route input into a field UI."
+  },
+  "verification": {
+    "targeted_checks": [
+      {
+        "name": "Bag task decoder and navigation guard tests",
+        "command": "python3 -m unittest tests.test_runbun.RunBunTests.test_bag_task_is_detected_from_cursor_payload tests.test_runbun.RunBunTests.test_follow_route_rejects_hidden_bag_task",
+        "passed": true,
+        "evidence": "2 tests passed"
+      },
+      {
+        "name": "Live B-only cleanup postcondition",
+        "command": "RunBunAdapter.close_field_bag on the preserved live state",
+        "passed": true,
+        "evidence": "2 layers closed; map 9:11 (10,2), party species [388,397,231,878,551,111], HP and moves unchanged; field_bag_open=false"
+      }
+    ],
+    "regression_checks": [
+      {
+        "name": "Relevant Run & Bun regression suite",
+        "command": "python3 -m unittest tests.test_runbun tests.test_battle_policy_runner tests.test_battle_policy tests.test_capabilities tests.test_trainer_database",
+        "passed": true,
+        "evidence": "133 tests passed"
+      }
+    ],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "The hashed fixture reports field_bag_open=true and no battle without sending input.",
+      "actual": "Both deterministic clone runs reported field_bag_open=true, map 9:11 at (10,2), and battle inactive.",
+      "extra_state_deltas": []
+    },
+    "metrics": {
+      "live_cleanup_actions": 2,
+      "live_party_delta": "none",
+      "live_map_delta": "none"
+    }
+  },
+  "learning": {
+    "domain_knowledge": [
+      "A Run & Bun Bag task can own input while field_message_box_mode is 0; task payload is authoritative for hidden Bag detection."
+    ],
+    "regression_cases": [
+      "runtime/session/incident-slateport-stale-bag-20260809.state: two-run hidden Bag observation and no-input navigation guard"
+    ],
+    "tooling_contracts": [
+      "Navigation must inspect field UI ownership and refuse to send directions unless clean overworld input ownership is verified."
+    ]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

@@ -1,0 +1,133 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T13:51:18.681353+00:00",
+  "review_id": "cddc6d4293ce15ee1feb",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "ee589577d15b855a6438e58060b2e7d566655dc54cfdfaf4431e65b64d3f6164",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 29,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "schema_version": 2,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 29,
+    "findings": [
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Ponyta selected the critical-range Play Rough branch on turn 5 and removed Lildozer before its second Bulldoze.",
+        "action_changing": false,
+        "observed_fact": "The exact model bounded normal Play Rough at 16-19 against 24 HP and critical damage at 32-38; the observed KO lies only in the modeled critical branch. One bounded replay each showed Croakatoa surviving at 17 HP and Birdlaw at 30 HP, but both transfer damage onto later matchup reserves.",
+        "strategic_judgment": "No replayed alternative lexicographically dominates the chosen expected-best sacrifice: Croakatoa loses more combined HP, while Birdlaw jeopardizes the preserved Dustox finisher.",
+        "confidence": "bounded",
+        "fix_layer": "none_verified_variance",
+        "turns": [
+          5
+        ],
+        "next_test": "Keep the bundle unchanged and monitor whether the same fixed opening produces the same critical branch without threatening the terminal win."
+      },
+      {
+        "kind": "intentional_sacrifice_audit",
+        "severity": "medium",
+        "summary": "Croakatoa, Ohmnomnom, and Bushtank also fainted, but each converted remaining HP into progress or a hit-free replacement.",
+        "action_changing": false,
+        "observed_fact": "Croakatoa left Ponyta at 3 HP for fresh Fake Out; Ohmnomnom left Sunflora at 14 HP for Birdlaw Aerial Ace; Bushtank absorbed the Eelektrik turn so Birdlaw entered without switch damage.",
+        "strategic_judgment": "These are controlled sacrifices in a two-survivor win, not no-action relays; no legal certificate alternative was verified to preserve the role while retaining the same matchup coverage.",
+        "confidence": "verified",
+        "fix_layer": "reusable_executable_strategy",
+        "turns": [
+          9,
+          17,
+          24
+        ],
+        "next_test": "Require the same sacrifices to yield immediate productive forced entries and retain Bugatti plus Birdlaw."
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "Eight switches occurred, with no repeated no-action voluntary switch cycle.",
+        "action_changing": false,
+        "observed_fact": "Four were forced replacements; the voluntary entries assigned Lildozer to Ponyta, Bugatti to Sunflora, status-immune Ohmnomnom to Sludge Bomb, and Bushtank to Eelektrik.",
+        "strategic_judgment": "Every voluntary pivot either took its declared matchup or converted a verified immunity; a blanket switch penalty would make this line less reliable.",
+        "confidence": "verified",
+        "fix_layer": "none",
+        "turns": [
+          3,
+          6,
+          10,
+          12,
+          15,
+          18,
+          20,
+          25
+        ],
+        "next_test": "Audit Clone 2 for the same role-purpose mapping and zero immediate switch reversals."
+      },
+      {
+        "kind": "status_pivot_quality",
+        "severity": "low",
+        "summary": "The Sunflora pivot correctly used burned Ohmnomnom as a Sludge Bomb immunity after Bugatti fell asleep.",
+        "action_changing": false,
+        "observed_fact": "Sludge Bomb dealt zero on entry; fresh Fake Out denied a reply, Metal Claw chipped Sunflora, and Birdlaw then entered freely while Bugatti survived at 21 HP.",
+        "strategic_judgment": "This reusable immunity-converter line preserved both endgame roles despite burn attrition.",
+        "confidence": "verified",
+        "fix_layer": "reusable_executable_strategy",
+        "turns": [
+          15,
+          16,
+          17,
+          18
+        ],
+        "next_test": "Confirm fresh-entry and status reconstruction remain identical after runner restart."
+      },
+      {
+        "kind": "tempo_observation",
+        "severity": "low",
+        "summary": "The win took 29 certified actions, within the recorded 23-31 action range for this exact checkpoint.",
+        "action_changing": false,
+        "observed_fact": "Twenty-one move choices, eight switches, and nineteen PP decrements ended with Bugatti at 21 HP and Birdlaw at 26 HP.",
+        "strategic_judgment": "No shorter replay was shown to dominate survival and terminal reliability, so speed remains a lower-priority optimization.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Retain the line unless Clone 2 exposes a verified slower or wasteful action."
+      },
+      {
+        "kind": "mechanics_uncertainty",
+        "severity": "info",
+        "summary": "Several move certificates still report secondary-effect identity as unmodeled.",
+        "action_changing": false,
+        "observed_fact": "No secondary effect changed a selected action or invalidated a prediction in this terminal win.",
+        "strategic_judgment": "This remains a mechanics-coverage backlog item, not a reason to mutate the qualified behavior bundle mid-streak.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          1,
+          4,
+          5,
+          13,
+          14,
+          17
+        ],
+        "next_test": "Escalate only if a secondary effect changes HP, status, speed, or the next selected action."
+      }
+    ],
+    "correct_choices": [
+      "All 29 actions, PP deltas, opponent replies, and the terminal reward were RAM-verified with no execution discrepancy.",
+      "Spark twice restored the intended Bibarel-to-Ponyta sendout order without spending Birdlaw.",
+      "Fake Out was used only on verified fresh entries at turns 7, 11, and 16, and each produced its intended free tempo.",
+      "Bugatti and Birdlaw, the Sunflora and Dustox reserves, survived the terminal win."
+    ],
+    "next_test": "Run Clone 2 from the identical checkpoint with behavior hash ee589577d15b855a6438e58060b2e7d566655dc54cfdfaf4431e65b64d3f6164; require another reviewed terminal win with no action-changing finding."
+  }
+}

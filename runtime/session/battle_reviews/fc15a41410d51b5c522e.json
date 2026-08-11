@@ -1,0 +1,72 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T09:50:03.067151+00:00",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "b087f7b4a37b45126ef645f3e77cff725e820672bc722d1c9dcfb034e805e516",
+  "behavior_hash": "121b01f1f27c0d4aa5d87e91ddca8aa9a183071013c474785582d22cce09a63b",
+  "policy_id": "gavi-hybrid-v2-team-ready",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 28,
+  "status": "needs_improvement",
+  "classification": "preparation_team_failure",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "severity": "critical",
+        "kind": "terminal_loss",
+        "action_changing": true,
+        "summary": "The authoritative clone whited out against Dustox; qualification resets to clone 1."
+      },
+      {
+        "severity": "high",
+        "kind": "preparation_team_failure",
+        "action_changing": true,
+        "summary": "At the first Eelektrik boundary, Bushtank is the only current switch above the verified critical survival bound; the intended Croakatoa and Bugatti pivots are unsafe, so the unchanged team has no reliable status-immune Eelektrik answer.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_review_states/gavi-current-clone1/turn-006.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The safety replay preserved the critical-switch veto and blocked the unchanged six. ROM/UI checks then proved Budew unreachable before the next badge; preparation replaced Bushtank with the verified boxed Coppertop, retained Bugatti, and created a new exact opening/profile for Clone 1."
+        }
+      },
+      {
+        "severity": "high",
+        "kind": "tactical_error",
+        "action_changing": true,
+        "summary": "Bushtank remained for four Eelektrik actions, became badly poisoned, lost one Razor Leaf to the deterministic miss, and fainted; Birdlaw then spent two attacks into super-effective Shock Wave and fainted, consuming the planned Dustox finisher."
+      },
+      {
+        "severity": "high",
+        "kind": "reserve_misuse",
+        "action_changing": true,
+        "summary": "With Birdlaw gone, Bugatti had to finish Eelektrik and was then trapped and fainted against Dustox; Croakatoa followed with four low-impact Mud Shots while Dustox repeatedly Roosted and healed with Black Sludge."
+      },
+      {
+        "severity": "medium",
+        "kind": "switch_tempo_review",
+        "action_changing": false,
+        "summary": "Only three of seven switches were voluntary and none formed a no-action repeat-switch loop; the new spam veto worked. The loss came from choosing the wrong phase resources, not raw switch count."
+      },
+      {
+        "severity": "medium",
+        "kind": "endgame_collapse",
+        "action_changing": false,
+        "summary": "After the Eelektrik relay, the remaining damaged team entered Dustox sequentially with no preserved super-effective attacker; each later faint was a consequence of the earlier reserve loss."
+      }
+    ],
+    "correct_choices": [
+      "Do not retry this six unchanged.",
+      "Use the reachable Poison-immune Coppertop as the Eelektrik converter while preserving Birdlaw for Dustox and Bugatti for Sunflora; defer Budew until Fly or the Route 103 water connection is unlocked.",
+      "Retain the generic unsafe-switch and repeat-switch vetoes; planned Fake Out pivots remain allowed only with a verified safe continuation."
+    ],
+    "next_test": "Run Clone 1 from the exact Coppertop+Bugatti Route 110 precontact checkpoint and verify that Coppertop absorbs Eelektrik without consuming Birdlaw or Bugatti."
+  },
+  "review_id": "fc15a41410d51b5c522e"
+}

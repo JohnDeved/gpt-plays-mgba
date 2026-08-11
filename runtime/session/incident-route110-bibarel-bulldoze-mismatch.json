@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T005352Z-route-110-phanpy-bulldoze-damage-mismatch",
+  "status": "observed",
+  "created_at": "2026-08-09T00:53:52.882909+00:00",
+  "summary": "Route 110 Phanpy Bulldoze damage mismatch",
+  "component": "battle damage evaluator",
+  "symptom": "The evaluator treated Phanpy Bulldoze as a guaranteed KO, but live battle RAM showed only 12 damage against Bibarel.",
+  "classification": "prediction_model",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/route110-local23-bibarel-turn2-forward-20260809.ss",
+    "sha256": "10e22715113598985080a5f236ebab53230e0b6bfa9bb3fb03a64c90c94131e2",
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "Bulldoze damage 27-33; Bibarel KO before the next meaningful threat.",
+    "actual": "Bibarel took 12 damage (24 to 12), used Aqua Jet for 24 damage (Phanpy 37 to 13), and Speed fell one stage.",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

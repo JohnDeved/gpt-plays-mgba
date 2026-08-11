@@ -1,0 +1,72 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T12:01:42.198816+00:00",
+  "review_id": "d2dd7f4125381cb3b840",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "6cf0074fd534fd0e99a480ec2d2e622e5e8d6f70a997ada44693e04d0fb8348a",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 27,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 27,
+    "findings": [
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "Action 19 treated Bugatti's sleep counter value 1 as actionable, but the cartridge guaranteed another prevented turn; Bugatti absorbed a free Sludge Bomb before waking.",
+        "action_changing": true,
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v19-clone1/turn-019.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "hybrid-policy-v20 treats every nonzero sleep counter as incapacitated, bypasses only the consecutive-switch stall guard, keeps immediate reversal blocked, and selects Croakatoa. One bounded line verified Croakatoa survived Sludge Bomb, used fresh Fake Out, then KO'd Sunflora with Sludge Bomb while preserving 30-HP Bugatti.",
+          "evidence": "runtime/session/battle_reviews/states/gavi-bugatti-v19-clone1/turn-019-croak-sludge-post.state"
+        }
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer and Bushtank fainted after completing their assigned Ponyta and Eelektrik progress; neither was switched in and out without acting.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Birdlaw fainted after two Aerial Aces into Dustox; forced Ohmnomnom finished immediately, leaving three verified survivors.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "Eight of nine switches were purposeful matchup entries or forced replacements. The sole status-forced escape was blocked by the old stall guard and is now explicitly supported without permitting immediate reversal loops.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The fight used 27 decisions; the corrected sleep escape line removes the prevented turn and preserves more total HP.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "Croakatoa-to-Ohmnomnom-to-Bushtank was a deliberate Fake Out relay against Eelektrik; each switch-in acted before leaving.",
+      "Non-fresh Fake Out was never selected.",
+      "Bugatti woke after one prevented turn, landed two Bug Bites, and survived at 22 HP in the original branch.",
+      "The terminal state authoritatively verified victory with Ohmnomnom 29 HP, Croakatoa 33 HP, and Bugatti 22 HP."
+    ],
+    "next_test": "Restart qualification at Clone 1 with behavior hash 47dc4d1933206238cefcdb92e700ac86bd74cf8a412c673ec42550b155d04241; verify immediate third-party escape from any nonzero sleep counter, no immediate reversal, fresh-only Fake Out, and no switch spam."
+  }
+}

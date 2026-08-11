@@ -108,6 +108,7 @@ KNOWN_MAPS = {
     (0, 24): "Route109",
     (0, 11): "DewfordTown",
     (8, 4): "PetalburgCity_PokemonCenter_1F",
+    (3, 1): "DewfordTown_PokemonCenter_1F",
 }
 
 # Gen III English text encoding, enough for player names and common ASCII-like text.

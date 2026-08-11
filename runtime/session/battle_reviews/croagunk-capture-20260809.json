@@ -1,0 +1,49 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T21:12:00+00:00",
+  "review_id": "croagunk-capture-20260809",
+  "terminal": "win",
+  "source": "live",
+  "opening_state_hash": "84fcccf25be4f483",
+  "behavior_hash": null,
+  "policy_id": "wild_capture_croagunk",
+  "trainer_key": null,
+  "matched_strategy_ids": [],
+  "certified_actions": 2,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 2,
+    "findings": [
+      {
+        "kind": "resource_tempo",
+        "severity": "low",
+        "summary": "The first full-HP Poké Ball escaped, consuming one ball and allowing one Mud-Slap; no verified crit-safe weakening or status action existed, so this was not an avoidable tactical error.",
+        "action_changing": false,
+        "observed_fact": "Balls 13→12; Bushtank HP 57→56; Croagunk remained 27/27."
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "info",
+        "summary": "Catch RNG was the only material uncertainty; the second L-throw caught Croagunk without further weakening risk.",
+        "action_changing": false,
+        "observed_fact": "Balls 12→11; Croagunk was caught to PC and named Croakatoa."
+      },
+      {
+        "kind": "tempo_observation",
+        "severity": "info",
+        "summary": "The 2% ROM encounter required 28 encounters and 261 movement steps; this is expected variance, but future rare-target hunts should retain the bounded cap.",
+        "action_changing": false,
+        "observed_fact": "Target species 453 was found on Dewford Town land encounters at level 8."
+      }
+    ],
+    "correct_choices": [
+      "Queried the ROM encounter table before hunting.",
+      "Used the bounded RAM-driven hunt and stopped at the exact species.",
+      "Passed the nickname Croakatoa into capture and verified placement in PC storage."
+    ],
+    "next_test": "When a future target has a verified crit-safe weakening or status move, confirm the helper uses it before throwing; otherwise keep this minimax-safe throw policy."
+  }
+}

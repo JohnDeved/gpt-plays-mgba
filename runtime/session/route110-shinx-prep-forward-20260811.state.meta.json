@@ -1,0 +1,57 @@
+{
+  "path": "/Users/johann/gpt-plays-mgba/runtime/session/route110-shinx-prep-forward-20260811.state",
+  "sha256": "b6924f5ccbadab860e304ed48c5e298999a0c50ef24d3a591c3c6779398eb949",
+  "state_hash": "e3bc1ad7fdafbc1a",
+  "frame": 18745625,
+  "map": {
+    "group": 0,
+    "number": 25,
+    "x": 17,
+    "y": 93,
+    "warp_id": 255
+  },
+  "party": [
+    {
+      "slot": 0,
+      "species": 388,
+      "personality": 1476487022,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 1,
+      "species": 231,
+      "personality": 1744238455,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 2,
+      "species": 777,
+      "personality": 3325952935,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 3,
+      "species": 397,
+      "personality": 1813210531,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 4,
+      "species": 543,
+      "personality": 2609223149,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 5,
+      "species": 453,
+      "personality": 506087644,
+      "ot_id": 3307282159,
+      "level": 17
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "path": "/Users/johann/gpt-plays-mgba/runtime/session/route110-gavi-defeated-forward-20260811.state",
+  "sha256": "8b9250f20d79b8e044ad2b4af8a6b170a7a16e24e9cfa4feeee1825a96ec4ec5",
+  "state_hash": "a3e70e37699af85e",
+  "frame": 18930795,
+  "map": {
+    "group": 0,
+    "number": 25,
+    "x": 15,
+    "y": 89,
+    "warp_id": 255
+  },
+  "party": [
+    {
+      "slot": 0,
+      "species": 777,
+      "personality": 3325952935,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 1,
+      "species": 453,
+      "personality": 506087644,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 2,
+      "species": 388,
+      "personality": 1476487022,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 3,
+      "species": 231,
+      "personality": 1744238455,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 4,
+      "species": 543,
+      "personality": 2609223149,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 5,
+      "species": 397,
+      "personality": 1813210531,
+      "ot_id": 3307282159,
+      "level": 17
+    }
+  ]
+}

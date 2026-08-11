@@ -1,0 +1,77 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T11:00:07.685122+00:00",
+  "review_id": "b5568725bbec00041eb4",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "581c6c54a0cd02f3606cf2fd930533a21d739f4d64c189557835ed01ae14c9e5",
+  "behavior_hash": "7950d85aa492c3b7900defafb3ac3eddad886535cae827031279a3d2de2ac4f7",
+  "policy_id": "gavi-bushtank-coppertop-v4",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 31,
+  "status": "needs_improvement",
+  "classification": "preparation_team_failure",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 31,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The third clone ended in an authoritative whiteout, so the two-win streak is invalid and resets to Clone 1.",
+        "state": "runtime/session/battle_reviews/states/gavi-proven-six-v12-clone3/turn-031.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The losing Coppertop bundle was retired. A new exact opening checkpoint contains Bugatti in Coppertop's slot and a new behavior hash; the old bundle cannot be retried.",
+          "behavior_hash": "51e1d8c69a55f5bd56f0f468dc18502ea8db092914f0daac143c26cf9604923c"
+        }
+      },
+      {
+        "kind": "preparation_team_failure",
+        "severity": "critical",
+        "summary": "Coppertop's 7-8 damage required too many Sunflora turns, allowing Grass Whistle and Leech Seed to consume both Coppertop and Birdlaw before Dustox.",
+        "state": "runtime/session/route110-gavi-bugatti-precontact-forward-20260811.state",
+        "action_changing": true,
+        "resolved": true,
+        "observed_fact": "Coppertop fell asleep and fainted at full-health Sunflora; Birdlaw was then slept, reached Dustox at 11 HP, and fainted after one Aerial Ace.",
+        "resolution": {
+          "verified": true,
+          "observed": "RAM verifies Bugatti at level 17 with Bug/Poison typing, 27 Speed, Bug Bite, Protect, and full HP in the prepared party. Bugatti resists both damaging Sunflora types, outspeeds it, and replaces the weak Tackle line.",
+          "behavior_hash": "51e1d8c69a55f5bd56f0f468dc18502ea8db092914f0daac143c26cf9604923c"
+        }
+      },
+      {
+        "kind": "status_variance",
+        "severity": "high",
+        "summary": "Three sleep-prevented actions let Sunflora recover and depleted the reserved Dustox finisher; the old roster was not robust to verified Grass Whistle variance.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The new profile assigns Bugatti as the Sunflora converter and preserves Birdlaw for Dustox. Qualification restarts under the new hash and must prove the correction three times.",
+          "behavior_hash": "51e1d8c69a55f5bd56f0f468dc18502ea8db092914f0daac143c26cf9604923c"
+        }
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "medium",
+        "summary": "The losing line expanded to 31 actions, 7 switches, and 3 status-prevented actions.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "No voluntary Pokémon switched in and back out without acting; the switch-spam defect remained fixed.",
+      "Coppertop stayed in while asleep when every replacement was unsafe under the critical entry bound.",
+      "Birdlaw committed to its super-effective attacks rather than starting a switch relay.",
+      "Every action and the terminal whiteout were verified from emulator state."
+    ],
+    "next_test": "Restart Clone 1 from the Bugatti opening checkpoint and verify that Sunflora is removed without exposing Birdlaw to repeated Grass Whistle turns."
+  }
+}

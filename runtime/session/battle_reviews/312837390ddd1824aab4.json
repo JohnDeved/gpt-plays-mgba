@@ -1,0 +1,67 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T11:56:59.372272+00:00",
+  "review_id": "312837390ddd1824aab4",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "52d25ff80e71d93069e0e4f79b0e82c9621fec1deb02e80bb95475a8810d6bb9",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 28,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer fainted only after two Bulldozes and a verified Ice Shard reduced Ponyta to 2 HP; Croakatoa then finished without taking damage. No safer legal switch was verified to dominate.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Poisoned 5-HP Bushtank attempted one final Razor Leaf and fainted to Mega Drain, but it had already dealt three Razor Leaf hits and preserved full-HP Croakatoa; sacrificing it avoided exposing a strategic reserve.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Birdlaw traded two Aerial Aces for Dustox damage and Bugatti's forced Rollout then KO'd Dustox, damaged Sunflora, and fainted; full-HP Croakatoa safely completed the fight.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "All eight switches were purposeful: three matchup pivots and five forced replacements. Every voluntary replacement attacked before leaving, with no reversal, consecutive switch stall, or no-action switch spam.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The fight used 28 decisions; no shorter alternative was verified to improve survival or reserve preservation.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "Croakatoa pivoted directly to Bushtank against Eelektrik, and Bushtank attacked until it could no longer preserve useful HP.",
+      "No move was wasted into deterministic sleep, freeze, or paralysis; all 19 committed move PP decrements produced cartridge effects.",
+      "Ohmnomnom and Croakatoa used fresh-entry Fake Out only when legal and converted each free turn into damage rather than switch churn.",
+      "Croakatoa-to-Birdlaw handled Dustox, and forced Bugatti Rollout converted the 6-HP Dustox endgame into Sunflora damage.",
+      "The terminal state authoritatively verified victory with Croakatoa untouched at 46/46 HP."
+    ],
+    "next_test": "Run unchanged-bundle Clone 2 from the identical opening; repeat the all-switch audit, deterministic-status audit, and preservation of Croakatoa for the terminal phase."
+  }
+}

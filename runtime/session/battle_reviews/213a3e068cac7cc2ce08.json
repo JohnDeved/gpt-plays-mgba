@@ -1,0 +1,123 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T10:33:37.491266+00:00",
+  "review_id": "213a3e068cac7cc2ce08",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+  "behavior_hash": "b285d2b84a2512baf0c68de177c0a60bb806f03cefd65844862ec5e8bbd68433",
+  "policy_id": "gavi-bushtank-bugatti-v3",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 26,
+  "status": "needs_improvement",
+  "classification": "preparation_team_failure",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 26,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The clone ended in a verified whiteout; the Bushtank/Bugatti bundle is not viable for another unchanged retry.",
+        "state": "runtime/session/battle_reviews/states/gavi-bushtank-bugatti-v4-clone1/turn-026.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The losing Bushtank/Bugatti roster was retired. The restored six matches the roster of prior verified Gavi clone wins and starts from a new exact checkpoint; qualification restarts at Clone 1.",
+          "behavior_hash": "252adf26a5ce44ad1a1854f9b3fd2c06a7902d1a62dae4679c8a4954c6189c66"
+        },
+        "observed_fact": "Dustox remained at full 52 HP when Croakatoa, the final party member, fainted."
+      },
+      {
+        "kind": "eelektrik_counter_failure",
+        "severity": "critical",
+        "summary": "Full-health Ohmnomnom still failed to convert Eelektrik because Super Fang, Sitrus Berry, and resisted damage left Eelektrik at 33 HP.",
+        "state": "runtime/session/battle_reviews/states/gavi-bushtank-bugatti-v4-clone1/turn-014.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Preparation replaced Bugatti with Coppertop and restored the previously winning Ohmnomnom/Croakatoa/Bushtank/Lildozer/Coppertop/Birdlaw roster. The failed single-counter assignment will not be retried.",
+          "behavior_hash": "252adf26a5ce44ad1a1854f9b3fd2c06a7902d1a62dae4679c8a4954c6189c66"
+        },
+        "observed_fact": "Ohmnomnom entered at 50 HP, dealt Spark, Nuzzle, and two Metal Claws, then fainted; Eelektrik healed through its Sitrus threshold."
+      },
+      {
+        "kind": "strategy_profile_conflict",
+        "severity": "high",
+        "summary": "The profile preferred fresh-entry Fake Out on Eelektrik, but the reusable strategy vetoed that exact action and forced Spark instead.",
+        "state": "runtime/session/battle_reviews/states/gavi-bushtank-bugatti-v4-clone1/turn-011.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Exact turn-011 replay now selects fresh Fake Out with fresh_entry_flinch evidence and no strategy veto.",
+          "behavior_hash": "094c814e80203f78375a238b5d81a1ffe18d8808eec5e920d4d183df1ba4305c"
+        },
+        "observed_fact": "Fake Out had fresh-entry evidence and profile preference, but forbidden_by contained strategy:status-immune-converter-preserved-finisher."
+      },
+      {
+        "kind": "reserve_attrition",
+        "severity": "critical",
+        "summary": "After Ohmnomnom fainted, the forced selector spent Birdlaw and then Bugatti into Eelektrik, recreating the same reserved-finisher death relay.",
+        "state": "runtime/session/battle_reviews/states/gavi-bushtank-bugatti-v4-clone1/turn-015.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Exact turn-015 replay now selects Croakatoa as a progress-capable replacement and ranks Birdlaw below it because Birdlaw covers two later opponents.",
+          "behavior_hash": "094c814e80203f78375a238b5d81a1ffe18d8808eec5e920d4d183df1ba4305c"
+        },
+        "observed_fact": "Birdlaw was poisoned and fainted after two Quick Attacks; Bugatti then needed two Bug Bites and reached Dustox at 17 HP."
+      },
+      {
+        "kind": "forced_zero_progress_replacement",
+        "severity": "high",
+        "summary": "At fresh Dustox, the forced selector chose 9-HP slower Bushtank, which fainted before acting, instead of valuing a replacement able to use priority before defeat.",
+        "state": "runtime/session/battle_reviews/states/gavi-bushtank-bugatti-v4-clone1/turn-022.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Exact turn-022 replay now selects Croakatoa with progress_before_faint=true; 9-HP Bushtank remains progress_before_faint=false and is not selected.",
+          "behavior_hash": "094c814e80203f78375a238b5d81a1ffe18d8808eec5e920d4d183df1ba4305c"
+        },
+        "observed_fact": "Bushtank's Bite was interrupted before execution; Croakatoa was the only alternative and had priority Vacuum Wave, which the mechanics table did not classify as priority."
+      },
+      {
+        "kind": "unmodeled_ability_interaction",
+        "severity": "high",
+        "summary": "Fresh Croakatoa used Fake Out on Dustox, but Dustox still used Venoshock; the flinch assumption is invalid for this opponent.",
+        "state": "runtime/session/battle_reviews/states/gavi-bushtank-bugatti-v4-clone1/turn-025.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Exact turn-025 replay reads Dustox ability 19, removes fresh-entry flinch safety from Fake Out, and selects Mud Shot instead. The Shield Dust regression passes.",
+          "behavior_hash": "094c814e80203f78375a238b5d81a1ffe18d8808eec5e920d4d183df1ba4305c"
+        },
+        "observed_fact": "Fake Out PP decreased and Dustox immediately executed Venoshock, consistent with its flinch-blocking ability."
+      },
+      {
+        "kind": "tempo",
+        "severity": "medium",
+        "summary": "Seven switches occurred; four were forced replacements caused by depleted matchup answers, not productive strategy pivots.",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "The Eelektrik and Dustox phases repeatedly selected the least-immediate-death target instead of preserving roles or guaranteeing progress."
+      }
+    ],
+    "correct_choices": [
+      "Bushtank removed Bibarel with two Razor Leafs.",
+      "The corrected Ponyta branch preserved Ohmnomnom: Lildozer fainted, Croakatoa used fresh Fake Out and Mud Shot, then Ohmnomnom entered Eelektrik at full HP.",
+      "No observation, PP, or input acknowledgement mismatch occurred in 26 verified actions.",
+      "The anti-switch-stall rules prevented voluntary no-action reversals; the remaining defect is forced replacement and preparation quality."
+    ],
+    "next_test": "Do not retry this bundle. Correct the fresh Fake Out conflict, teach the mechanics table Vacuum Wave priority, rank progress-capable forced replacements ahead of zero-action sacks, and prepare a stronger Electric-resistant Eelektrik counter before restarting Clone 1."
+  }
+}

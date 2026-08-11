@@ -1,0 +1,57 @@
+{
+  "path": "/Users/johann/gpt-plays-mgba/runtime/session/route106-navigation-failure-forward-20260809.state",
+  "sha256": "ea730231956a32a1ad0bd263e8109ad1b5c83f07dc622f82eda5ba1d9a5ee91f",
+  "state_hash": "d4053f4356e237ea",
+  "frame": 18409693,
+  "map": {
+    "group": 0,
+    "number": 21,
+    "x": 52,
+    "y": 19,
+    "warp_id": 0
+  },
+  "party": [
+    {
+      "slot": 0,
+      "species": 388,
+      "personality": 1476487022,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 1,
+      "species": 397,
+      "personality": 1813210531,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 2,
+      "species": 231,
+      "personality": 1744238455,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 3,
+      "species": 878,
+      "personality": 4082287436,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 4,
+      "species": 111,
+      "personality": 2559287137,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 5,
+      "species": 543,
+      "personality": 2609223149,
+      "ot_id": 3307282159,
+      "level": 17
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "path": "/Users/johann/gpt-plays-mgba/runtime/session/route110-gavi-proven-six-precontact-forward-20260811.state",
+  "sha256": "581c6c54a0cd02f3606cf2fd930533a21d739f4d64c189557835ed01ae14c9e5",
+  "state_hash": "aa4d9dc60188d2ab",
+  "frame": 18792900,
+  "map": {
+    "group": 0,
+    "number": 25,
+    "x": 15,
+    "y": 89,
+    "warp_id": 255
+  },
+  "party": [
+    {
+      "slot": 0,
+      "species": 777,
+      "personality": 3325952935,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 1,
+      "species": 453,
+      "personality": 506087644,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 2,
+      "species": 388,
+      "personality": 1476487022,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 3,
+      "species": 231,
+      "personality": 1744238455,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 4,
+      "species": 878,
+      "personality": 4082287436,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 5,
+      "species": 397,
+      "personality": 1813210531,
+      "ot_id": 3307282159,
+      "level": 17
+    }
+  ]
+}

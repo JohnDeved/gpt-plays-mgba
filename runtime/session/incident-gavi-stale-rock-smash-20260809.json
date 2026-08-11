@@ -1,0 +1,15 @@
+{
+  "id": "20260809T070000Z-gavi-stale-rock-smash",
+  "date": "2026-08-09",
+  "summary": "Stale command menu hid Cufant's queued KO before Rock Smash acknowledgement",
+  "scope": "battle_interface",
+  "symptom": "After a verified Cufant Rock Smash exchange, the adapter repeatedly reported command_menu at 9/56 HP. The next choose_move call returned ack command_menu with Rock Smash PP unchanged, while RAM later showed Cufant fainted and Eelektrik unchanged at 37/54.",
+  "authoritative_evidence": {
+    "before": {"species": 878, "hp": 9, "move": 249, "pp": 13, "opponent": 603, "opponent_hp": 37},
+    "action_return": {"ack": "command_menu", "before_pp": 13, "after_pp": 13},
+    "after": {"species": 878, "hp": 0, "opponent": 603, "opponent_hp": 37, "text": "Cufant fainted! Choose a Pokémon."}
+  },
+  "root_cause": "The command-menu signature was accepted while a queued Eelektrik action/faint transition still owned the battle field; move PP and battler identity were not treated as the acknowledgement boundary.",
+  "fix": "Reject any move result whose PP does not decrement. Before every important action, require stable command subject, active battler HP/species, no active field tasks, and drained battle text across repeated reads; if an action returns command_menu without PP change, drain and classify the result before sending further input.",
+  "recovery": "Load only the newest verified forward pre-battle checkpoint and rerun; this is permitted under the accidental/tooling-corruption recovery rule. Do not use a post-loss checkpoint to retry the deliberate strategy."
+}

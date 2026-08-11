@@ -1,0 +1,21 @@
+{
+  "id": "20260809T051000Z-move-learning-target-double-candy",
+  "date": "2026-08-09",
+  "summary": "Move-learning cleanup pressed through an Endless Candy target layer",
+  "scope": "tooling_interface",
+  "symptom": "Resolving Sandile's level-13 Snarl prompt acknowledged the replacement, then cleanup crossed an unknown field mode 21 target/task boundary and consumed additional Endless Candy uses. Sandile advanced unintentionally to level 16 and reached a Bulldoze learning prompt.",
+  "authoritative_evidence": {
+    "checkpoint_recovery": "/Users/johann/gpt-plays-mgba/runtime/session/route109-local22-precontact-forward-20260809.state",
+    "bad_live_state": {"map": [9, 11, 7, 8], "species": 551, "level": 16, "moves": [555, 644, 317, 44], "field_mode": 21},
+    "text": "However, Sandile already knows four moves.",
+    "unintended_resource_use": "more than one Candy after the requested Snarl replacement"
+  },
+  "root_cause": "Cleanup used generic text-printer readiness and did not treat unknown field mode 21 as an input-owner boundary. The reusable target layer can expose a new printer while still accepting A.",
+  "fix": "After the requested party move tuple changes, acknowledge only explicit Poof/forgot/And/learned pages; stop A immediately at any other page and use B-only layer cleanup. Abort if a nested move-learning prompt appears.",
+  "recovery": "Loaded the newest verified forward checkpoint because the live corruption was caused by the tooling boundary, then verified Sandile level 10 and moves [43, 644, 317, 44] from RAM.",
+  "regression": {
+    "command": "python3 -m unittest discover -s tests -q",
+    "result_before_live_retry": "96 tests passed",
+    "required_live_case": "One Candy use and one explicit replacement must return overworld with exactly one level increment and no pending move-learning UI."
+  }
+}

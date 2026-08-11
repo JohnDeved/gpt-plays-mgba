@@ -11,6 +11,7 @@ import hashlib
 import re
 import time
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any
 
 try:
@@ -26,7 +27,7 @@ ROM_CODE = "BPEE"
 # Bump when the tactical ranking or its evidence semantics change.  The
 # reusable policy qualification hash includes this version, while excluding
 # reporting-only changes from the clone streak.
-BATTLE_SCORER_VERSION = "runbun-tactical-v1"
+BATTLE_SCORER_VERSION = "runbun-tactical-v9"
 
 SAVE_BLOCK1_PTR = 0x03005D9C
 SAVE_BLOCK2_PTR = 0x03005DA0
@@ -91,6 +92,12 @@ FIELD_MESSAGE_MODE_NAMES = {
     60: "double_battle_move",
     68: "double_battle_text",
 }
+
+
+def nickname_target_prompt_verified(prompt: str) -> bool:
+    """Accept the ROM printer's occasionally truncated final character."""
+    normalized = " ".join(str(prompt).split()).casefold()
+    return "nickname should i chan" in normalized
 # Battler structs are not cleared when a prior double battle ends. These are
 # the field modes observed only while the current battle engine owns the
 # double-battle UI; stale gBattleMons slots 2/3 must not promote a single
@@ -141,6 +148,7 @@ MOVE_TYPE_IDS = {
     352: 11,  # Water Pulse, Water
     351: 13,  # Shock Wave, Electric
     395: 1,   # Force Palm, Fighting
+    410: 1,   # Vacuum Wave, Fighting; special priority
     458: 0,   # Double Hit, Normal
     474: 3,   # Venoshock, Poison
     162: 0,   # Super Fang, fixed half-current-HP Normal damage
@@ -169,13 +177,13 @@ MOVE_POWER = {
     71: 20, 75: 55, 88: 50, 98: 40, 183: 40, 205: 30, 229: 20,
     7: 75, 24: 30, 86: 0, 92: 0, 103: 0, 109: 0,
     209: 65, 252: 40, 317: 60, 332: 60, 342: 50, 351: 60, 352: 60,
-    395: 60, 420: 40, 458: 35, 474: 65, 267: 80, 270: 0, 341: 55,
+    395: 60, 410: 40, 420: 40, 458: 35, 474: 65, 267: 80, 270: 0, 341: 55,
     479: 50,
     340: 85, 225: 60, 249: 40, 450: 60, 453: 40, 512: 60, 523: 60,
     172: 60, 365: 60, 583: 90, 72: 40, 188: 90, 611: 20,
 }
-MOVE_SPECIAL_IDS = frozenset({16, 49, 52, 71, 72, 188, 267, 341, 351, 352, 450, 474, 611})
-MOVE_PRIORITY_IDS = frozenset({98, 183, 252, 420, 453})
+MOVE_SPECIAL_IDS = frozenset({16, 49, 52, 71, 72, 188, 267, 341, 351, 352, 410, 450, 474, 611})
+MOVE_PRIORITY_IDS = frozenset({98, 183, 252, 410, 420, 453})
 STATUS_MOVE_IDS = frozenset({28, 43, 73, 86, 92, 103, 109, 117, 150, 182, 270, 283, 320, 336, 355, 589})
 # Fixed-damage moves bypass the ordinary type/power formula. Values are the
 # denominator of the defender's current-HP fraction; Run & Bun's Super Fang
@@ -184,6 +192,10 @@ MOVE_FIXED_DAMAGE_FRACTIONS = {162: 2}
 PHYSICAL_THREAT_DEBUFF_IDS = frozenset({589})  # Play Nice lowers Attack.
 ABILITY_FLASH_FIRE = 18
 ABILITY_LEVITATE = 26
+ABILITY_GUTS = 62
+MECHANICS_MODELED_ABILITIES = frozenset({0, ABILITY_FLASH_FIRE, ABILITY_LEVITATE, ABILITY_GUTS, 19})  # Shield Dust is enforced by policy.
+RESIDUAL_OR_MULTI_TURN_MOVE_IDS = frozenset({20, 73, 205, 267, 340, 611})
+BURN_STATUS = 0x10
 PARALYSIS_STATUS = 0x40
 
 # These moves can be nonlethal on the immediate roll but create an avoidable
@@ -205,7 +217,7 @@ SPECIES_TYPE_IDS = {
     16: (0, 2), 98: (11,), 193: (6, 2), 273: (12,),
     390: (10,), 761: (12,), 987: (17, 0),
     95: (5, 4), 111: (5, 4), 231: (4,), 388: (12,), 397: (0, 2),
-    543: (6, 3), 878: (8,), 404: (13,),
+    453: (3, 1), 543: (6, 3), 777: (13, 8), 878: (8,), 404: (13,),
 }
 
 # Only the interactions needed by the currently observed party/moves are
@@ -215,16 +227,17 @@ TYPE_EFFECTIVENESS = {
     0: {7: 0.0},                         # Normal -> Ghost
     1: {0: 2.0, 2: 0.5, 3: 0.5, 5: 2.0, 6: 0.5, 8: 2.0, 11: 1.0, 14: 0.5, 15: 2.0, 17: 2.0},
     2: {1: 2.0, 6: 2.0, 12: 2.0, 10: 0.5, 11: 1.0},
+    3: {3: 0.5, 4: 0.5, 5: 0.5, 7: 0.5, 8: 0.0, 12: 2.0, 18: 2.0},
     # Ground is neutral into Water; the live Bibarel turn verified this
     # correction when Bulldoze dealt 12 rather than the old super-effective
     # estimate. Keep the explicit Water entry to prevent accidental fallback
     # to an overconfident multiplier.
     4: {10: 2.0, 11: 1.0, 12: 0.5, 2: 0.0, 6: 0.5, 13: 2.0},
-    13: {4: 0.0},             # Electric -> Ground
+    13: {4: 0.0, 12: 0.5, 13: 0.5},       # Electric -> Ground/Grass/Electric
     6: {12: 2.0, 10: 0.5, 1: 0.5, 2: 0.5, 17: 2.0, 18: 0.5},
     10: {12: 2.0, 6: 2.0, 10: 0.5, 11: 0.5, 5: 0.5, 15: 2.0, 8: 2.0},
     11: {10: 2.0, 4: 2.0, 12: 0.5, 11: 0.5},
-    12: {11: 2.0, 4: 2.0, 5: 2.0, 10: 0.5, 12: 0.5, 2: 0.5, 6: 0.5},
+    12: {11: 2.0, 4: 2.0, 5: 2.0, 10: 0.5, 12: 0.5, 2: 0.5, 3: 0.5, 6: 0.5, 8: 0.5},
 }
 
 CHAR_PROMPT_SCROLL = 0xFA
@@ -594,8 +607,9 @@ def _valid_ewram_pointer(value: int | None) -> bool:
 class RunBunAdapter:
     """Read a structured Run & Bun observation from an MGBA client."""
 
-    def __init__(self, gba):
+    def __init__(self, gba, *, enforce_live_trainer_gate: bool = True):
         self.gba = gba
+        self.enforce_live_trainer_gate = enforce_live_trainer_gate
         self._rom_data: BattleRomData | None = None
         # Learned from live HP deltas. Keyed by attacker species, move ID,
         # defender species; values are observed damage samples.
@@ -675,6 +689,49 @@ class RunBunAdapter:
         self.gba.press(key, frames=hold_frames)
         self.gba.wait_frames(wait_frames)
 
+    def _pc_terminal_approach(self) -> tuple[tuple[int, int], str]:
+        """Find the live PC terminal and a reachable tile facing it."""
+        from games.run_and_bun.live_map import read_live_map
+
+        state = self.observe()
+        map_state = state.get("map") or {}
+        map_id = (map_state.get("group"), map_state.get("number"))
+        current = (map_state.get("x"), map_state.get("y"))
+        if None in map_id or None in current:
+            raise RuntimeError("pc_terminal_map_state_incomplete")
+        nurse_candidates = [
+            obj for obj in self.live_objects()
+            if obj.get("active")
+            and not obj.get("is_player")
+            and tuple(obj.get("map_id", ())) == map_id
+            and obj.get("local_id") == 1
+            and obj.get("graphics_id") == 58
+        ]
+        if len(nurse_candidates) != 1:
+            raise RuntimeError(f"pc_terminal_requires_pokecenter: {nurse_candidates}")
+        live = read_live_map(self.gba)
+        # The terminal is a static map tile, not an object event. In this ROM
+        # the verified center layout places it three tiles east of the nurse;
+        # require the resulting approach/terminal geometry instead of probing
+        # arbitrary coordinates or talking to a nearby NPC.
+        nurse = nurse_candidates[0]["position"]
+        approach = (int(nurse[0]) + 3, int(nurse[1]))
+        terminal = (approach[0], approach[1] - 1)
+        if not (
+            0 <= terminal[0] < live.active_width
+            and 0 <= terminal[1] < live.active_height
+            and live.walkable(*approach)
+            and not live.walkable(*terminal)
+        ):
+            raise RuntimeError(f"pc_terminal_geometry_unverified: nurse={nurse} approach={approach}")
+        live.path_to(
+            (int(current[0]), int(current[1])),
+            approach,
+            allow_nonwalkable_start=True,
+            grass_penalty=100,
+        )
+        return approach, "UP"
+
     def _close_pc_storage(self) -> dict[str, Any]:
         """Exit the storage script and prove field movement owns input again."""
         for _ in range(2):
@@ -682,10 +739,11 @@ class RunBunAdapter:
         state = self.observe()
         map_state = state.get("map") or {}
         map_id = (map_state.get("group"), map_state.get("number"))
+        approach, _ = self._pc_terminal_approach()
         result = self.follow_live_path_adaptive(
-            (10, 4), expected_map=map_id, avoid_trainer_sight_lines=False
+            approach, expected_map=map_id, avoid_trainer_sight_lines=False
         )
-        if result.get("position") != (10, 4) or result["state"].get("mode") != "overworld":
+        if result.get("position") != approach or result["state"].get("mode") != "overworld":
             raise RuntimeError("pc_storage_cleanup_failed")
         return result["state"]
 
@@ -701,12 +759,13 @@ class RunBunAdapter:
             raise RuntimeError("pc_transfer_requires_clean_overworld")
         map_state = state.get("map") or {}
         map_id = (map_state.get("group"), map_state.get("number"))
+        approach, direction = self._pc_terminal_approach()
         self.follow_live_path_adaptive(
-            (10, 2),
+            approach,
             expected_map=map_id,
             avoid_trainer_sight_lines=False,
         )
-        self._pc_tap("UP", wait_frames=12)
+        self._pc_tap(direction, wait_frames=12)
         self._pc_tap("A")
         text = ((self.observe().get("text") or {}).get("current") or {}).get("text", "")
         if "booted up the PC" not in text:
@@ -954,6 +1013,73 @@ class RunBunAdapter:
             "state": after,
         }
 
+    def field_move_options(self, party_slot: int = 0, *, open_first_field_move: bool = False) -> dict[str, Any]:
+        """Open one party command menu, report it, and cancel without selection."""
+        before = self.observe()
+        party = [mon for mon in before.get("party", {}).get("mons", []) if mon.get("present")]
+        if before.get("mode") != "overworld" or before.get("battle", {}).get("active"):
+            raise RuntimeError("field_move_options_requires_clean_overworld")
+        if party_slot not in range(len(party)):
+            raise ValueError("party_slot_out_of_range")
+
+        self._pc_tap("START", wait_frames=60)
+        if not self._field_start_menu_open() or self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 2:
+            raise RuntimeError("field_move_options_start_menu_not_ready")
+        self._move_field_cursor(FIELD_MENU_CURSOR, 1, max_steps=8)
+        self._pc_tap("A")
+        if self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 11:
+            raise RuntimeError("field_move_options_party_menu_not_ready")
+        self._move_party_grid_cursor(party_slot)
+        self._pc_tap("A")
+
+        menu = self.observe(screenshot=True)
+        start_cursor = self.gba.read8(FIELD_MENU_CURSOR)
+        rows = {start_cursor}
+        for _ in range(8):
+            self._pc_tap("DOWN", wait_frames=30)
+            cursor = self.gba.read8(FIELD_MENU_CURSOR)
+            if cursor in rows:
+                break
+            rows.add(cursor)
+        else:
+            raise RuntimeError("field_move_options_menu_did_not_wrap")
+
+        field_screen = None
+        if open_first_field_move:
+            if len(rows) < 5:
+                raise RuntimeError("field_move_options_no_field_move_row")
+            self._move_field_cursor(FIELD_MENU_CURSOR, 1, max_steps=8)
+            self._pc_tap("A", wait_frames=180)
+            field_screen = self.observe(screenshot=True)
+
+        for _ in range(6):
+            self._pc_tap("B")
+            after = self.observe()
+            if after.get("mode") == "overworld" and not self._field_start_menu_open():
+                break
+        else:
+            raise RuntimeError("field_move_options_cleanup_failed")
+        if after.get("map") != before.get("map"):
+            raise RuntimeError("field_move_options_changed_map")
+        return {
+            "party_slot": party_slot,
+            "personality": int(party[party_slot]["state"]["personality"]),
+            "row_count": len(rows),
+            "cursor_rows": sorted(rows),
+            "text": self._active_field_page_texts(menu),
+            "screenshot": menu.get("screenshot"),
+            "field_screen": None if field_screen is None else {
+                "ui": field_screen.get("ui"),
+                "text": self._active_field_page_texts(field_screen),
+                "screenshot": field_screen.get("screenshot"),
+                "tasks": [
+                    task for task in (field_screen.get("tasks") or {}).get("tasks", [])
+                    if task.get("active")
+                ],
+            },
+            "state": after,
+        }
+
     def heal_party(self) -> dict[str, Any]:
         """Use the Center nurse and verify HP, status, and move PP from RAM/ROM."""
         before = self.observe()
@@ -1154,7 +1280,7 @@ class RunBunAdapter:
             raise RuntimeError(f"nickname_service_selection_not_verified: {selected!r}")
         tap("A")
         prompt = ((self.observe().get("text") or {}).get("current") or {}).get("text", "")
-        if "nickname should\nI change" not in prompt:
+        if not nickname_target_prompt_verified(prompt):
             raise RuntimeError(f"nickname_service_target_prompt_not_verified: {prompt!r}")
         tap("A")
         if self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 11:
@@ -1446,6 +1572,16 @@ class RunBunAdapter:
         return 3 / (3 + 6 - stage)
 
     @classmethod
+    def _evasion_stage_multiplier(cls, state: dict[str, Any]) -> float:
+        stages = state.get("stat_stages") or ()
+        if len(stages) <= 7:
+            return 1.0
+        stage = max(0, min(12, int(stages[7])))
+        if stage >= 6:
+            return (3 + stage - 6) / 3
+        return 3 / (3 + 6 - stage)
+
+    @classmethod
     def _effective_speed(cls, state: dict[str, Any]) -> float:
         speed = float(state.get("speed", 0)) * cls._stage_multiplier(state, "speed")
         if int(state.get("status", 0)) & PARALYSIS_STATUS:
@@ -1526,6 +1662,8 @@ class RunBunAdapter:
         if defender_state.get("ability") == ABILITY_LEVITATE and move_type == 4:
             return (0.0, 0.0)
         attack = max(1, math.floor(attack * cls._stage_multiplier(attacker_state, attack_key)))
+        if not special and int(attacker_state.get("status", 0) or 0) & BURN_STATUS and attacker_state.get("ability") != ABILITY_GUTS:
+            attack = max(1, attack // 2)
         defense = max(1, math.floor(defense * cls._stage_multiplier(defender_state, defense_key)))
         defender_types = cls._mon_types(defender)
         effectiveness = 1.0
@@ -1778,6 +1916,8 @@ class RunBunAdapter:
         move_data: dict[int, RomMove] | None = None,
         low_hp_fraction: float = 0.25,
         allow_switch: bool = True,
+        actor_slot: int | None = None,
+        target_slot: int | None = None,
     ) -> dict[str, Any]:
         """Choose a safe move or a switch using the current RAM observation.
 
@@ -1789,9 +1929,17 @@ class RunBunAdapter:
         """
         if not observation.get("battle", {}).get("active"):
             return {"action": "none", "reason": "not_in_battle"}
-        mons = observation["battle"].get("mons", [])
-        player = next((m["state"] for m in mons if m.get("slot") == 0 and m.get("present")), None)
-        opponent = next((m["state"] for m in mons if m.get("slot") == 1 and m.get("present")), None)
+        battle = observation["battle"]
+        mons = battle.get("mons", [])
+        if actor_slot is None:
+            actor_slot = battle.get("menu", {}).get("command_battler") if battle.get("format") == "double" else 0
+        if actor_slot not in (0, 2):
+            actor_slot = 0
+        opponents = [slot for slot in (1, 3) if any(m.get("slot") == slot and m.get("present") and m["state"].get("current_hp", 0) > 0 for m in mons)]
+        if target_slot not in opponents:
+            target_slot = opponents[0] if opponents else 1
+        player = next((m["state"] for m in mons if m.get("slot") == actor_slot and m.get("present")), None)
+        opponent = next((m["state"] for m in mons if m.get("slot") == target_slot and m.get("present")), None)
         if player is None or opponent is None:
             return {"action": "none", "reason": "battle_mons_incomplete"}
 
@@ -1879,6 +2027,8 @@ class RunBunAdapter:
         move_data: dict[int, RomMove] | None = None,
         low_hp_fraction: float = 0.25,
         allow_switch: bool = True,
+        actor_slot: int | None = None,
+        target_slot: int | None = None,
     ) -> dict[str, Any]:
         """Return a compact, auditable explanation for one battle turn.
 
@@ -1891,8 +2041,15 @@ class RunBunAdapter:
         if not battle.get("active"):
             return {"decision": {"action": "none", "reason": "not_in_battle"}, "proof": {"level": "none"}}
         mons = battle.get("mons", [])
-        player = next((m["state"] for m in mons if m.get("slot") == 0 and m.get("present")), None)
-        opponent = next((m["state"] for m in mons if m.get("slot") == 1 and m.get("present")), None)
+        if actor_slot is None:
+            actor_slot = battle.get("menu", {}).get("command_battler") if battle.get("format") == "double" else 0
+        if actor_slot not in (0, 2):
+            actor_slot = 0
+        opponents = [slot for slot in (1, 3) if any(m.get("slot") == slot and m.get("present") and m["state"].get("current_hp", 0) > 0 for m in mons)]
+        if target_slot not in opponents:
+            target_slot = opponents[0] if opponents else 1
+        player = next((m["state"] for m in mons if m.get("slot") == actor_slot and m.get("present")), None)
+        opponent = next((m["state"] for m in mons if m.get("slot") == target_slot and m.get("present")), None)
         if player is None or opponent is None:
             return {"decision": {"action": "none", "reason": "battle_mons_incomplete"}, "proof": {"level": "none"}}
 
@@ -1905,6 +2062,8 @@ class RunBunAdapter:
             move_data=move_data,
             low_hp_fraction=low_hp_fraction,
             allow_switch=allow_switch,
+            actor_slot=actor_slot,
+            target_slot=target_slot,
         )
         opponent_hp = opponent.get("current_hp", 0)
         opponent_speed = cls._effective_speed(opponent)
@@ -1929,13 +2088,18 @@ class RunBunAdapter:
                 move_data=move_data,
             )
             damage = (damage_min + damage_max) / 2
+            critical_damage_max = damage_max if move_id in MOVE_FIXED_DAMAGE_FRACTIONS else damage_max * 2
+            accuracy_known = metadata is not None
+            base_accuracy = int(metadata.accuracy) if metadata is not None else None
+            hit_probability = (
+                1.0
+                if base_accuracy == 0
+                else min(1.0, max(0.0, (base_accuracy or 0) / 100 * cls._accuracy_stage_multiplier(state) / cls._evasion_stage_multiplier(defender)))
+            )
+            expected_damage = damage * hit_probability
             ko_in = int((defender.get("current_hp", 0) + max(damage_max, 1) - 1) // max(damage_max, 1))
             guaranteed_ko_in = int((defender.get("current_hp", 0) + max(damage_min, 1) - 1) // max(damage_min, 1))
-            priority = (
-                (move_data or {}).get(move_id).priority > 0
-                if (move_data or {}).get(move_id) is not None
-                else move_id in MOVE_PRIORITY_IDS
-            )
+            priority_value = int(metadata.priority) if metadata is not None else int(move_id in MOVE_PRIORITY_IDS)
             attacker_speed = cls._effective_speed(state)
             defender_speed = cls._effective_speed(defender)
             speed_order = (
@@ -1943,19 +2107,62 @@ class RunBunAdapter:
                 else "second" if attacker_speed < defender_speed
                 else "tie"
             )
-            order = "first" if priority else speed_order
+            order = "first" if priority_value > 0 else speed_order
             first = order == "first"
+            uncertainties = []
+            if not accuracy_known:
+                uncertainties.append("move_accuracy_unavailable")
+            if metadata is not None and metadata.secondary_chance:
+                uncertainties.append("secondary_effect_identity_unmodeled")
+            if metadata is not None and metadata.category == "status":
+                uncertainties.append("status_move_effect_unmodeled")
+            if move_id in RESIDUAL_OR_MULTI_TURN_MOVE_IDS:
+                uncertainties.append("residual_or_multi_turn_transition_unmodeled")
+            attacker_ability = int(state.get("ability", 0) or 0)
+            defender_ability = int(defender.get("ability", 0) or 0)
+            if attacker_ability not in MECHANICS_MODELED_ABILITIES:
+                uncertainties.append(f"attacker_ability_effect_unmodeled:{attacker_ability}")
+            if defender_ability not in MECHANICS_MODELED_ABILITIES:
+                uncertainties.append(f"defender_ability_effect_unmodeled:{defender_ability}")
+            if int(state.get("held_item", 0) or 0):
+                uncertainties.append(f"attacker_held_item_effect_unmodeled:{int(state['held_item'])}")
+            if int(defender.get("held_item", 0) or 0):
+                uncertainties.append(f"defender_held_item_effect_unmodeled:{int(defender['held_item'])}")
+            uncertainties = list(dict.fromkeys(uncertainties))
             return {
                 "slot": slot,
+                "actor": actor_slot,
+                "target": target_slot,
                 "move_id": move_id,
                 "move": move_name(state, slot, move_id),
-                "damage_est": round(damage, 2),
+                "damage_est": round(expected_damage, 2),
+                "damage_on_hit": round(damage, 2),
                 "damage_range": [round(damage_min, 2), round(damage_max, 2)],
+                "critical_damage_max": round(critical_damage_max, 2),
+                "accuracy": base_accuracy,
+                "hit_probability": round(hit_probability, 6),
+                "guaranteed_hit": hit_probability >= 1.0,
+                "priority": priority_value,
                 "ko_in": ko_in,
                 "guaranteed_ko_in": guaranteed_ko_in,
                 "order": order,
                 "acts_first": first,
-                "ko_before_hit": damage_min >= defender.get("current_hp", 0) > 0 and first,
+                "ko_before_hit": hit_probability >= 1.0 and damage_min >= defender.get("current_hp", 0) > 0 and first,
+                "outcome_set": {
+                    "miss_probability": round(1 - hit_probability, 6),
+                    "normal_hit": [round(damage_min, 2), round(damage_max, 2)],
+                    "critical_hit": [round(damage_min * 2, 2), round(critical_damage_max, 2)],
+                    "critical_probability_given_hit": 0.0625,
+                },
+                "mechanics_coverage": {
+                    "damage": "rom_formula" if metadata is not None else "static_or_unknown",
+                    "accuracy": "rom_and_stages" if accuracy_known else "unknown",
+                    "priority": "rom" if metadata is not None else "static_fallback",
+                    "secondary_effect": "none" if metadata is None or not metadata.secondary_chance else "chance_known_effect_unmodeled",
+                    "complete_for_transition": not uncertainties,
+                    "gaps": uncertainties,
+                },
+                "uncertainties": uncertainties,
                 "evidence": (
                     {"kind": "observed_samples", "samples": samples}
                     if samples and not known_move
@@ -1975,12 +2182,29 @@ class RunBunAdapter:
         for slot, move_id in enumerate(opponent.get("moves", ())):
             if move_id:
                 incoming.append(move_report(opponent, slot, move_id, player))
+        max_opponent_priority = max((item["priority"] for item in incoming), default=0)
+        for item in moves:
+            if item["priority"] > max_opponent_priority:
+                item["order"] = "first"
+            elif item["priority"] < max_opponent_priority:
+                item["order"] = "second"
+            item["acts_first"] = item["order"] == "first"
+            item["ko_before_hit"] = bool(
+                item["guaranteed_hit"]
+                and item["damage_range"][0] >= opponent.get("current_hp", 0) > 0
+                and item["acts_first"]
+            )
         incoming_max = max((item["damage_range"][1] for item in incoming), default=0.0)
+        incoming_critical_max = max((item["critical_damage_max"] for item in incoming), default=0.0)
         alternatives = sorted(moves, key=lambda item: (-item["damage_est"], item["slot"]))
         chosen = next(
             (item for item in moves if item["move_id"] == plan.get("move_id") and item["slot"] == plan.get("slot")),
             None,
         )
+        mechanics_gaps = list(dict.fromkeys([
+            *(chosen.get("uncertainties", []) if chosen else ["no_chosen_move"]),
+            *(gap for item in incoming for gap in item.get("uncertainties", [])),
+        ]))
         if chosen and chosen["ko_before_hit"]:
             proof_level = "minimax_visible"
             claim = "visible-state one-turn KO before the modeled reply"
@@ -2004,7 +2228,11 @@ class RunBunAdapter:
             "decision": plan,
             "chosen": chosen,
             "alternatives": alternatives,
-            "incoming": {"max_damage_est": round(incoming_max, 2), "moves": incoming},
+            "incoming": {
+                "max_damage_est": round(incoming_max, 2),
+                "critical_max_damage_est": round(incoming_critical_max, 2),
+                "moves": incoming,
+            },
             "proof": {
                 "level": proof_level,
                 "claim": claim,
@@ -2014,6 +2242,9 @@ class RunBunAdapter:
                     "chosen_damage_est": chosen["damage_est"] if chosen else None,
                     "chosen_acts_first": chosen["acts_first"] if chosen else None,
                 },
+                "mechanics_coverage": chosen.get("mechanics_coverage") if chosen else None,
+                "material_uncertainty": mechanics_gaps,
+                "mechanics_complete": not mechanics_gaps,
                 "caveat": "Hidden AI choices, unmodeled move effects, items, and abilities can change non-exhaustive rankings.",
             },
         }
@@ -2117,6 +2348,12 @@ class RunBunAdapter:
             battle_active = False
         text = decode_text_observation(base.get("text"))
         tasks = base.get("tasks")
+        task_entries = (tasks or {}).get("tasks", []) if isinstance(tasks, dict) else []
+        field_bag_open = any(self._is_field_bag_task(task) for task in task_entries)
+        field_start_menu_open = any(
+            task.get("active") and task.get("function_address") == 0x080BD7B9
+            for task in task_entries
+        )
         if text is not None:
             text["battle_printers"] = self._battle_printer_contexts(text.get("printers", []))
             # ``pages`` intentionally retains the last few decoded printers
@@ -2260,6 +2497,8 @@ class RunBunAdapter:
                     values["field_message_box_mode"],
                     f"unknown_{values['field_message_box_mode']}",
                 ),
+                "field_bag_open": field_bag_open,
+                "field_start_menu_open": field_start_menu_open,
             },
             "save": save,
             "map": (
@@ -2496,14 +2735,16 @@ class RunBunAdapter:
             raise IndexError(f"party slot {party_slot} is not present")
         if target.get("current_hp", 0) <= 0:
             raise ValueError(f"party slot {party_slot} is fainted")
-        active_species = {
-            self._present_battle_mon(observation, slot)["species"]
-            for slot in (0, 2)
-        }
-        if target["species"] in active_species:
+        def same_mon(left: dict[str, Any], right: dict[str, Any]) -> bool:
+            if left.get("personality") is not None and right.get("personality") is not None:
+                return left["personality"] == right["personality"]
+            return left.get("species") == right.get("species")
+
+        active = [self._present_battle_mon(observation, slot) for slot in (0, 2)]
+        if any(same_mon(target, mon) for mon in active):
             raise ValueError(f"party slot {party_slot} is already active")
         acting_party_slots = [
-            mon["slot"] for mon in party if mon["species"] == acting["species"]
+            mon["slot"] for mon in party if same_mon(mon, acting)
         ]
         if len(acting_party_slots) != 1:
             raise RuntimeError(
@@ -3289,10 +3530,11 @@ class RunBunAdapter:
 
     @staticmethod
     def _poke_ball_quantity(inventory: dict[str, Any]) -> int:
-        """Return the verified item-ID 1 quantity across decoded pockets."""
+        """Return item-ID 1 only from the verified Poké Ball pockets."""
         return sum(
             int(item.get("quantity", 0))
-            for entries in inventory.get("pockets", {}).values()
+            for pocket in ("poke_balls", "ui_poke_balls")
+            for entries in (inventory.get("pockets", {}).get(pocket, []),)
             if isinstance(entries, list)
             for item in entries
             if item.get("item_id") == 1
@@ -3752,6 +3994,8 @@ class RunBunAdapter:
         transition_frames: int = 30,
         expected_map: tuple[int, int] | None = None,
         expected_position: tuple[int, int] | None = None,
+        verified_defeated_trainer_local_ids: set[int] | None = None,
+        allow_damaged_trainer_sight_lines: bool = False,
     ) -> dict[str, Any]:
         """Execute a known route as one bridge action and verify its endpoint.
 
@@ -3766,6 +4010,19 @@ class RunBunAdapter:
             raise ValueError(f"invalid route direction: {directions!r}")
         if frames < 1 or settle_frames < 0 or transition_frames < 0:
             raise ValueError("route timing values must be non-negative, with frames >= 1")
+        before = self.observe()
+        if before.get("battle", {}).get("active"):
+            raise RuntimeError("cannot navigate while battle is active")
+        if before.get("mode") != "overworld" or before.get("ui", {}).get("field_bag_open") or before.get("ui", {}).get("field_start_menu_open"):
+            raise RuntimeError(f"cannot navigate while field UI is active: mode={before.get('mode')} ui={before.get('ui')}")
+        if self.enforce_live_trainer_gate:
+            gate = self._trainer_route_gate(
+                normalized,
+                verified_defeated_trainer_local_ids=verified_defeated_trainer_local_ids,
+                allow_damaged_trainer_sight_lines=allow_damaged_trainer_sight_lines,
+            )
+            if not gate["allowed"]:
+                raise RuntimeError(f"trainer_engagement_blocked: {gate}")
         steps: list[dict[str, Any]] = []
         index = 0
         while index < len(normalized):
@@ -3800,6 +4057,99 @@ class RunBunAdapter:
                 f"route ended at {actual_position}, expected {expected_position}"
             )
         return {"action": action, "state": state, "map": actual_map, "position": actual_position}
+
+    def _trainer_route_gate(
+        self,
+        directions: list[str],
+        *,
+        verified_defeated_trainer_local_ids: set[int] | None = None,
+        allow_damaged_trainer_sight_lines: bool = False,
+    ) -> dict[str, Any]:
+        """Prevent raw live movement from entering a classified hard trainer ray."""
+        from games.run_and_bun.objects import read_live_objects
+
+        state = self.observe()
+        if state.get("mode") != "overworld":
+            return {"allowed": True, "reason": "not_overworld"}
+        map_state = state.get("map") or {}
+        map_id = (map_state.get("group"), map_state.get("number"))
+        position = (map_state.get("x"), map_state.get("y"))
+        if None in map_id or None in position:
+            return {"allowed": False, "reason": "trainer_gate_state_incomplete"}
+        map_id = (int(map_id[0]), int(map_id[1]))
+        position = (int(position[0]), int(position[1]))
+        ignored = {int(local_id) for local_id in (verified_defeated_trainer_local_ids or set())}
+        live_objects = read_live_objects(self.gba)
+        active_live_ids = {
+            int(obj.local_id)
+            for obj in live_objects
+            if obj.active and not obj.invisible and not obj.is_player
+            and obj.trainer_type and obj.map_id == map_id
+        }
+        targets: dict[int, Any] = {}
+        # A live object is the only proof that a sightline is currently active.
+        # Event templates remain useful for identity/range lookup, but may
+        # describe a beaten trainer after the runtime object is removed.
+        for target in live_objects:
+            local_id = int(getattr(target, "local_id", -1))
+            if (
+                getattr(target, "trainer_type", 0)
+                and getattr(target, "map_id", None) == map_id
+                and getattr(target, "active", True)
+                and local_id not in ignored
+            ):
+                targets.setdefault(local_id, target)
+        if not targets:
+            return {"allowed": True, "reason": "no_trainer_on_map"}
+        blocked = self._trainer_sight_tiles(
+            self.gba, map_id, current=position, ignored_local_ids=ignored,
+            active_only=True,
+        )
+        deltas = {"UP": (0, -1), "DOWN": (0, 1), "LEFT": (-1, 0), "RIGHT": (1, 0)}
+        traversed: list[tuple[int, int]] = []
+        current = position
+        for direction in directions:
+            dx, dy = deltas[direction]
+            current = (current[0] + dx, current[1] + dy)
+            traversed.append(current)
+        if not blocked.intersection(traversed):
+            return {"allowed": True, "reason": "trainer_sightline_clear"}
+        traversed_set = set(traversed)
+        intersecting = {
+            local_id: target
+            for local_id, target in targets.items()
+            if self._trainer_sight_tiles(
+                self.gba,
+                map_id,
+                current=position,
+                target=getattr(target, "position", None),
+                ignored_local_ids=set(targets) - {local_id},
+                active_only=True,
+            ).intersection(traversed_set)
+        }
+        preflights = {
+            str(local_id): self.trainer_preflight(target)
+            for local_id, target in intersecting.items()
+        }
+        if allow_damaged_trainer_sight_lines:
+            for local_id, report in preflights.items():
+                if (
+                    int(local_id) in active_live_ids
+                    and report.get("classification") in {"easy", "unclassified"}
+                    and report.get("reason") in {"healing_required", "unclassified_trainer_allowed"}
+                ):
+                    report["ready"] = True
+                    report["reason"] = "damaged_trainer_sightline_explicitly_allowed"
+        denied = {
+            local_id: report
+            for local_id, report in preflights.items()
+            if not report.get("ready")
+        }
+        return {
+            "allowed": not denied,
+            "reason": "trainer_sightline_preflight_verified" if not denied else "trainer_sightline_preflight_required",
+            "preflights": preflights,
+        }
 
     def follow_live_path(
         self,
@@ -3846,6 +4196,7 @@ class RunBunAdapter:
         current: tuple[int, int] | None = None,
         target: tuple[int, int] | None = None,
         ignored_local_ids: set[int] | None = None,
+        active_only: bool = False,
     ) -> set[tuple[int, int]]:
         """Return RAM-derived tiles that can trigger a trainer sight battle.
 
@@ -3910,6 +4261,8 @@ class RunBunAdapter:
         # Gavi and faces down.  For other template movement types, wait for a
         # live object (which carries facing_direction) instead of creating a
         # four-way wall that can make a legitimate route unreachable.
+        if active_only:
+            return blocked
         for local_id, position in event_positions.items():
             if local_id in live_trainer_ids:
                 continue
@@ -3945,6 +4298,7 @@ class RunBunAdapter:
         blocked_edges: set[tuple[tuple[int, int], str]] | None = None,
         avoid_trainer_sight_lines: bool = True,
         verified_defeated_trainer_local_ids: set[int] | None = None,
+        allow_damaged_trainer_sight_lines: bool = False,
     ) -> dict[str, Any]:
         """Navigate by short compressed chunks and replan around blockers.
 
@@ -4007,6 +4361,7 @@ class RunBunAdapter:
                     current=current,
                     target=target,
                     ignored_local_ids=verified_defeated_trainer_local_ids,
+                    active_only=True,
                 )
                 if avoid_trainer_sight_lines
                 else set()
@@ -4024,6 +4379,7 @@ class RunBunAdapter:
                 and not obj.is_player
                 and obj.map_id == actual_map
             }
+            path = None
             try:
                 path = live.path_to(
                     current,
@@ -4036,18 +4392,44 @@ class RunBunAdapter:
             except ValueError as error:
                 if not str(error).startswith("no live-grid path"):
                     raise
-                # A dynamic obstruction can temporarily make the current tile
-                # look unusable.  Let the map task/NPC advance, then retry the
-                # authoritative read instead of consulting a screenshot.
-                if blocked_wait_frames:
-                    self.gba.wait_frames(blocked_wait_frames)
-                dynamic_blocked_edges.clear()
-                stalled.clear()
-                last_state = self.observe()
-                continue
+                if allow_damaged_trainer_sight_lines:
+                    try:
+                        path = live.path_to(
+                            current,
+                            target,
+                            blocked_edges=persistent_blocked_edges | dynamic_blocked_edges,
+                            blocked_tiles=occupied_tiles,
+                            allow_nonwalkable_start=True,
+                            grass_penalty=grass_penalty,
+                        )
+                    except ValueError:
+                        path = None
+                if path is None:
+                    # A dynamic obstruction can temporarily make the current
+                    # tile look unusable. Let the map task/NPC advance, then
+                    # retry the authoritative read instead of consulting a
+                    # screenshot.
+                    if blocked_wait_frames:
+                        self.gba.wait_frames(blocked_wait_frames)
+                    dynamic_blocked_edges.clear()
+                    stalled.clear()
+                    last_state = self.observe()
+                    continue
 
             if not path:
                 continue
+            # Validate the entire planned route before issuing its first
+            # chunk. The chunk-level gate below still protects against
+            # moving trainers, but a denied route must not partially advance
+            # the live player before the denial is reported.
+            if self.enforce_live_trainer_gate:
+                gate = self._trainer_route_gate(
+                    path,
+                    verified_defeated_trainer_local_ids=verified_defeated_trainer_local_ids,
+                    allow_damaged_trainer_sight_lines=allow_damaged_trainer_sight_lines,
+                )
+                if not gate["allowed"]:
+                    raise RuntimeError(f"trainer_engagement_blocked: {gate}")
             first_edge = (current, path[0])
             chunk = path[:chunk_steps]
             result = self.follow_route(
@@ -4055,6 +4437,8 @@ class RunBunAdapter:
                 frames=frames,
                 settle_frames=settle_frames,
                 transition_frames=transition_frames,
+                verified_defeated_trainer_local_ids=verified_defeated_trainer_local_ids,
+                allow_damaged_trainer_sight_lines=allow_damaged_trainer_sight_lines,
             )
             actions.append(result["action"])
             next_state = result["state"]
@@ -4180,6 +4564,7 @@ class RunBunAdapter:
         max_wait_frames: int = 3600,
         stable_reads: int = 2,
         wait_chunk_frames: int = 120,
+        verified_defeated_trainer_local_ids: set[int] | None = None,
     ) -> dict[str, Any]:
         """Interact with one ROM-identified ferry and verify its final map.
 
@@ -4224,6 +4609,7 @@ class RunBunAdapter:
             interaction_gap=1,
             chunk_steps=6,
             transition_frames=20,
+            verified_defeated_trainer_local_ids=verified_defeated_trainer_local_ids,
         )
         state = interaction["state"]
         pages: list[str] = []
@@ -4290,6 +4676,7 @@ class RunBunAdapter:
         max_candidates: int = 24,
         grass_penalty: int = 100,
         verified_defeated_trainer_local_ids: set[int] | None = None,
+        allow_damaged_trainer_sight_lines: bool = False,
     ) -> dict[str, Any]:
         """Select one decoded map connection and verify the loaded destination.
 
@@ -4375,8 +4762,14 @@ class RunBunAdapter:
                     max_replans=32,
                     grass_penalty=grass_penalty,
                     verified_defeated_trainer_local_ids=verified_defeated_trainer_local_ids,
+                    allow_damaged_trainer_sight_lines=allow_damaged_trainer_sight_lines,
                 )
-            result = self.follow_route([input_direction], transition_frames=120)
+            result = self.follow_route(
+                [input_direction],
+                transition_frames=120,
+                verified_defeated_trainer_local_ids=verified_defeated_trainer_local_ids,
+                allow_damaged_trainer_sight_lines=allow_damaged_trainer_sight_lines,
+            )
             after = result["state"]
             after_map_state = after.get("map") or {}
             actual_map = (after_map_state.get("group"), after_map_state.get("number"))
@@ -4465,7 +4858,15 @@ class RunBunAdapter:
             report["inventory_error"] = f"{type(error).__name__}: {error}"
         if target is not None:
             try:
-                from games.run_and_bun.trainer_database import lookup_trainer
+                from games.run_and_bun.trainer_database import is_classified_hard, lookup_trainer
+                from games.run_and_bun.battle_review import battle_continuation_gate
+
+                continuation = battle_continuation_gate()
+                report["battle_continuation_gate"] = continuation
+                if not continuation["allowed"]:
+                    report["ready"] = False
+                    report["reason"] = continuation["reason"]
+                    return report
 
                 map_group, map_number = target.map_id
                 trainer = lookup_trainer(
@@ -4476,9 +4877,27 @@ class RunBunAdapter:
                     script_address=getattr(target, "script_address", None),
                 )
                 report["trainer"] = trainer
-                if not trainer["found"]:
+                classified_hard = is_classified_hard(trainer["key"])
+                report["classification"] = "hard" if classified_hard else "unclassified"
+
+                # The review/clone gate belongs to hard-fight engagement, not
+                # ordinary travel past unrelated or unknown easy trainers.
+                # ponytail: keep the global gate out of the navigation path;
+                # classify first, then enforce it only for a known hard fight.
+                if classified_hard:
+                    from games.run_and_bun.battle_review import clone_review_gate
+
+                    review_gate = clone_review_gate(trainer_key=trainer["key"])
+                    report["review_gate"] = review_gate
+                    if not review_gate["allowed"]:
+                        report["ready"] = False
+                        report["reason"] = "agent_battle_review_required"
+                        return report
+                if not trainer["found"] and classified_hard:
                     report["ready"] = False
-                    report["reason"] = "trainer_database_unknown"
+                    report["reason"] = "hard_fight_trainer_record_required"
+                elif not trainer["found"]:
+                    report["reason"] = "unclassified_trainer_allowed"
                 elif not trainer["trusted"]:
                     report["ready"] = False
                     report["reason"] = "trainer_identity_mismatch"
@@ -4486,9 +4905,37 @@ class RunBunAdapter:
                     record = trainer["record"] or {}
                     battle = record.get("battle", {})
                     strategy = record.get("strategy", {})
-                    if battle.get("hard_fight") and strategy.get("status") != "ready":
+                    classified_hard = classified_hard or battle.get("hard_fight") is True
+                    report["classification"] = "hard" if classified_hard else "easy"
+                    if classified_hard and strategy.get("status") != "ready":
                         report["ready"] = False
                         report["reason"] = "hard_fight_plan_required"
+                    elif classified_hard:
+                        profile_name = record.get("policy_profile")
+                        if not isinstance(profile_name, str):
+                            report["ready"] = False
+                            report["reason"] = "hard_fight_policy_profile_missing"
+                        else:
+                            try:
+                                from games.run_and_bun.battle_policy import load_profile, load_strategies, policy_bundle_hash
+                                from games.run_and_bun.battle_review import live_qualification_gate
+
+                                profile_path = Path(__file__).resolve().parents[1] / profile_name
+                                behavior_hash = policy_bundle_hash(load_profile(profile_path), load_strategies())
+                                qualification = live_qualification_gate(
+                                    behavior_hash,
+                                    trainer_key=trainer["key"],
+                                )
+                                report["qualification"] = qualification
+                                report["policy_profile"] = profile_name
+                                report["behavior_hash"] = behavior_hash
+                                if not qualification["allowed"]:
+                                    report["ready"] = False
+                                    report["reason"] = "three_clean_clone_wins_required"
+                            except Exception as error:
+                                report["ready"] = False
+                                report["reason"] = "hard_fight_qualification_error"
+                                report["qualification_error"] = f"{type(error).__name__}: {error}"
             except Exception as error:
                 report["ready"] = False
                 report["reason"] = "trainer_database_error"
@@ -4507,23 +4954,62 @@ class RunBunAdapter:
         """Return the live Bag task that owns pocket/item cursors."""
         tasks = self.gba.inspect_tasks().get("tasks", [])
         for task in tasks:
-            data = task.get("data") or []
-            # The task function ID is allocator/state dependent in this hack
-            # (the same Bag used 23472 outdoors and 10876 in the Center).
-            # Its cursor payload is stable: two ROM script pointers, the
-            # pocket selector at +6, menu mode 8 at +9, and item cursor +13.
-            if (
-                task.get("active")
-                and len(data) >= 14
-                and data[1] == 512
-                and data[3] == 2077
-                and data[4] == 51445
-                and data[5] == 2077
-                and 0 <= data[6] <= 4
-                and data[9] == 8
-            ):
+            if self._is_field_bag_task(task):
                 return task
         raise RuntimeError("field_bag_not_open: Bag task is not active")
+
+    @staticmethod
+    def _is_field_bag_task(task: dict[str, Any]) -> bool:
+        """Recognize the Bag owner from its verified cursor payload."""
+        data = task.get("data") or []
+        # The task function ID is allocator/state dependent in this hack
+        # (the same Bag used 23472 outdoors and 10876 in the Center).
+        # Its cursor payload is stable: two ROM script pointers, the pocket
+        # selector at +6, menu mode 8 at +9, and item cursor +13.
+        return bool(
+            task.get("active")
+            and len(data) >= 14
+            and data[1] == 512
+            and data[3] == 2077
+            and data[4] == 51445
+            and data[5] == 2077
+            and 0 <= data[6] <= 4
+            and data[9] == 8
+        )
+
+    def close_field_bag(self, *, max_layers: int = 3, wait_frames: int = 90) -> dict[str, Any]:
+        """Close a verified Bag/Start-menu stack without selecting an item."""
+        if max_layers < 1 or wait_frames < 1:
+            raise ValueError("close_field_bag bounds must be positive")
+        before = self.observe()
+        before_ui = before.get("ui", {})
+        if (
+            not before_ui.get("field_bag_open")
+            and not before_ui.get("field_start_menu_open")
+            and not before_ui.get("field_message_box_mode")
+        ):
+            raise RuntimeError("field_ui_not_open")
+        closed = 0
+        for _ in range(max_layers):
+            state = self.observe()
+            bag_open = bool(state.get("ui", {}).get("field_bag_open"))
+            start_open = self._field_start_menu_open()
+            if not bag_open and not start_open:
+                if state.get("mode") == "overworld" and state.get("ui", {}).get("field_message_box_mode") == 0:
+                    return {"closed_layers": closed, "state": state}
+                raise RuntimeError(f"field_menu_cleanup_stopped_in_mode: {state.get('mode')}")
+            self.gba.press("B", frames=3)
+            self.gba.wait_frames(wait_frames)
+            closed += 1
+        final = self.observe()
+        if (
+            final.get("ui", {}).get("field_bag_open")
+            or self._field_start_menu_open()
+            or final.get("mode") != "overworld"
+            or final.get("ui", {}).get("field_message_box_mode") != 0
+        ):
+            raise RuntimeError("field_bag_cleanup_failed")
+        return {"closed_layers": closed, "state": final}
 
     def _field_start_menu_open(self) -> bool:
         """Whether the verified Start-menu input owner is still active."""
@@ -4853,13 +5339,14 @@ class RunBunAdapter:
     ) -> dict[str, Any]:
         """Use a verified field item through RAM-backed Bag/party cursors.
 
-        Run & Bun's current field Bag exposes Endless Candy in Key Items. The
-        operation intentionally rejects unknown names instead of selecting an
-        arbitrary row. Party selection is by identity when a species or
-        nickname is supplied, then the live field cursor is verified before A.
+        Run & Bun's current field Bag exposes Endless Candy in Key Items and
+        Potion in the Medicine pocket. The operation intentionally rejects
+        unknown names instead of selecting an arbitrary row. Party selection
+        is by identity when a species or nickname is supplied, then the live
+        field cursor is verified before A.
         """
         item_key = item_name.casefold()
-        if item_key != "endless candy":
+        if item_key not in {"endless candy", "potion"}:
             raise ValueError(f"unsupported field item: {item_name!r}")
         if sum(value is not None for value in (target_slot, target_species, target_nickname)) != 1:
             raise ValueError("field item target requires exactly one of slot, species, or nickname")
@@ -4891,6 +5378,16 @@ class RunBunAdapter:
         target_mon = next((mon for mon in party if mon.get("slot") == target_slot), None)
         if not target_mon or not target_mon.get("present"):
             raise ValueError(f"field_item_target_slot_invalid: {target_slot}")
+        hp_before = target_mon.get("state", {}).get("current_hp")
+        item_cursor = 0
+        if item_key == "potion":
+            medicine = self.inventory().get("pockets", {}).get("runbun_medicine", [])
+            potion = next(
+                (item for item in medicine if item.get("item_id") == 28 and item.get("quantity", 0) > 0),
+                None,
+            )
+            if potion is None:
+                raise RuntimeError("potion_unavailable")
 
         # A prior use can return visually to the overworld one frame before
         # the Bag task is destroyed. Clear that stale task with B before START
@@ -4925,7 +5422,7 @@ class RunBunAdapter:
 
         # Bag opens on Poké Balls (2) in this save. Read the task instead of
         # assuming that state; RIGHT advances to Key Items (4).
-        desired_pocket = 4
+        desired_pocket = 4 if item_key == "endless candy" else 1
         for _ in range(4):
             task = self._field_bag_task()
             pocket = task["data"][6]
@@ -4938,9 +5435,9 @@ class RunBunAdapter:
         if task["data"][6] != desired_pocket:
             raise RuntimeError(f"field_bag_pocket_failed: expected={desired_pocket} got={task['data'][6]}")
 
-        # Endless Candy is the first Key Item row. Reset the live item cursor
-        # by observation, not by pressing a guessed number of UP inputs.
-        for _ in range(8):
+        # Reset and select the RAM-backed item slot; Run & Bun preserves sparse
+        # medicine slots, so Potion is not necessarily cursor zero.
+        for _ in range(24):
             task = self._field_bag_task()
             cursor = task["data"][13]
             if cursor == 0:
@@ -4950,11 +5447,24 @@ class RunBunAdapter:
         task = self._field_bag_task()
         if task["data"][13] != 0:
             raise RuntimeError(f"field_bag_item_cursor_failed: expected=0 got={task['data'][13]}")
+        for _ in range(item_cursor):
+            self.gba.press("DOWN", frames=3)
+            self.gba.wait_frames(30)
+        task = self._field_bag_task()
+        if task["data"][13] != item_cursor:
+            raise RuntimeError(
+                f"field_bag_item_cursor_failed: expected={item_cursor} got={task['data'][13]}"
+            )
 
         # One A selects the row; the second confirms Use and opens the party
         # target prompt. The field prompt exposes its own RAM cursor.
         self.gba.press("A", frames=3)
-        self.gba.wait_frames(30)
+        # Medicine opens its action submenu through a slower field task than
+        # Key Items; let the task acknowledge the first A before confirming.
+        self.gba.wait_frames(120 if item_key == "potion" else 30)
+        # The item-action cursor shares the verified field-menu cursor and can
+        # retain a stale Toss/Cancel position from an earlier Bag use.
+        self._move_field_cursor(FIELD_MENU_CURSOR, 0, max_steps=4)
         self.gba.press("A", frames=3)
         self.gba.wait_frames(120)
         target_mode = self.gba.read8(FIELD_MESSAGE_BOX_MODE)
@@ -4998,6 +5508,13 @@ class RunBunAdapter:
         # otherwise the first navigation chunk can be silently ignored.
         self.gba.wait_frames(150)
         after = self.observe()
+        after_target = next(
+            (mon for mon in after.get("party", {}).get("mons", []) if mon.get("slot") == target_slot),
+            None,
+        )
+        hp_after = (after_target or {}).get("state", {}).get("current_hp")
+        if item_key == "potion" and (hp_before is None or hp_after is None or hp_after <= hp_before):
+            raise RuntimeError(f"potion_no_hp_change: before={hp_before} after={hp_after}")
         compact_party = [
             {
                 "slot": mon.get("slot"),
@@ -5014,6 +5531,8 @@ class RunBunAdapter:
             "target_species": target_mon.get("state", {}).get("species"),
             "cursor": selected_cursor,
             "text": text,
+            "hp_before": hp_before,
+            "hp_after": hp_after,
             "move_learning_pending": move_learning_pending,
             "state": {
                 "frame": after.get("frame"),
@@ -5246,6 +5765,7 @@ class RunBunAdapter:
         interaction_gap: int = 2,
         require_trainer_ready: bool = True,
         avoid_trainer_sight_lines: bool = True,
+        verified_defeated_trainer_local_ids: set[int] | None = None,
     ) -> dict[str, Any]:
         """Seek a live NPC, re-reading its position while walking.
 
@@ -5445,12 +5965,24 @@ class RunBunAdapter:
             if not path:
                 last_state = self.observe()
                 continue
+            # Preflight the complete planned path before the first movement
+            # chunk.  The per-chunk gate remains a defense against wandering
+            # trainers, but cannot be the only gate: a rejected hard-trainer
+            # check must never leave a partially advanced live position.
+            if self.enforce_live_trainer_gate:
+                gate = self._trainer_route_gate(
+                    path,
+                    verified_defeated_trainer_local_ids=verified_defeated_trainer_local_ids,
+                )
+                if not gate["allowed"]:
+                    raise RuntimeError(f"trainer_engagement_blocked: {gate}")
             result = self.follow_route(
                 path[:chunk_steps],
                 expected_map=actual_map,  # type: ignore[arg-type]
                 frames=frames,
                 settle_frames=settle_frames,
                 transition_frames=transition_frames,
+                verified_defeated_trainer_local_ids=verified_defeated_trainer_local_ids,
             )
             actions.append(result["action"])
             last_state = result["state"]

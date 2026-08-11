@@ -14,6 +14,7 @@ from typing import Any
 
 
 DEFAULT_DB = Path(__file__).resolve().parents[1] / "references" / "trainers.json"
+REPO_ROOT = Path(__file__).resolve().parents[4]
 HEX_ADDRESS = re.compile(r"^0x08[0-9a-fA-F]{6}$")
 
 
@@ -158,6 +159,13 @@ def main() -> int:
     find.add_argument("--script-address")
     upsert = subparsers.add_parser("upsert")
     upsert.add_argument("record", type=Path)
+    decode = subparsers.add_parser("decode-rom")
+    decode.add_argument("rom", type=Path)
+    decode.add_argument("--script-address", required=True)
+    decode.add_argument("--map-group", required=True, type=int)
+    decode.add_argument("--map-number", required=True, type=int)
+    decode.add_argument("--local-id", required=True, type=int)
+    decode.add_argument("--graphics-id", type=int)
     args = parser.parse_args()
 
     try:
@@ -184,6 +192,24 @@ def main() -> int:
         )
         print(json.dumps({"found": record is not None, "record": record, "identity_mismatches": mismatches}, indent=2, ensure_ascii=False))
         return 0 if record is not None and not mismatches else 1
+    if args.command == "decode-rom":
+        sys.path.insert(0, str(REPO_ROOT))
+        from games.run_and_bun.trainer_database import RomImage, profile_from_npc_script
+
+        try:
+            profile = profile_from_npc_script(
+                RomImage.from_path(args.rom),
+                script_address=args.script_address,
+                map_group=args.map_group,
+                map_number=args.map_number,
+                local_id=args.local_id,
+                graphics_id=args.graphics_id,
+            )
+        except (OSError, RuntimeError, ValueError) as error:
+            print(json.dumps({"ok": False, "errors": [str(error)]}, indent=2))
+            return 1
+        print(json.dumps(profile, indent=2, ensure_ascii=False))
+        return 0
 
     record = json.loads(args.record.read_text(encoding="utf-8"))
     overworld = record.get("overworld", {})

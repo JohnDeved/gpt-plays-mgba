@@ -1,0 +1,100 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T18:06:50.702157+00:00",
+  "review_id": "25d9b59cd8385d90e90d",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "31ecbc151bf257b3927071ac14a62f944f229c43ae55966a0207db66d5e72ba4",
+  "behavior_hash": "62d60f36c3f2ed22b5ae1c3e12a611edbcedb0b9e67381ceb074b41b226b1cac",
+  "policy_id": "gavi-hybrid-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 28,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The verified clone ended in a whiteout; live execution remains forbidden.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786298769548945000/turn-028.state",
+        "action_id": "b73e5f2aa46be60e98bf",
+        "action_changing": true,
+        "resolved": false,
+        "observed_fact": "Lildozer entered at 7/58 against full Dustox and fainted before Bulldoze executed."
+      },
+      {
+        "kind": "suboptimal_action",
+        "severity": "high",
+        "summary": "The Eelektrik rule forbade a second Razor Leaf after one use, so Bushtank selected lower-damage Bite while no safe converter could enter.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786298769548945000/turn-011.state",
+        "action_id": "55046642623fff9e1c36",
+        "action_changing": true,
+        "resolved": false,
+        "observed_fact": "At the turn-11 certificate Razor Leaf was legal with verified 13-16 damage; the policy vetoed it and selected Bite at 10-12 damage."
+      },
+      {
+        "kind": "reserve_attrition",
+        "severity": "high",
+        "summary": "The Eelektrik line spent four healthy resources as emergency pivots and left Bugatti at 17 HP before Dustox.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786298769548945000/turn-014.state",
+        "action_id": "6b424c43907dde2b00b5",
+        "action_changing": true,
+        "resolved": false,
+        "observed_fact": "Bugatti was switched into Eelektrik at 41 HP and took a verified 24 damage before it could attack."
+      },
+      {
+        "kind": "finisher_unpreserved",
+        "severity": "high",
+        "summary": "Bugatti entered Dustox at 17 HP and Rollout allowed Infestation plus Venoshock to remove the designated finisher.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786298769548945000/turn-026.state",
+        "action_id": "1918a5dee2d8073506a5",
+        "action_changing": true,
+        "resolved": false,
+        "observed_fact": "Fresh Dustox used Infestation and Venoshock; Bugatti fainted before the locked Rollout line could mature."
+      },
+      {
+        "kind": "preparation_team_failure",
+        "severity": "high",
+        "summary": "No verified healthy Dustox answer remained after the Eelektrik attrition; the forced Lildozer replacement was not a viable winning line.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786298769548945000/turn-027.state",
+        "action_id": "9f058b9e2276b56c4654",
+        "action_changing": true,
+        "resolved": false,
+        "observed_fact": "Only Lildozer at 7/58 was legal after Bugatti fainted; this was a consequence of reserve loss, not an independent tactical choice."
+      },
+      {
+        "kind": "switch_tempo_observation",
+        "severity": "medium",
+        "summary": "Fourteen switches in 28 actions extended the line without preserving enough endgame HP.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786298769548945000/turn-009.state",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "The certified transaction stream contains 14 switches, 13 move PP decrements, and five allied faints."
+      },
+      {
+        "kind": "long_line_observation",
+        "severity": "low",
+        "summary": "The loss consumed 28 certified actions; shorter-line work is secondary to survival and finisher preservation.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786298769548945000/turn-001.state",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "No execution or observation mismatch was found; this is a tempo metric only."
+      }
+    ],
+    "correct_choices": [
+      "Spark removed Bibarel while preserving Ohmnomnom through the forced Super Fang reply.",
+      "Lildozer used two Bulldozes to remove Ponyta without a burn.",
+      "Fresh Croakatoa used Fake Out against Eelektrik and verified the expected flinch/no-reply turn.",
+      "Bug Bite correctly finished Eelektrik at 5 HP before Dustox entered.",
+      "All 28 action results were checked against RAM; no tooling mismatch was found."
+    ],
+    "next_test": "Replay the identical opening after the Razor Leaf and Bugatti-reserve changes. Inspect the saved turn-11 and Dustox-entry states; resolve attached high/critical findings only after a bounded replay verifies the corrected action and a terminal win."
+  }
+}

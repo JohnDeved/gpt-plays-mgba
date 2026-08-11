@@ -1,0 +1,65 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T11:21:13.720414+00:00",
+  "review_id": "70cbd641b272edae09fb",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "54bf2d527012f0a3a0f3ef318b552896965d21a38b898bf9368b91293ed895ee",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 27,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 27,
+    "findings": [
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "Action 3 attempted slower Spark at 13 HP and Ohmnomnom fainted without acting because the global pivot guard incorrectly vetoed the prepared Lildozer switch.",
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v14-clone1/turn-003.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Policy v15 restores the two-hit anti-relay bound; exact-state replay selects Lildozer with 20 HP critical-entry margin."
+        }
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Five Pokémon fainted. Lildozer, Croakatoa, Bushtank, and Bugatti all dealt verified progress before creating free entries, but the next clone must confirm that none becomes a zero-action sacrifice.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "At action 17 Bushtank was slower at 8 HP versus Eelektrik 2 HP; Toxic allowed Razor Leaf to execute, while a damaging enemy move would force a different finisher sequence.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The win required 27 decisions; the corrected early Lildozer entry should remove Ohmnomnom's failed turn and reduce the line if later variance is unchanged.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "Every replacement after action 3 was a forced entry; there was no switch spam or switch-in-and-switch-out cycle.",
+      "Fresh Fake Out was followed by Mud Shot to finish Ponyta.",
+      "Croakatoa used executable priority damage before fainting to Eelektrik.",
+      "Bugatti stayed against Dustox, made Rollout progress, and gave Birdlaw a damage-free forced entry.",
+      "Birdlaw used only Aerial Ace and finished with 32 HP."
+    ],
+    "next_test": "Run v15 Clone 1 from the unchanged opening; require Lildozer at action 3, no no-action voluntary switch, and review every faint before any further clone."
+  }
+}

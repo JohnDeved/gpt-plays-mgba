@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T16:58:53.998370+00:00",
+  "review_id": "8de0316c1bced2b4dea6",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "5d3ba87823b47419423f802a0cec667b4a42984aed27aaa2fe332106bd087c32",
+  "behavior_hash": "5d20cf68d4a3103920590c3507f3f304807be9369e4264045f36da3776301295",
+  "policy_id": "gavi-hybrid-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 27,
+  "status": "needs_improvement",
+  "classification": "tactical_error"
+}

@@ -453,7 +453,7 @@
     },
     "map:0:25/local:23": {
       "name": "Camper Gavi",
-      "policy_profile": "games/run_and_bun/policy_profiles/gavi.json",
+      "policy_profile": "games/run_and_bun/policy_profiles/gavi_bugatti.json",
       "overworld": {
         "map_group": 0,
         "map_number": 25,
@@ -618,7 +618,11 @@
         "clone_2026-08-09_croakatoa_policy_terminal_win_1",
         "clone_2026-08-09_croakatoa_policy_terminal_win_2",
         "clone_2026-08-09_rampage_policy_terminal_win_30_actions",
-        "clone_2026-08-09_rampage_policy_terminal_win_29_actions"
+        "clone_2026-08-09_rampage_policy_terminal_win_29_actions",
+        "qualified_2026-08-11_bugatti_hybrid_clean_win_26_actions",
+        "qualified_2026-08-11_bugatti_hybrid_clean_win_23_actions_a",
+        "qualified_2026-08-11_bugatti_hybrid_clean_win_23_actions_b",
+        "live_2026-08-11_bugatti_hybrid_verified_win_28_actions"
         ],
         "failure_causes": [
           "current six-member team lacked a safe high-confidence Levitate Eelektrik answer",
@@ -654,17 +658,17 @@
       "same_plan_failures": 0
     },
     "strategy": {
-      "status": "ready",
-      "reason": "the identity-based Rampage policy won complete 30-action and 29-action cartridge-clone replays through different send-out orders; it is a tested heuristic because RNG and AI branches were not exhaustively searched",
-      "plan_path": "runtime/session/route110-local23-croakatoa-plan-20260809.json",
-      "plan_sha256": "3c76b56e9e9ca0374a4918281457e7a2e5315fd046f12d2de6ca97114d422815"
+      "status": "completed",
+      "reason": "three clean reviewed clones qualified the declarative Bugatti hybrid policy; live review 7e1f73af1a81f4069e64 verified Gavi defeated in 28 actions with zero no-action switch cycles",
+      "plan_path": "runtime/session/gavi-bugatti-live-plan-20260811.json",
+      "plan_sha256": "82ea23b532100c0ab658a81ca0b8d3d698052a9506d50e53632bd3b666031039"
     },
     "evidence": {
       "npc_checkpoint_sha256": "bc6d61df9112bac3e598bfaae96b5d7e4053136d8a56dd234e1a63b4e97f6cd0",
       "preparation_checkpoint_sha256": "49b0c1d2b7fda2469304d5c1c2f99ccda83bb798204ae5173177191963c07f45",
-      "opening_checkpoint_sha256": "1159ad886ec36e6dc651ff05d9694f964dd648ca983f0115a96b173c8111dda6",
-      "opening_state_hash": "194460b49a39a772",
-      "prepared_counter": "Croakatoa remains the Eelektrik/Sunflora converter; Rampage, Rhyhorn species 111 Lv17, full HP with Smack Down, is preserved exclusively for Dustox",
+      "opening_checkpoint_sha256": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+      "opening_state_hash": "f811bc3e3dce3d7e",
+      "prepared_counter": "Bushtank converts Eelektrik; Ohmnomnom supplies verified fresh-entry Fake Out relays; Bugatti and Birdlaw cover Sunflora and Dustox with deterministic status escapes",
       "isolated_replays": [
         {"terminal_win": true, "certified_actions": 30, "controller": "games/run_and_bun/gavi_policy.py:GaviPolicy", "survivor_hp": {"Bushtank": 18, "Rampage": 59}},
         {"terminal_win": true, "certified_actions": 29, "controller": "games/run_and_bun/gavi_policy.py:GaviPolicy", "survivor_hp": {"Bushtank": 11, "Ohmnomnom": 3, "Rampage": 56}}
@@ -681,7 +685,7 @@
     },
     "map:0:21/local:4": {
       "key": "map:0:21/local:4",
-      "name": null,
+      "name": "Dale",
       "overworld": {
         "map_group": 0,
         "map_number": 21,
@@ -715,7 +719,7 @@
           "ability_id": 0,
           "ability_name": null,
           "held_item_id": 53,
-          "held_item_name": null,
+          "held_item_name": "Berry Juice",
           "moves": [450, 350, 282, 564],
           "move_names": ["Bug Bite", "Rock Blast", "Knock Off", "Sticky Web"]
         },
@@ -741,7 +745,7 @@
           "ability_id": 0,
           "ability_name": null,
           "held_item_id": 472,
-          "held_item_name": null,
+          "held_item_name": "Leftovers",
           "moves": [343, 232, 424],
           "move_names": ["Covet", "Metal Claw", "Fire Fang"]
         },
@@ -754,7 +758,7 @@
           "ability_id": 0,
           "ability_name": null,
           "held_item_id": 569,
-          "held_item_name": null,
+          "held_item_name": "Salac Berry",
           "moves": [29, 187],
           "move_names": ["Headbutt", "Belly Drum"]
         }
@@ -779,7 +783,7 @@
       },
       "uncertainties": [
         "Dwebble, Sandygast, Mawile, and Munchlax ability IDs are unresolved until battle RAM confirms them",
-        "held-item IDs 53, 472, and 569 are ROM-authoritative but their display names are not yet decoded"
+        "trainer-specific abilities are not encoded in these compact ROM records and remain unresolved until battle RAM confirms them"
       ]
     }
   }

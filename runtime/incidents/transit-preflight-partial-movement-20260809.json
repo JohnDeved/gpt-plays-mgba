@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T210701Z-rejected-transit-moved-before-trainer-gate",
+  "status": "verified",
+  "created_at": "2026-08-09T21:07:01.109474+00:00",
+  "summary": "Rejected transit moved before trainer gate",
+  "component": "games/runbun.py:follow_live_path_to_npc/travel_live_transit",
+  "symptom": "Ferry travel was rejected by the hard-trainer gate after the NPC seeker had already moved the player from Route 109 x18,y0 to x22,y2",
+  "classification": "actuator_input",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/auto-forward-latest.state",
+    "sha256": "dd40edb819829421c7d7d091391f83b8219f9d8f2b4951f5c2f42417621ae49b",
+    "canonical_state": {"map": {"group": 0, "number": 24, "x": 18, "y": 0}, "state_hash": "6f32dec2ddcd46ef"},
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "A rejected transit request performs no emulator input and leaves the live state unchanged",
+    "actual": "The request raised trainer_engagement_blocked after movement had already changed the live position",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "RunBunAdapter canonical RAM observation and route-gate regression test",
+    "sources": ["runtime/session/auto-forward-latest.state", "tests/test_runbun.py::RunBunTests.test_npc_path_preflights_full_route_before_first_chunk"]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "tests/test_runbun.py::RunBunTests.test_npc_path_preflights_full_route_before_first_chunk",
+    "fixture_sha256": null,
+    "command": "python3 -m unittest tests.test_runbun.RunBunTests.test_npc_path_preflights_full_route_before_first_chunk",
+    "steps": ["Build a two-tile NPC route", "deny the complete route in the trainer gate", "assert follow_route is never called"],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "Both runs rejected before any movement call."
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": true,
+    "claim": "The NPC seeker applied the trainer gate only to each movement chunk, so the first chunk could mutate the emulator before a later chunk exposed the hard-trainer denial.",
+    "evidence": ["The rejected live ferry request left Route 109 x18,y0 and reached x22,y2 before raising.", "The fixed regression denies the full planned route before follow_route."],
+    "alternatives_falsified": ["The checkpoint loader restored the exact verified state hash, so stale-state loading did not cause the partial movement."]
+  },
+  "solution": {
+    "kind": "code_fix",
+    "files": ["games/runbun.py", "tests/test_runbun.py"],
+    "contract_change": "follow_live_path_to_npc must reject the complete planned path before issuing its first movement chunk; per-chunk checks remain for moving trainers.",
+    "workaround": "Restore auto-forward-latest.state after any pre-fix partial transit rejection."
+  },
+  "verification": {
+    "targeted_checks": [{"name": "full-path preflight regression", "command": "python3 -m unittest tests.test_runbun.RunBunTests.test_npc_path_preflights_full_route_before_first_chunk", "passed": true}],
+    "regression_checks": [{"name": "full repository tests", "command": "python3 -m unittest discover -s tests -q", "passed": true}],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "A denied route makes no movement call.",
+      "actual": "Both replay runs denied before follow_route.",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": ["Transit preflight must be atomic with respect to planned movement."],
+    "regression_cases": ["A denied full NPC route must issue zero movement inputs."],
+    "tooling_contracts": ["follow_live_path_to_npc performs a complete trainer-gate preflight before chunk execution."]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

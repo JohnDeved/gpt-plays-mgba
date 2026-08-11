@@ -1,0 +1,142 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T13:41:20.783148+00:00",
+  "review_id": "2665cbadc9ce326ba389",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "de5af0b18cdcd3ea3d61a3d812f87607255986f7b301f31bc8de9e0e0f97cfea",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 28,
+  "status": "needs_improvement",
+  "classification": "terminal_loss",
+  "agent_review": {
+    "schema_version": 2,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The corrected bundle still whiteouted after 28 verified actions.",
+        "action_changing": true,
+        "observed_fact": "Bugatti was the last survivor at 15 HP and Dustox moved first, ending the battle before Rollout could establish a finish.",
+        "strategic_judgment": "The loss follows two earlier avoidable roster-order errors; it is not a tooling mismatch or acceptable variance.",
+        "confidence": "verified",
+        "fix_layer": "trainer_profile",
+        "turns": [
+          28
+        ],
+        "next_test": "Replay the corrected bundle from the identical opening checkpoint and require a terminal win.",
+        "state_unavailable_reason": "The terminal state is downstream; attached turn-2 and turn-10 states cover the earliest causal decisions."
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "At 11-HP Bibarel on turn 2, the scorer switched to Birdlaw instead of finishing with Spark.",
+        "state": "runtime/session/battle_reviews/states/1786455637362479000/turn-002.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "cc2dd63f81e746eb",
+          "observed": "Spark executed, KOed Bibarel, consumed exactly one PP, and restored Ponyta as Gavi next sendout while Birdlaw remained preserved."
+        },
+        "observed_fact": "Ohmnomnom had 25 HP and a legal Spark, but the selected Birdlaw switch spent the Ponyta reserve and changed Gavi next sendout from the verified Ponyta sequence to Eelektrik.",
+        "strategic_judgment": "Three prior clean identical-checkpoint runs used Spark twice; preserving Birdlaw while taking the immediate KO lexicographically dominates this pivot in the verified matchup.",
+        "confidence": "bounded",
+        "fix_layer": "trainer_profile",
+        "turns": [
+          2
+        ],
+        "next_test": "From turn 2, require Spark to be selected and executed while Birdlaw remains untouched."
+      },
+      {
+        "kind": "reserve_misuse",
+        "severity": "high",
+        "summary": "The forced replacement after Bushtank fainted sent Lildozer into 16-HP Eelektrik instead of Ohmnomnom.",
+        "state": "runtime/session/battle_reviews/states/1786455637362479000/turn-010.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "f579f6c14f166ece",
+          "observed": "The exact Ohmnomnom identity switched into the forced slot; Lildozer remained preserved and the command menu returned without an enemy hit."
+        },
+        "observed_fact": "Lildozer entered and was removed by Mega Drain, consuming the preserved Ponyta answer; prior clean runs forced Ohmnomnom here and finished Eelektrik.",
+        "strategic_judgment": "Ohmnomnom is the verified low-HP finisher, while Lildozer is a matchup reserve; the replacement inverted their roles.",
+        "confidence": "bounded",
+        "fix_layer": "trainer_profile",
+        "turns": [
+          10
+        ],
+        "next_test": "From turn 10, require the exact Ohmnomnom switch and verify Lildozer remains preserved."
+      },
+      {
+        "kind": "scorer_conservatism",
+        "severity": "medium",
+        "summary": "At 9 HP on turns 16 and 17, Ohmnomnom used two weak Metal Claws instead of transitioning to Croakatoa.",
+        "action_changing": false,
+        "observed_fact": "The reusable strategy preferred Croakatoa, but the conservative switch estimate treated a worst critical as fatal and left Metal Claw ranked first.",
+        "strategic_judgment": "This may disappear when the earlier sendout order is restored; adding another trainer exception before that bounded retest would overfit downstream state.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          16,
+          17
+        ],
+        "next_test": "Audit the corrected clone at the corresponding Ponyta transition and escalate only if the same state recurs."
+      },
+      {
+        "kind": "downstream_resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer, Croakatoa, Birdlaw, Ohmnomnom, and Bushtank were exhausted before Dustox was controlled.",
+        "action_changing": false,
+        "observed_fact": "Each faint was RAM-verified, but the depletion follows the turn-2 and turn-10 role inversions.",
+        "strategic_judgment": "Treating every downstream faint as an independent profile rule would encode symptoms and reduce reuse.",
+        "confidence": "bounded",
+        "fix_layer": "trainer_profile",
+        "turns": [
+          10,
+          18,
+          23,
+          25,
+          27
+        ],
+        "next_test": "Verify that restoring the proven order preserves the Ponyta and Dustox answers."
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "Eight switches occurred; the turn-2 voluntary pivot and turn-10 forced target were the independently harmful choices.",
+        "action_changing": false,
+        "observed_fact": "The remaining switches were forced replacements or productive matchup entries; there was no consecutive no-action switch loop.",
+        "strategic_judgment": "Fix the two role-selection errors without a blanket anti-switch veto that would break legitimate pivots.",
+        "confidence": "verified",
+        "fix_layer": "trainer_profile",
+        "turns": [
+          2,
+          4,
+          10,
+          14,
+          18,
+          23,
+          25,
+          27
+        ],
+        "next_test": "Require zero harmful voluntary pivots in the next clone while preserving legal forced switches."
+      }
+    ],
+    "correct_choices": [
+      "All 28 player actions and enemy replies were verified with no tooling discrepancy.",
+      "The prior fixes held: candidate Fake Out did not override the opening, Bushtank repeated Razor Leaf until fainting, and the low-HP Bugatti exception stayed inactive.",
+      "Fresh-entry Fake Out remained legal and correctly reconstructed when actually selected; no illegal action or stale history was observed."
+    ],
+    "next_test": "Execute bounded turn-2 and turn-10 regressions, resolve both attached findings only from verified post-state evidence, then restart qualification at Clone 1."
+  }
+}

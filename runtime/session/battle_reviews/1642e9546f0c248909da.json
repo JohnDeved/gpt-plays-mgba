@@ -1,0 +1,121 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T22:33:16.724676+00:00",
+  "review_id": "1642e9546f0c248909da",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "8026e0d9670af59d2443f6126501f7e67530937970cec05d9c84c596f13d6698",
+  "behavior_hash": "7fe74ba777b53a152c23c52345ef1321ccd191fbc06b955df977139895e9115a",
+  "policy_id": "gavi-hybrid-v2-team-ready",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 33,
+  "status": "needs_improvement",
+    "classification": "tactical_error",
+    "agent_review": {
+        "status": "complete",
+        "author": "agent",
+        "reviewed_actions": 33,
+        "findings": [
+            {
+                "severity": "critical",
+                "kind": "terminal_loss",
+                "turns_actions": "23-33",
+                "observed_fact": "The team entered Sunflora with Birdlaw at 19 HP, then whiteouted after repeated forced switches and no successful damage line.",
+                "strategic_judgment": "The prepared line did not preserve a viable Sunflora answer; this is not live-qualified.",
+                "confidence": "verified",
+                "fix_layer": "hard_fight_preparation",
+                "next_test": "Stop policy iteration and prepare a stronger Sunflora converter; both bounded turn-22 tests showed the current Croakatoa/Rampage survivors still fail on their next damage exchange.",
+                "state": "runtime/session/battle_reviews/states/1786314743136122000/turn-022.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Preparation replaced Rampage with the same Coppertop personality 4082287436 used in clean authoritative clone review c02028bc9208374c73f3. In that replay, Coppertop absorbed Eelektrik's Super Fang at turns 10-11, Croakatoa finished Eelektrik at turns 12-15, Birdlaw entered Sunflora at full 46 HP and KO'd it at turns 16-18, and the battle ended in a verified win at turn 22. Live RAM now verifies Coppertop Lv17 at 56/56 HP in the prepared party.",
+          "remaining_issue": "This resolves the structural preparation defect only; the current Cufant behavior bundle still requires three new clean reviewed clone wins before live execution."
+        }
+            },
+            {
+                "severity": "high",
+                "kind": "policy_gap",
+                "turns_actions": "16-21",
+                "observed_fact": "After Fake Out poisoned Eelektrik, the policy alternated Lildozer and Birdlaw through six voluntary switches; neither line dealt damage and each entry accepted another hit.",
+                "strategic_judgment": "Immediate switch reversal must be blocked when it is not a forced switch or an explicit matchup directive. A pivot that has already failed to create progress is not a plan.",
+                "confidence": "verified",
+                "fix_layer": "generic_tactical_scorer",
+                "next_test": "Replay turn 17 and verify that the reverse switch is vetoed and a legal damage action is selected.",
+                "state": "runtime/session/battle_reviews/states/1786314743136122000/turn-017.state",
+                "resolved": true,
+                "resolution": {
+                    "verified": true,
+                    "observed": "From pre-state 47f065a29fc059c2, after two consecutive switches, all four voluntary switch candidates received history:switch_stall_after_two and the policy selected Birdlaw Quick Attack; no voluntary switch was submitted.",
+                    "remaining_issue": "Birdlaw still fainted to the verified Shock Wave; that survival failure remains tracked by the separate preparation and reserve findings."
+                }
+            },
+            {
+                "severity": "high",
+                "kind": "tactical_error",
+                "turns_actions": "5-8",
+                "observed_fact": "After Lildozer's first Bulldoze, the policy switched to Ohmnomnom; Ponyta's Flame Wheel immediately fainted Ohmnomnom.",
+                "strategic_judgment": "The Ponyta switch was not a safe conversion. The current reserve rule protected Rampage but did not identify a survivable immediate line.",
+                "confidence": "verified",
+                "fix_layer": "reusable_executable_strategy",
+                "next_test": "Bounded-replay the turn-6 state with the surviving alternatives and select only a line that preserves a live Eelektrik answer.",
+                "state": "runtime/session/battle_reviews/states/1786314743136122000/turn-006.state",
+                "resolved": true,
+                "resolution": {
+                    "verified": true,
+                    "observed": "After removing the stale Rampage veto, the current policy selected Rampage from pre-state fa5a8838639ed822; the authoritative replay verified Ponyta Flame Wheel was not very effective and Rampage reached the command menu alive.",
+                    "remaining_issue": "This preserves the Eelektrik reserve but does not by itself prove the complete fight."
+                }
+            },
+            {
+                "severity": "high",
+                "kind": "reserve_misuse",
+                "turns_actions": "22-23",
+                "observed_fact": "Birdlaw was left active at 19 HP to attack Sunflora and was KO'd by Sludge Bomb before establishing a safe line.",
+                "strategic_judgment": "A nearly defeated finisher was spent as the next lead instead of handing the matchup to a healthier converter.",
+                "confidence": "verified",
+                "fix_layer": "reusable_executable_strategy",
+                "next_test": "Replay the turn-22 state with Croakatoa and Rampage once each; retain the option with an observed surviving damage turn.",
+                "state": "runtime/session/battle_reviews/states/1786314743136122000/turn-022.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Clean clone c02028bc9208374c73f3 verifies the Cufant handoff preserved Birdlaw at 46/46 through Eelektrik, then Birdlaw safely entered Sunflora, survived Leech Seed, and used two Aerial Aces to KO it. This directly corrects the old 19-HP Birdlaw reserve handoff.",
+          "remaining_issue": "The current individuals and current behavior hash must reproduce the handoff in fresh clones."
+        }
+            },
+            {
+                "severity": "medium",
+                "kind": "suboptimal_action",
+                "turns_actions": "10-22",
+                "observed_fact": "The Eelektrik line consumed twelve actions and seven switches after the poison landed, with only Birdlaw's final Aerial Ace dealing the finishing damage.",
+                "strategic_judgment": "Even though poison eventually created progress, the line spent too much HP and tempo on immunity pivots.",
+                "confidence": "verified",
+                "fix_layer": "reusable_executable_strategy",
+                "next_test": "Compare one committed Croakatoa damage line against the old pivot sequence from turn 15.",
+                "state": "runtime/session/battle_reviews/states/1786314743136122000/turn-015.state",
+                "resolved": false
+            },
+            {
+                "severity": "low",
+                "kind": "switch_tempo_observation",
+                "turns_actions": "24-33",
+                "observed_fact": "The forced-switch phase used ten additional actions while preserving no winning resource.",
+                "strategic_judgment": "This is a consequence of the earlier failures, but the review should track it as avoidable tempo loss once the converter line is fixed.",
+                "confidence": "verified",
+                "fix_layer": "reusable_executable_strategy",
+                "next_test": "Re-measure after the Eelektrik handoff is corrected."
+            }
+        ],
+        "correct_choices": [
+            "The opening Bushtank Razor Leaf into Bibarel and Croakatoa Fake Out were legal, fresh-entry actions.",
+            "Poisoning Eelektrik with Fake Out's Poison Touch was useful verified progress.",
+            "The review correctly treats the forced post-faint switches separately from voluntary switch decisions.",
+            "No new clone or live fight is permitted until every attached critical/high finding has replay evidence and resolution."
+        ],
+        "next_test": "Implement and unit-test the voluntary immediate-reversal guard, then replay turn 17 once; separately replay the turn-6 and turn-22 attached states before changing the Gavi line."
+    }
+}

@@ -1,0 +1,77 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T08:52:21.281136+00:00",
+  "review_id": "b493c545746402c7952e",
+  "terminal": "policy_gap",
+  "source": "cartridge_clone",
+  "opening_state_hash": "c4d6179c434a5c5442c5a661ebe476db18fc0f962b7ce69150bb918e32b70f73",
+  "behavior_hash": "f292538d4aea1890e60d1a3bc8d034746ec425edcdbafae71e4933c69cc248f0",
+  "policy_id": "gavi-coppertop-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 6,
+  "status": "needs_improvement",
+  "classification": "policy_gap",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 6,
+    "findings": [
+      {
+        "kind": "unsafe_switch",
+        "severity": "high",
+        "summary": "Turn 5 voluntarily switched burned 16-HP Lildozer to full Croakatoa even though Ponyta's verified critical bound exceeded Croakatoa's 44 HP.",
+        "state": "runtime/session/battle_reviews/states/gavi-coppertop-switch-fix-regression-20260811/turn-005.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "state": "runtime/session/battle_reviews/states/gavi-coppertop-switch-fix-regression-20260811/turn-005-fixed-after-priority.state", "observed": "Reloaded the exact state with behavior 4ef8a6d6: all five unsafe voluntary switches were vetoed, priority Ice Shard dealt verified damage, and Lildozer absorbed the KO without exposing a reserve."},
+        "root_layer": "generic_tactical_scorer",
+        "why_bad": "The switch paid a full enemy attack for no allied action and converted a depleted active into damage on a healthy reserve.",
+        "improvement": "Unsafe voluntary switches can no longer be authorized by a preference; when the active is guaranteed to faint, a move that acts first outranks damage that cannot execute.",
+        "next_test": "Require no unsafe voluntary switch in the next full clone."
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "After Croakatoa fainted, its normal-turn Mud Shot rule still forbade every legal forced replacement and stopped the clone.",
+        "state": "runtime/session/battle_reviews/states/gavi-coppertop-switch-fix-regression-20260811/terminal.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "state": "runtime/session/battle_reviews/states/gavi-coppertop-switch-fix-regression-20260811/turn-005-fixed-forced-croakatoa.state", "observed": "Reloaded the corrected forced boundary and executed the legal Croakatoa replacement; it entered at 44/44 HP with no enemy reply and the battle returned to a command menu."},
+        "root_layer": "trainer_profile",
+        "why_bad": "A rule for an active battler must never veto replacement choices after that battler has fainted.",
+        "improvement": "Every move-commit rule that forbids switching now requires forced_switch=false.",
+        "next_test": "Exercise every faint boundary in the next clone without PolicyError."
+      },
+      {
+        "kind": "damage_model_uncertainty",
+        "severity": "medium",
+        "summary": "Turn 4 predicted 24-30 Bulldoze damage while RAM observed 9 because burn was omitted and Ponyta's earlier Play Rough lowered Attack before Lildozer acted.",
+        "state": "runtime/session/battle_reviews/states/gavi-coppertop-switch-fix-regression-20260811/turn-004.state",
+        "action_changing": false,
+        "resolved": true,
+        "resolution": {"verified": true, "state": "runtime/session/battle_reviews/states/gavi-coppertop-switch-fix-regression-20260811/turn-004.state", "observed": "Reloading with scorer v5 reduced the pre-action burned Bulldoze range to 14-18. The remaining lower observed roll is explained by the verified Play Rough Attack drop occurring before the slower Bulldoze."},
+        "root_layer": "shared_observation_execution_tooling",
+        "improvement": "Physical damage now applies burn unless the attacker has Guts; the next clone must continue treating Play Rough's Attack-drop branch as variance.",
+        "next_test": "Compare the next burned Bulldoze prediction with the observed post-Play-Rough stage and damage."
+      },
+      {
+        "kind": "switch_tempo",
+        "severity": "medium",
+        "summary": "Two of six actions were switches, and the second switch was the earliest avoidable causal error.",
+        "action_changing": false,
+        "root_layer": "generic_tactical_scorer",
+        "next_test": "Count only voluntary switches and require each to survive the verified critical bound or be forced."
+      }
+    ],
+    "correct_choices": [
+      "Turns 1-2 removed Bibarel with two verified Sparks.",
+      "Turn 3 sent the designated Ground reserve into Ponyta while it was full health.",
+      "Turn 4 used the intended Ground attack and correctly recorded the burn and Play Rough branch.",
+      "All six submitted actions matched the selected certificates; no hidden extra input or emulator discrepancy caused the stop."
+    ],
+    "next_test": "Run one full clone with behavior 4ef8a6d6 and reject any unsafe voluntary switch, forced-switch deadlock, or unreviewed damage mismatch."
+  }
+}

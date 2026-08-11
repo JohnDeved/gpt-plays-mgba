@@ -1,0 +1,95 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T22:23:56.542800+00:00",
+  "review_id": "0a74d420493c1cc644c6",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "8026e0d9670af59d2443f6126501f7e67530937970cec05d9c84c596f13d6698",
+  "behavior_hash": "2acbfda93f55e304435c3e7d7bbca9fdb3833c4f2766aa51c14ac9b2d968d35e",
+  "policy_id": "gavi-hybrid-v2-team-ready",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 27,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 27,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The authoritative clone ended in a whiteout with Eelektrik still active; this policy bundle is not qualified for live execution.",
+        "action_changing": true
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "At Bushtank 4/57 after two Razor Leaf uses against Eelektrik, the policy selected Bite instead of the available Croakatoa pivot; this was the earliest causal divergence that exhausted the team.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786314195691046000/turn-013.state",
+        "state_hash": "c998567df84c6940",
+        "action_changing": true,
+        "root_layer": "reusable_executable_strategy",
+        "alternative": {"kind": "switch", "slot": 4, "species": 453, "personality": 506087644},
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "One disposable replay from the attached state switched Croakatoa in and reached a stable command menu after Eelektrik Mega Drain without a faint.", "fix": "After two verified Bushtank Razor Leafs, forbid further Bushtank moves and prefer Croakatoa."}
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "The reusable Croakatoa Eelektrik rule referenced move 609 (Nuzzle), which is absent from the prepared set; ROM data verifies move 410 is Vacuum Wave.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786314195691046000/turn-017.state",
+        "state_hash": "dd388e90eb5f17f4",
+        "action_changing": true,
+        "root_layer": "reusable_executable_strategy",
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "ROM move lookup returned 609=Nuzzle and 410=Vacuum Wave; the executable strategy now uses 410.", "fix": "Corrected the additive strategy record without deleting its historical evidence."}
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "After Croakatoa's successful fresh-entry Fake Out, the policy pivoted to Birdlaw; bounded replays from the same state showed Eelektrik Shock Wave immediately fainted Birdlaw but did not affect Rampage or Lildozer.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786314195691046000/turn-017.state",
+        "state_hash": "dd388e90eb5f17f4",
+        "action_changing": true,
+        "root_layer": "reusable_executable_strategy",
+        "alternative": {"kind": "switch", "slot": 5, "species": 111, "personality": 2559287137},
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "Two bounded replays from the attached state reached stable command menus after switching Rampage or Lildozer; both ignored Shock Wave, unlike Birdlaw.", "fix": "Prefer the Ground pivot after Fake Out and forbid the Birdlaw pivot while that pivot is available."}
+      },
+      {
+        "kind": "preparation_team_failure",
+        "severity": "high",
+        "summary": "Rampage was spent as the Ponyta pivot and reached only 21 HP, so the later Eelektrik converter line lacked a healthy Ground reserve; the corrected policy preserves Rampage through Ponyta and chooses Ohmnomnom there.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786314195691046000/turn-006.state",
+        "state_hash": "0d5b4a820a478b7b",
+        "action_changing": true,
+        "root_layer": "reusable_executable_strategy",
+        "alternative": {"kind": "switch", "slot": 2, "species": 777, "personality": 3325952935},
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "The corrected policy certificate at the attached state vetoes Rampage and Birdlaw and selects Ohmnomnom; a bounded Bulldoze-then-Ohm replay preserved Rampage at full HP.", "fix": "Reserve Rampage for Eelektrik/Dustox and keep it out of the Ponyta branch."}
+      },
+      {
+        "kind": "switch_tempo_observation",
+        "severity": "medium",
+        "summary": "The loss consumed 27 verified actions and 9 switches; the excess tempo was downstream of the Eelektrik pivot errors, so shorter-line qualification remains required.",
+        "action_changing": false
+      },
+      {
+        "kind": "resource_tempo_summary",
+        "severity": "info",
+        "summary": "All 27 actions were RAM-verified; the decisive costs were Bushtank, Birdlaw, Ohmnomnom, Lildozer, Croakatoa, and Rampage faints rather than a tooling mismatch.",
+        "action_changing": false
+      }
+    ],
+    "correct_choices": [
+      "Bushtank Razor Leaf opened Bibarel and Ohmnomnom Spark completed the Bibarel phase.",
+      "Lildozer handled the initial Ponyta damage and Rampage Smack Down correctly grounded Ponyta when used.",
+      "Croakatoa Fake Out was correctly reserved for a verified fresh Eelektrik entry and did flinch it."
+    ],
+    "next_test": "Run clone 2 only after this review is accepted; verify the corrected policy preserves Rampage through Ponyta, pivots Bushtank after two Eelektrik Razor Leafs, and uses Croakatoa Fake Out followed by the verified Ground reserve."
+  }
+}

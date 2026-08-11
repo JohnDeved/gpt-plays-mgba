@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import copy
 import unittest
+from types import SimpleNamespace
+from pathlib import Path
+import time
 from unittest.mock import patch
 
 from games.run_and_bun.capabilities import (
@@ -9,16 +13,22 @@ from games.run_and_bun.capabilities import (
     _battle_branch_search,
     _battle_boundary,
     _battle_signature,
+    _battle_step,
     _branch_score,
     _branch_terminal,
     _compact_state,
     _capture_target,
     _legal_battle_actions,
+    _move_announced,
+    _opponent_effect_observed,
     _pokecenter_service,
     _pp_deltas,
     _progress_snapshot,
+    _rank_team_builds,
     _storage_snapshot_data,
     _select_destination_warp,
+    _search_battle_node,
+    _status_prevented_execution,
     _warp_activation_direction,
     _warp_entry_approach,
     default_registry,
@@ -44,6 +54,7 @@ class CapabilityRegistryTests(unittest.TestCase):
         item = self.registry.inspect("game_use_field_item")
         self.assertIn("target_species", item["inputSchema"]["properties"])
         self.assertIn("Endless Candy", item["inputSchema"]["properties"]["item"]["enum"])
+        self.assertIn("Potion", item["inputSchema"]["properties"]["item"]["enum"])
 
     def test_move_learning_capability_requires_explicit_replacement_slot(self):
         item = self.registry.inspect("game_resolve_move_learning")
@@ -69,8 +80,8 @@ class CapabilityRegistryTests(unittest.TestCase):
     def test_team_preparation_interfaces_are_registered(self):
         for name in (
             "game_storage_snapshot", "game_pc_transfer",
-            "game_party_reorder", "game_heal_party", "game_pokemon_build_options",
-            "game_pokecenter_service_catalog", "game_pokecenter_service",
+            "game_party_reorder", "game_field_move_options", "game_heal_party", "game_pokemon_build_options",
+            "game_pokecenter_service_catalog", "game_pokecenter_service", "game_field_ui_snapshot", "game_close_field_ui", "game_advance_dialogue",
         ):
             self.assertIn(name, self.registry.names())
         self.assertEqual(
@@ -85,6 +96,41 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertEqual(service["properties"]["service"]["enum"], ["change_nickname", "apply_status"])
         self.assertEqual(service["required"], ["service", "state_hash", "target_slot"])
         self.assertIn("nickname", service["properties"])
+        self.assertIn("trainer_key", self.registry.inspect("game_pokemon_build_options")["inputSchema"]["properties"])
+
+    def test_trainer_build_plan_ranks_owned_coverage_without_mutating_party(self):
+        class Rom:
+            @staticmethod
+            def type_chart():
+                return {10: {10: 0.5, 12: 2.0}, 11: {10: 2.0, 12: 0.5}, 12: {10: 0.5, 11: 2.0}}
+
+            @staticmethod
+            def species(species_id):
+                return SimpleNamespace(type_ids={1: (10,), 2: (11,), 3: (0,)}[species_id])
+
+            @staticmethod
+            def move(move_id):
+                type_id = {101: 10, 102: 11, 201: 12, 202: 10}[move_id]
+                return SimpleNamespace(move_id=move_id, type_id=type_id, power=60, category="physical")
+
+        selectable = [
+            {"location": {"kind": "party", "slot": 0}, "reference": {"personality": 10, "ot_id": 1}, "species": 1, "level": 15, "moves": [101]},
+            {"location": {"kind": "pc", "box": 0, "slot": 1}, "reference": {"personality": 20, "ot_id": 1}, "species": 2, "level": 15, "moves": [{"id": 102}]},
+            {"location": {"kind": "pc", "box": 0, "slot": 2}, "reference": {"personality": 30, "ot_id": 1}, "species": 3, "level": 20, "moves": [101]},
+        ]
+        trainer = {
+            "key": "map:1:2/local:3", "battle": {"roster_complete": True},
+            "roster": [
+                {"species_id": 12, "types": [12], "moves": [201]},
+                {"species_id": 10, "types": [10], "moves": [202]},
+            ],
+        }
+        result = _rank_team_builds(selectable, trainer, Rom())
+        self.assertEqual(result["classification"], "heuristic")
+        self.assertEqual(result["covered_enemy_species"], [10, 12])
+        self.assertEqual({item["species"] for item in result["recommended_party"]}, {1, 2, 3})
+        self.assertEqual(result["profile_skeleton"]["trainer_key"], trainer["key"])
+        self.assertEqual(len(result["profile_skeleton"]["roles"]), 3)
 
     def test_nickname_service_requires_fresh_state_and_routes_to_adapter(self):
         state = {"frame": 1, "map": {}, "mode": "overworld", "ui": {}, "party": {"mons": []}, "battle": {}}
@@ -198,6 +244,13 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertNotIn("game_battle_commit", self.registry.names())
         step = self.registry.inspect("game_battle_step")
         self.assertEqual(step["inputSchema"]["required"], ["state_hash", "certificate_id", "action"])
+        self.assertIn("doubles queue", step["description"])
+        self.assertIn("reevaluate", step["doNotUseWhen"][0])
+        self.assertIn("state", self.registry.inspect("game_battle_evaluate")["inputSchema"]["properties"])
+        self.assertIn("battle_id", self.registry.inspect("game_battle_evaluate")["inputSchema"]["properties"])
+        self.assertIn("history_state_hash", self.registry.inspect("game_battle_evaluate")["inputSchema"]["properties"])
+        self.assertIn("save_replay_state", self.registry.inspect("game_battle_evaluate")["inputSchema"]["properties"])
+        self.assertIn("replay_selected", self.registry.inspect("game_battle_evaluate")["inputSchema"]["properties"])
         capture = self.registry.inspect("game_capture_target")["inputSchema"]
         self.assertIn("nickname", capture["properties"])
         self.assertEqual(capture["properties"]["nickname"]["maxLength"], 10)
@@ -302,6 +355,84 @@ class CapabilityRegistryTests(unittest.TestCase):
         }
         self.assertEqual(_legal_battle_actions(state)[0]["slot"], 1)
 
+    def test_double_actions_include_actor_target_and_legal_switches(self):
+        state = {
+            "battle": {
+                "active": True, "format": "double",
+                "menu": {"state": "command_menu", "command_battler": 0},
+                "mons": [
+                    {"slot": 0, "present": True, "state": {"species": 1, "personality": 10, "moves": [10, 20, 0, 0], "pp": [2, 2, 0, 0], "current_hp": 8}},
+                    {"slot": 1, "present": True, "state": {"species": 2, "personality": 20, "current_hp": 9}},
+                    {"slot": 2, "present": True, "state": {"species": 3, "personality": 30, "current_hp": 8}},
+                    {"slot": 3, "present": True, "state": {"species": 4, "personality": 40, "current_hp": 9}},
+                ],
+            },
+            "party": {"mons": [
+                {"slot": 0, "present": True, "state": {"species": 1, "personality": 10, "current_hp": 8}},
+                {"slot": 1, "present": True, "state": {"species": 3, "personality": 30, "current_hp": 8}},
+                {"slot": 2, "present": True, "state": {"species": 5, "personality": 50, "current_hp": 7}},
+            ]},
+        }
+        moves = {
+            10: SimpleNamespace(target_flags=0, type_name="Normal"),
+            20: SimpleNamespace(target_flags=0x08, type_name="Water"),
+        }
+        actions = _legal_battle_actions(state, moves)
+        selected = [action for action in actions if action.get("move_id") == 10]
+        spread = [action for action in actions if action.get("move_id") == 20]
+        switches = [action for action in actions if action["kind"] == "switch"]
+        self.assertEqual({action["target"] for action in selected}, {1, 3})
+        self.assertEqual([(action["actor"], action["target_scope"]) for action in spread], [(0, "both_opponents")])
+        self.assertIsNone(spread[0]["target"])
+        self.assertEqual([(action["actor"], action["slot"]) for action in switches], [(0, 2)])
+
+    def test_certified_double_step_queues_one_actor_and_requires_reevaluation(self):
+        before = {
+            "frame": 1, "map": {}, "ui": {},
+            "battle": {
+                "active": True, "format": "double",
+                "menu": {"state": "command_menu", "command_battler": 0},
+                "mons": [
+                    {"slot": 0, "present": True, "state": {"species": 1, "personality": 10, "moves": [10], "pp": [5], "current_hp": 20}},
+                    {"slot": 1, "present": True, "state": {"species": 2, "moves": [20], "pp": [5], "current_hp": 20}},
+                    {"slot": 2, "present": True, "state": {"species": 3, "personality": 30, "moves": [30], "pp": [5], "current_hp": 20}},
+                    {"slot": 3, "present": True, "state": {"species": 4, "moves": [40], "pp": [5], "current_hp": 20}},
+                ],
+            },
+            "party": {"mons": []},
+        }
+        immediate = copy.deepcopy(before)
+        immediate["frame"] = 2
+        immediate["battle"]["menu"]["command_battler"] = 2
+        legal = {"kind": "move", "actor": 0, "target": 1, "slot": 0, "move_id": 10, "type": "Normal"}
+        compact = _compact_state(before)
+        certificate = {
+            "certificate_id": "double-cert", "state_hash": compact["state_hash"],
+            "legal_actions": [legal], "state": {}, "compact_state": compact,
+            "boundary": {"format": "double", "actor": 0},
+        }
+
+        class Adapter:
+            gba = object()
+
+            @staticmethod
+            def select_double_move(actor, slot, *, expected_type, target_slot):
+                return {"actor": actor, "slot": slot, "type": expected_type, "target": target_slot}
+
+            @staticmethod
+            def observe():
+                return immediate
+
+        with patch("games.run_and_bun.capabilities._stable_battle_observation", return_value=(before, compact)), patch(
+            "games.run_and_bun.capabilities._battle_certificate", return_value=certificate
+        ):
+            result = _battle_step({
+                "state_hash": compact["state_hash"], "certificate_id": "double-cert", "action": legal,
+            }, adapter=Adapter(), persist=False)
+        self.assertTrue(result["verified"])
+        self.assertEqual(result["actual"]["allied_action_outcome"], "queued")
+        self.assertEqual(result["actual"]["resolution"]["next_actor"], 2)
+
     def test_branch_score_is_lexicographic_and_terminal_is_ram_derived(self):
         state = {
             "battle": {"active": False},
@@ -329,10 +460,33 @@ class CapabilityRegistryTests(unittest.TestCase):
         }
         self.assertEqual(_branch_terminal(state), "loss")
 
-    def test_branch_search_fails_fast_while_cycle_pruning_is_unverified(self):
-        with self.assertRaisesRegex(CapabilityError, "semantic cycle pruning") as raised:
-            _battle_branch_search({"state_hash": "unused"})
-        self.assertEqual(raised.exception.code, "SEARCH_DISABLED")
+    def test_branch_search_rejects_an_unbounded_wall_clock(self):
+        with self.assertRaisesRegex(CapabilityError, "invalid branch search limit"):
+            _battle_branch_search({"state_hash": "unused", "max_seconds": 0})
+
+    def test_branch_search_prunes_a_semantically_identical_path_state(self):
+        adapter = SimpleNamespace(gba=SimpleNamespace(load_state=lambda _path: None))
+        observation = {
+            "battle": {"active": True},
+            "party": {"mons": [{"present": True, "state": {"species": 1, "current_hp": 10}}]},
+        }
+        counter = {"nodes": 0, "transpositions": 0, "cycles": 0}
+        with patch("games.run_and_bun.capabilities._stable_battle_observation", return_value=(observation, {"state_hash": "same"})):
+            result = _search_battle_node(
+                adapter, Path("unused.state"), Path("."), depth=1,
+                max_depth=5, max_nodes=10, preserve_species=set(), counter=counter,
+                cache={}, path_states=frozenset({"same"}), deadline=time.monotonic() + 1,
+            )
+        self.assertEqual((result["outcome"], result["complete"], counter["cycles"]), ("semantic_cycle", True, 1))
+
+    def test_branch_search_wall_clock_limit_is_incomplete(self):
+        result = _search_battle_node(
+            SimpleNamespace(), Path("unused.state"), Path("."), depth=0,
+            max_depth=5, max_nodes=10, preserve_species=set(),
+            counter={"nodes": 0, "transpositions": 0, "cycles": 0},
+            cache={}, path_states=frozenset(), deadline=time.monotonic() - 1,
+        )
+        self.assertEqual((result["outcome"], result["complete"]), ("wall_clock_limit", False))
 
     def test_pp_delta_attribution_never_guesses_first_move(self):
         def state(pp):
@@ -348,6 +502,22 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertTrue(_audit_selected_move_pp("move", 1, []))
         self.assertEqual(_audit_selected_move_pp("move", 1, [], interrupted_before_execution=True), [])
         self.assertTrue(_audit_selected_move_pp("move", 1, exact + [{"battler": 2, "slot": 0, "move_id": 10, "delta": 1}]))
+
+    def test_move_announcement_distinguishes_commit_from_execution(self):
+        self.assertFalse(_move_announced("Foe Eelektrik used Shock Wave! Croakatoa fainted!", "Vacuum Wave"))
+        self.assertTrue(_move_announced("Croakatoa used\nVacuum Wave!", "Vacuum Wave"))
+
+    def test_opponent_effect_proves_move_execution_when_text_tail_is_truncated(self):
+        before = {"species": 77, "current_hp": 13, "status": 0, "stat_stages": [6] * 8}
+        after = {**before, "current_hp": 10}
+        self.assertTrue(_opponent_effect_observed(before, after))
+        self.assertFalse(_opponent_effect_observed(before, before))
+
+    def test_new_sleep_can_prevent_selected_move_before_pp_spend(self):
+        foe_pp = [{"battler": 1, "slot": 3, "move_id": 320, "delta": 1}]
+        self.assertTrue(_status_prevented_execution(
+            "move", [], {"species": 388, "status": 0}, {"species": 388, "status": 3}, foe_pp
+        ))
 
     def test_battle_hash_ignores_ephemeral_field_message_mode(self):
         base = {

@@ -1,0 +1,81 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T11:08:39.311191+00:00",
+  "review_id": "8f102440e8933b2dc23d",
+  "terminal": "step_mismatch",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "fc92db930c281ba76add43b363d1c96f04a335a730eefbab67138633764195f9",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 29,
+  "status": "needs_improvement",
+  "classification": "tooling_mismatch",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 29,
+    "findings": [
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "Action 16 chose slower Sludge for a nominal KO and Croakatoa fainted before acting; priority Vacuum Wave was guaranteed to execute.",
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v5b-clone1/turn-016.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Policy v14 selects Vacuum Wave; exact-state replay executed it and KOed Eelektrik while Croakatoa remained at 16 HP."
+        }
+      },
+      {
+        "kind": "suboptimal_action",
+        "severity": "high",
+        "summary": "Action 25 switched Birdlaw into a free Venoshock although it needed three Aerial Aces and could survive only two replies, causing an avoidable faint.",
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v5b-clone1/turn-025.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Policy v14 vetoes the pivot; bounded replay verified Bugatti Rollout, forced Birdlaw entry, and two Aerial Aces defeat Dustox."
+        }
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "Action 29 defeated Gavi but the 1800-frame verifier timed out before accepting the terminal boundary.",
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v5b-clone1/turn-029.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Battle-step v4 gives locked Rollout 2400 frames; exact-state replay returned a verified stable battle boundary with no discrepancy."
+        }
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "The attempt lost five party members; only Croakatoa's faint and Birdlaw's switch-in faint are presently proven avoidable, so remaining attrition must be reassessed in the next full clone.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Rollout accuracy and Dustox's Toxic, Roost, and Venoshock choices can alter the endgame; three full reviewed clones remain necessary.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "Ohmnomnom's two Sparks removed Bibarel without a switch cycle.",
+      "Lildozer entered once, used three Bulldozes, and removed Ponyta.",
+      "Fresh-entry Fake Out was used only when its flinch was valid.",
+      "Bugatti entered Sunflora for free and removed it with three Bug Bites without sleep variance."
+    ],
+    "next_test": "Run v14 clone 1 from the unchanged forward opening; verify Vacuum Wave at Eelektrik 9 HP, no voluntary no-action switch, and the Bugatti-first Dustox handoff."
+  }
+}

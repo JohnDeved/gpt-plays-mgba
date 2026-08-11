@@ -1,0 +1,92 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T15:49:50.978556+00:00",
+  "review_id": "bc140d7fb6c7dcf12390",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "291ffc53ce922b208e0bfdebb38bb873bc5132600107c7d648d425677bbd682c",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [],
+  "certified_actions": 24,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 24,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer fainted after Bulldoze plus Ice Shard created the verified Ponyta finish window.",
+        "action_changing": false,
+        "observed_fact": "Lildozer fainted after Bulldoze plus Ice Shard created the verified Ponyta finish window.",
+        "strategic_judgment": "Lildozer fainted after Bulldoze plus Ice Shard created the verified Ponyta finish window.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          5
+        ],
+        "next_test": "Run clone 2 unchanged with behavior hash 291ffc53 and the identical opening; review before clone 3.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bushtank fainted after five Razor Leaf attempts completed the prepared Eelektrik damage line.",
+        "action_changing": false,
+        "observed_fact": "Bushtank fainted after five Razor Leaf attempts completed the prepared Eelektrik damage line.",
+        "strategic_judgment": "Bushtank fainted after five Razor Leaf attempts completed the prepared Eelektrik damage line.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          14
+        ],
+        "next_test": "Run clone 2 unchanged with behavior hash 291ffc53 and the identical opening; review before clone 3.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Grass Whistle put the intermediate Ohmnomnom pivot to sleep; the status-escape switch preserved Birdlaw for the sweep.",
+        "action_changing": false,
+        "observed_fact": "Grass Whistle put the intermediate Ohmnomnom pivot to sleep; the status-escape switch preserved Birdlaw for the sweep.",
+        "strategic_judgment": "Grass Whistle put the intermediate Ohmnomnom pivot to sleep; the status-escape switch preserved Birdlaw for the sweep.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          20,
+          21
+        ],
+        "next_test": "Run clone 2 unchanged with behavior hash 291ffc53 and the identical opening; review before clone 3.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The win took 24 actions and seven switches; the only consecutive switches formed a verified sleep-absorption pivot, not a zero-progress loop.",
+        "action_changing": false,
+        "observed_fact": "The win took 24 actions and seven switches; the only consecutive switches formed a verified sleep-absorption pivot, not a zero-progress loop.",
+        "strategic_judgment": "The win took 24 actions and seven switches; the only consecutive switches formed a verified sleep-absorption pivot, not a zero-progress loop.",
+        "confidence": "bounded",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          20,
+          21
+        ],
+        "next_test": "Run clone 2 unchanged with behavior hash 291ffc53 and the identical opening; review before clone 3.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "Bugatti landed the required full-health Bug Bite before exiting Sunflora attrition.",
+      "Ohmnomnom absorbed Grass Whistle and immediately escaped status to Birdlaw.",
+      "The direct-Birdlaw counterfactual was tested once and Birdlaw fell asleep, verifying the intermediate pivot.",
+      "Birdlaw then used one Aerial Ace on Sunflora and two on Dustox to finish without another switch."
+    ],
+    "next_test": "Run clone 2 unchanged with behavior hash 291ffc53 and the identical opening; review before clone 3."
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T10:58:38.463284+00:00",
+  "review_id": "fd3614130bff4ca88105",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "581c6c54a0cd02f3606cf2fd930533a21d739f4d64c189557835ed01ae14c9e5",
+  "behavior_hash": "7950d85aa492c3b7900defafb3ac3eddad886535cae827031279a3d2de2ac4f7",
+  "policy_id": "gavi-bushtank-coppertop-v4",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 25,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 25,
+    "findings": [
+      {
+        "kind": "status_delay",
+        "severity": "medium",
+        "summary": "Coppertop lost two turns to sleep while Sunflora recovered with Leech Seed; staying in remained minimax because every replacement failed the verified critical entry-survival bound.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "intentional_resource_spend",
+        "severity": "medium",
+        "summary": "Lildozer, Croakatoa, and Coppertop fainted after making progress; three survivors still completed the fight reliably.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "Sleep and a fourth Razor Leaf increased the line from 23 to 25 actions; no extra switch was introduced.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "Only two switches were voluntary: Lildozer into Ponyta and Coppertop into Sunflora; both entered safely and attacked.",
+      "Croakatoa and Bushtank entered only after forced faints and made immediate progress.",
+      "Coppertop stayed through sleep because Birdlaw, Ohmnomnom, and Bushtank were all unsafe voluntary entries.",
+      "Birdlaw entered only after Coppertop fainted and then finished Sunflora and Dustox without switching.",
+      "All 25 actions, including both sleep-prevented turns, matched authoritative state."
+    ],
+    "next_test": "Run Clone 3 with identical behavior and require a third reviewed win with no no-action voluntary switch or action-changing defect."
+  }
+}

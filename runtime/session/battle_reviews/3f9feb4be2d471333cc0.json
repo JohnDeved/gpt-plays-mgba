@@ -1,0 +1,60 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T10:55:52.161897+00:00",
+  "review_id": "3f9feb4be2d471333cc0",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "581c6c54a0cd02f3606cf2fd930533a21d739f4d64c189557835ed01ae14c9e5",
+  "behavior_hash": "7950d85aa492c3b7900defafb3ac3eddad886535cae827031279a3d2de2ac4f7",
+  "policy_id": "gavi-bushtank-coppertop-v4",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 23,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 23,
+    "findings": [
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "The automatic reviewer incorrectly called Vacuum Wave suboptimal solely because fresh Fake Out was also legal.",
+        "state": "runtime/session/battle_reviews/states/gavi-proven-six-v12-clone1/turn-008.state",
+        "action_changing": true,
+        "resolved": true,
+        "observed_fact": "Ponyta had 2 HP; both moves guaranteed the KO, and Vacuum Wave had the higher verified minimum damage.",
+        "resolution": {
+          "verified": true,
+          "observed": "Removed the Fake-Out-specific review assertion. The existing lexicographic dominance check remains, and the regression now rejects promotion of a weaker Fake Out.",
+          "behavior_hash": "7950d85aa492c3b7900defafb3ac3eddad886535cae827031279a3d2de2ac4f7"
+        }
+      },
+      {
+        "kind": "intentional_resource_spend",
+        "severity": "medium",
+        "summary": "Lildozer, Croakatoa, and Coppertop fainted, but each made required progress before a forced replacement; monitor whether later clones preserve more without weakening reliability.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The verified win used 23 actions and 5 switches; only the Ponyta and Sunflora matchup entries were voluntary.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "Vacuum Wave immediately removed the 2-HP Ponyta and then chipped Eelektrik twice before Croakatoa's critical-hit faint.",
+      "Bushtank entered only after a forced faint, removed Eelektrik in three Razor Leafs, and was preserved at 7 HP.",
+      "Coppertop was the only switch certified to survive Sunflora's entry hit; it reduced Sunflora to 21 HP before Birdlaw's forced entry.",
+      "Birdlaw then removed Sunflora and Dustox without switching, leaving three authoritative survivors.",
+      "No voluntary replacement entered and left without executing a move."
+    ],
+    "next_test": "Run Clone 2 with the identical behavior and require another win with no no-action voluntary switch or new action-changing defect."
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T21:25:39.791489+00:00",
+  "review_id": "65776520ad4a84660509",
+  "terminal": "win",
+  "source": "live",
+  "opening_state_hash": "63302b9cc656b153",
+  "behavior_hash": null,
+  "policy_id": "wild_capture_togedemaru",
+  "trainer_key": null,
+  "matched_strategy_ids": [],
+  "certified_actions": 3,
+  "status": "needs_improvement",
+  "classification": "tooling_mismatch",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 3,
+    "findings": [
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "Capture oracle selected certified Absorb, but each embedded battle-step prediction recommended switching to Lildozer; align capture and generic tactical certificates before relying on prediction fields.",
+        "action_changing": true
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Bushtank took 24 HP of poison residual and enemy damage while weakening; no safer legal alternative was replay-verified, so this is a measured risk rather than a proven suboptimal action.",
+        "action_changing": false
+      },
+      {
+        "kind": "resource_tempo",
+        "severity": "low",
+        "summary": "Three certified actions and one Poké Ball were used; the final throw occurred at 10/29 HP with no status multiplier available.",
+        "action_changing": false
+      }
+    ],
+    "correct_choices": [
+      "ROM encounter lookup and bounded hunt found the exact species without screenshot inference.",
+      "Absorb was used only while its critical-hit ceiling was nonlethal.",
+      "The helper stopped weakening at 10/29 HP and threw with L, then applied the required nickname Ohmnomnom."
+    ],
+    "next_test": "Make capture_target pass its selected action into battle-step prediction so the certificate has one consistent decision."
+  }
+}

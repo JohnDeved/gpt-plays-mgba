@@ -1,0 +1,57 @@
+{
+  "path": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-boat-arrival-named-forward-20260809.state",
+  "sha256": "026d2081a0763056af8ef8aa227f1d3c0429f65e746b5e246245c14893a8250e",
+  "state_hash": "a104a89d26a01283",
+  "frame": 18196439,
+  "map": {
+    "group": 0,
+    "number": 11,
+    "x": 11,
+    "y": 9,
+    "warp_id": 255
+  },
+  "party": [
+    {
+      "slot": 0,
+      "species": 388,
+      "personality": 1476487022,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 1,
+      "species": 397,
+      "personality": 1813210531,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 2,
+      "species": 231,
+      "personality": 1744238455,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 3,
+      "species": 878,
+      "personality": 4082287436,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 4,
+      "species": 111,
+      "personality": 2559287137,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 5,
+      "species": 543,
+      "personality": 2609223149,
+      "ot_id": 3307282159,
+      "level": 17
+    }
+  ]
+}

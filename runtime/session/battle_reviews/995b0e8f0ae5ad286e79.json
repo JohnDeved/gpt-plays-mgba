@@ -1,0 +1,132 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T08:42:07.123141+00:00",
+  "review_id": "995b0e8f0ae5ad286e79",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "c4d6179c434a5c5442c5a661ebe476db18fc0f962b7ce69150bb918e32b70f73",
+  "behavior_hash": "f9e2bc2a443ed86b56152f965faecfcf99e16b25378ad516d6881fcfd30d9ae9",
+  "policy_id": "gavi-coppertop-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 36,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 36,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "Turn 36 ended in a verified whiteout against Sunflora after all viable answers had been spent earlier.",
+        "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-036.state",
+        "resolved": true,
+        "resolution": {"verified": true, "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-006-fixed-after-dustox-aa2.state", "observed": "The corrected turn-6 branch removed Ponyta and Dustox while preserving full-health Bushtank, Croakatoa, and Coppertop for Eelektrik and Sunflora; the causal terminal condition is absent."},
+        "root_layer": "trainer_profile",
+        "observed_fact": "Lildozer was the only survivor at 12 HP; Ice Shard damaged Sunflora but Sludge Bomb KO'd it.",
+        "next_test": "Repair the turn-6 Ponyta threshold and verify the corrected prefix preserves the Sunflora answers before another full clone."
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "Turn 6 missed the priority-sacrifice rule because Ponyta had 11 HP while the predicate required 10 or less.",
+        "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-006.state",
+        "resolved": true,
+        "resolution": {"verified": true, "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-006-fixed-after-priority-sack.state", "observed": "Reloaded turn 6 selected and executed Ice Shard at Lildozer 12 HP versus Ponyta 11 HP, then observed Lildozer's faint and the forced replacement boundary."},
+        "root_layer": "trainer_profile",
+        "observed_fact": "Lildozer had 12 HP, Ponyta had 11 HP, and the policy switched to Birdlaw instead of using priority Ice Shard.",
+        "why_bad": "This one-point threshold miss is the earliest causal divergence and changed every later send-out and reserve state.",
+        "improvement": "Expand the verified depleted-Lildozer predicate to cover player HP through 15 and Ponyta HP through 12.",
+        "next_test": "Replay turn 6 and require Ice Shard, Lildozer's expected faint, and a forced full-health Croakatoa replacement."
+      },
+      {
+        "kind": "switch_spam",
+        "severity": "high",
+        "summary": "Turns 6-7 switched Lildozer to Birdlaw to Croakatoa without dealing damage.",
+        "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-006.state",
+        "resolved": true,
+        "resolution": {"verified": true, "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-006-fixed-forced-croakatoa.state", "observed": "The corrected branch used no voluntary switch: Ice Shard produced a forced replacement and full-health Croakatoa entered directly."},
+        "root_layer": "trainer_profile",
+        "observed_fact": "Birdlaw took Flame Wheel from 46 to 28, then Croakatoa took Play Rough from 44 to 29 before Mud Shot finally acted.",
+        "why_bad": "Two future answers paid entry damage solely because the sacrifice predicate missed.",
+        "next_test": "The corrected turn-6 line must contain no voluntary switch and must reach the forced replacement menu."
+      },
+      {
+        "kind": "reserve_misuse",
+        "severity": "high",
+        "summary": "Turn 9 sent Bushtank into Dustox's super-effective Venoshock, reducing it from 57 to 31 before any attack.",
+        "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-009.state",
+        "resolved": true,
+        "resolution": {"verified": true, "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-006-fixed-after-birdlaw-switch.state", "observed": "After Croakatoa removed Ponyta, the selector sent full-health Birdlaw directly into Dustox; Bushtank remained at 57 HP."},
+        "root_layer": "trainer_profile",
+        "observed_fact": "The scorer selected Bushtank from Croakatoa even though full-health Birdlaw was the designated Dustox attacker.",
+        "why_bad": "Bushtank's Eelektrik HP reserve was halved and the Dustox role remained unused.",
+        "next_test": "After the corrected Ponyta prefix, verify Croakatoa hands Dustox directly to full-health Birdlaw."
+      },
+      {
+        "kind": "nonprogress_loop",
+        "severity": "high",
+        "summary": "Turns 11-18 used eight Coppertop Bulldozes into Dustox while recovery and trapping consumed Coppertop from 56 to 8 HP.",
+        "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-011.state",
+        "resolved": true,
+        "resolution": {"verified": true, "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-006-fixed-after-dustox-aa2.state", "observed": "Birdlaw used the committed Aerial Ace line twice and removed Dustox; Coppertop remained untouched at 56 HP and used no Bulldoze PP."},
+        "root_layer": "trainer_profile",
+        "observed_fact": "Dustox was still at 44 HP after the eighth Bulldoze; Coppertop then entered Eelektrik at 8 HP and fainted before Tackle.",
+        "why_bad": "The policy repeated a verified non-progress move and destroyed the reserved Steel converter.",
+        "next_test": "Verify the corrected prefix activates Birdlaw's committed Aerial Ace rule and never places Coppertop against Dustox."
+      },
+      {
+        "kind": "switch_spam",
+        "severity": "high",
+        "summary": "Turns 25-28 switched Croakatoa to Birdlaw to Bushtank back to Croakatoa and back to Bushtank; Birdlaw and Croakatoa fainted without attacking.",
+        "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-025.state",
+        "resolved": true,
+        "resolution": {"verified": true, "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-025.state", "observed": "Reloaded turn 25 with the corrected behavior hash: every unsafe voluntary switch was vetoed and Croakatoa selected Vacuum Wave. Reloaded turn 27 selected Razor Leaf while every second unplanned switch was vetoed."},
+        "root_layer": "reusable_executable_strategy",
+        "observed_fact": "Birdlaw entered Eelektrik at 28 HP and died to Shock Wave; Croakatoa later re-entered at 10 HP and died to the same move.",
+        "why_bad": "The policy treated depleted pivots as available roles instead of committing damage or preserving them.",
+        "next_test": "The corrected prefix must reach Eelektrik with full Bushtank, Croakatoa, and Coppertop; inspect any voluntary switch after Fake Out."
+      },
+      {
+        "kind": "reserve_misuse",
+        "severity": "high",
+        "summary": "Turns 34-36 reached Sunflora only with 7-HP Ohmnomnom and 12-HP Lildozer, causing two immediate faints.",
+        "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-034.state",
+        "resolved": true,
+        "resolution": {"verified": true, "state": "runtime/session/battle_reviews/states/1786437671974473000/turn-006-fixed-after-dustox-aa2.state", "observed": "At the corrected Eelektrik handoff, Croakatoa and Coppertop were still full health and Bushtank was 57 HP; the selector chose the safe Bushtank pivot instead of spending the Sunflora answers."},
+        "root_layer": "hard_fight_preparation",
+        "observed_fact": "Sunflora remained at 38 HP after Ohmnomnom's attack; every healthier matchup answer had already fainted.",
+        "why_bad": "This was the terminal consequence of the Ponyta, Dustox, and Eelektrik reserve failures.",
+        "next_test": "A new full clone must enter Sunflora with Croakatoa or Coppertop healthy enough to execute damage and preserve a finisher."
+      },
+      {
+        "kind": "switch_tempo_observation",
+        "severity": "medium",
+        "summary": "The loss used 13 switches and 36 actions, including two separate no-progress switch chains.",
+        "root_layer": "reusable_executable_strategy",
+        "observed_fact": "The historical clean win used 22 actions; this line spent 14 more and lost.",
+        "next_test": "Count switches in the next clone and inspect every voluntary reversal."
+      },
+      {
+        "kind": "resource_tempo_summary",
+        "severity": "low",
+        "summary": "Eight Bulldoze PP and multiple full-health reserves were spent without removing Dustox or Eelektrik efficiently.",
+        "root_layer": "trainer_profile",
+        "observed_fact": "Coppertop used eight of twenty Bulldoze PP on Dustox and contributed no Eelektrik damage.",
+        "next_test": "Re-measure PP after Dustox is routed to Birdlaw."
+      }
+    ],
+    "correct_choices": [
+      "Turns 1-2 correctly removed Bibarel with two Sparks.",
+      "Turns 3-5 correctly used Lildozer and two consecutive Bulldozes against Ponyta.",
+      "Turn 24 correctly used fresh-entry Fake Out against Eelektrik and took no reply.",
+      "Turns 32-33 correctly committed Spark to finish Eelektrik once switching resources were exhausted.",
+      "All 36 actions were acknowledged and verified; no tooling discrepancy or hidden extra input caused this loss."
+    ],
+    "next_test": "Broaden only the verified turn-6 sacrifice threshold, replay that attached state, then replay the resulting Croakatoa-to-Birdlaw Dustox prefix before another full clone."
+  }
+}

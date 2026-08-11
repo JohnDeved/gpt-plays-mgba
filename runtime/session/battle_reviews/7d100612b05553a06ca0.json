@@ -1,0 +1,135 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T14:00:01.469671+00:00",
+  "review_id": "7d100612b05553a06ca0",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "ee589577d15b855a6438e58060b2e7d566655dc54cfdfaf4431e65b64d3f6164",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 27,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "schema_version": 2,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 27,
+    "findings": [
+      {
+        "kind": "critical_variance",
+        "severity": "medium",
+        "summary": "Lildozer fainted to a critical Double Kick after completing two Bulldozes and one Ice Shard against Ponyta.",
+        "action_changing": false,
+        "observed_fact": "All three Lildozer attacks executed and reduced Ponyta to the Vacuum Wave finish; the critical occurred only after Ice Shard contributed its guaranteed priority damage.",
+        "strategic_judgment": "The faint spent a designated Ponyta role productively and gave Croakatoa a hit-free forced entry; no legal alternative was verified to dominate that conversion.",
+        "confidence": "verified",
+        "fix_layer": "none_verified_variance",
+        "turns": [
+          4,
+          5,
+          6
+        ],
+        "next_test": "Retain as a reusable priority-chip sacrifice example rather than adding a critical-specific exception."
+      },
+      {
+        "kind": "intentional_sacrifice_audit",
+        "severity": "medium",
+        "summary": "Bushtank and Birdlaw fainted after completing their declared Eelektrik and Dustox jobs.",
+        "action_changing": false,
+        "observed_fact": "Bushtank delivered four Razor Leafs before poison ended it and enabled fresh Ohmnomnom; Birdlaw delivered two Aerial Aces before Venoshock and left Dustox in Spark range for the terminal action.",
+        "strategic_judgment": "Both losses converted replaceable HP into verified matchup progress and clean forced entries; neither was a switch-only sacrifice.",
+        "confidence": "verified",
+        "fix_layer": "reusable_executable_strategy",
+        "turns": [
+          9,
+          10,
+          11,
+          12,
+          13,
+          23,
+          24,
+          25,
+          26
+        ],
+        "next_test": "Store the episode as positive evidence for converter-plus-finisher sequencing."
+      },
+      {
+        "kind": "fake_out_restraint",
+        "severity": "low",
+        "summary": "Fake Out was used selectively rather than on every fresh entry.",
+        "action_changing": false,
+        "observed_fact": "Croakatoa skipped Fake Out when priority Vacuum Wave was already a minimax Ponyta finish; Ohmnomnom used Fake Out only on fresh entries where it created free Eelektrik and Sunflora tempo.",
+        "strategic_judgment": "This demonstrates that the shared fresh-entry strategy remains subordinate to immediate guaranteed finishes and matchup context.",
+        "confidence": "verified",
+        "fix_layer": "reusable_executable_strategy",
+        "turns": [
+          8,
+          15,
+          21
+        ],
+        "next_test": "Preserve this precedence in non-Gavi regression fixtures."
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "Eight switches occurred with zero immediate reversal and zero consecutive voluntary no-action loop.",
+        "action_changing": false,
+        "observed_fact": "Three were forced replacements; every voluntary entrant matched Ponyta, Eelektrik, Sunflora status conversion, or Dustox and acted productively.",
+        "strategic_judgment": "The line is state-driven role assignment, not blind switching or switch spam.",
+        "confidence": "verified",
+        "fix_layer": "none",
+        "turns": [
+          3,
+          7,
+          9,
+          14,
+          17,
+          20,
+          23,
+          26
+        ],
+        "next_test": "Keep the generic anti-switch-cycle guard unchanged."
+      },
+      {
+        "kind": "tempo_observation",
+        "severity": "low",
+        "summary": "The third branch won in 27 certified actions, between the first two qualified wins at 29 and 25.",
+        "action_changing": false,
+        "observed_fact": "Nineteen move choices and eight switches ended with three survivors: Ohmnomnom at 13 HP, Croakatoa at 46 HP, and Bugatti at 21 HP.",
+        "strategic_judgment": "No action was verified slower while equal on survival and success; further shortening is lower priority than preserving this robust bundle.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Promote the unchanged behavior bundle after the qualification ledger reaches three."
+      },
+      {
+        "kind": "branch_robustness",
+        "severity": "info",
+        "summary": "The same behavior bundle won three materially different sendout and damage branches without profile edits.",
+        "action_changing": false,
+        "observed_fact": "Reviewed wins completed in 29, 25, and 27 actions with different survivor pairs and the identical opening checkpoint plus behavior hash.",
+        "strategic_judgment": "This is direct evidence that predicates, role bindings, and reusable strategies survived RNG variation better than a fixed action script.",
+        "confidence": "verified",
+        "fix_layer": "none",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Use the same engine for the next trainer without Gavi-specific code changes."
+      }
+    ],
+    "correct_choices": [
+      "All 27 actions, HP/PP outcomes, opponent replies, forced switches, and the terminal reward were RAM-verified with no discrepancy.",
+      "Bushtank repeated Razor Leaf until its poisoned sacrifice completed, then the exact Ohmnomnom identity entered.",
+      "Croakatoa chose immediate priority Vacuum Wave over unnecessary Fake Out, while fresh Ohmnomnom used Fake Out correctly.",
+      "The final Dustox sequence preserved three other party members and ended with a verified Spark."
+    ],
+    "next_test": "Record this third clean review, verify qualification streak 3 with the unchanged behavior/opening hashes, then promote the profile for gated live use."
+  }
+}

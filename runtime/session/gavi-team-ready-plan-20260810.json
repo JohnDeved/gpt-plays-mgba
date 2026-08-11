@@ -1,0 +1,72 @@
+{
+  "schema_version": 2,
+  "fight": {
+    "id": "map:0:25/local:23",
+    "required": true,
+    "format": "single",
+    "identity_source": "mixed",
+    "roster_complete": true,
+    "expected_roster_count": 5
+  },
+  "checkpoint": {
+    "path": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-center-gavi-team-ready-forward-20260810.state",
+    "sha256": "1e4fa36193e47b4a3b138179211cc9b50680510dbd604d1ce0fa25f99e1841f8"
+  },
+  "level_cap": {"value": 17, "source": "mixed"},
+  "enemy_roster": [
+    {"species_id": 400, "level": 16, "moves": [29, 453, 365, 162], "ability_id": 109, "item_id": 522, "source": "mixed"},
+    {"species_id": 77, "level": 17, "moves": [172, 583, 24], "ability_id": 49, "item_id": 523, "source": "mixed"},
+    {"species_id": 603, "level": 17, "moves": [351, 72, 162, 92], "ability_id": 26, "item_id": 523, "source": "mixed"},
+    {"species_id": 192, "level": 16, "moves": [412, 188, 73, 320], "ability_id": null, "item_id": 522, "source": "mixed"},
+    {"species_id": 269, "level": 17, "moves": [474, 611, 355, 92], "ability_id": null, "item_id": 487, "source": "mixed"}
+  ],
+  "party": [
+    {"slot": 0, "species_id": 388, "personality": 1476487022, "level": 17, "current_hp": 57, "max_hp": 57, "status": 0, "moves": [44, 75, 71, 590], "pp": [25, 25, 25, 10], "max_pp": [25, 25, 25, 10], "role": "bushtank"},
+    {"slot": 1, "species_id": 231, "personality": 1744238455, "level": 17, "current_hp": 58, "max_hp": 58, "status": 0, "moves": [420, 523, 28, 88], "pp": [30, 20, 5, 15], "max_pp": [30, 20, 5, 15], "role": "lildozer"},
+    {"slot": 2, "species_id": 777, "personality": 3325952935, "level": 17, "current_hp": 50, "max_hp": 50, "status": 0, "moves": [252, 609, 232, 209], "pp": [5, 20, 35, 20], "max_pp": [5, 20, 35, 20], "role": "ohmnomnom"},
+    {"slot": 3, "species_id": 397, "personality": 1813210531, "level": 17, "current_hp": 46, "max_hp": 46, "status": 0, "moves": [283, 45, 98, 332], "pp": [5, 10, 30, 20], "max_pp": [5, 10, 30, 20], "role": "birdlaw"},
+    {"slot": 4, "species_id": 453, "personality": 506087644, "level": 17, "current_hp": 46, "max_hp": 46, "status": 0, "moves": [124, 341, 252, 410], "pp": [20, 15, 5, 30], "max_pp": [20, 15, 5, 30], "role": "croakatoa"},
+    {"slot": 5, "species_id": 111, "personality": 2559287137, "level": 17, "current_hp": 59, "max_hp": 59, "status": 0, "moves": [30, 479, 184, 23], "pp": [25, 15, 10, 20], "max_pp": [25, 15, 10, 20], "role": "rampage"}
+  ],
+  "leads": [0],
+  "plan": {
+    "target_priorities": [
+      {"opponent_species": 400, "preferred_role": "bushtank", "preferred_action": "move:75"},
+      {"opponent_species": 77, "preferred_role": "lildozer", "preferred_action": "move:523", "reserve": "lildozer"},
+      {"opponent_species": 603, "preferred_role": "croakatoa", "preferred_action": "fresh-entry Fake Out then certified converter line"},
+      {"opponent_species": 192, "preferred_role": "croakatoa", "fallback_role": "birdlaw", "preferred_action": "Sludge or Aerial Ace"},
+      {"opponent_species": 269, "preferred_role": "rampage", "fallback_role": "birdlaw", "preferred_action": "preserve finisher; avoid trapped-status line"}
+    ],
+    "opening_turn": [{"party_slot": 0, "action": "Spark", "target": "Bibarel"}],
+    "contingencies": [
+      "Do not spend Fake Out except on a verified fresh entry or a forced safe pivot.",
+      "Do not use Ground damage into Eelektrik until Levitate is disproven or grounded by a verified interaction.",
+      "Preserve Rampage for Dustox and Birdlaw for Sunflora/Dustox unless a verified survival certificate changes the ranking.",
+      "After every clone, write the compact AI battle review and resolve every high-or-critical finding before the next clone."
+    ],
+    "classification": "expected-best"
+  },
+  "uncertainty": {
+    "action_changing": [
+      "Eelektrik's first AI move and the verified post-Fake-Out converter line remain to be observed from the new opening checkpoint."
+    ],
+    "other": ["Unresolved enemy ability names for Bibarel, Sunflora, and Dustox; numeric IDs are authoritative."]
+  },
+  "readiness": {
+    "checkpoint_verified": true,
+    "party_healed": true,
+    "pp_full": true,
+    "level_cap_respected": true,
+    "moves_and_items_set": true,
+    "live_execution_allowed": false,
+    "status": "blocked"
+  },
+  "evidence": {
+    "policy_profile": "games/run_and_bun/policy_profiles/gavi.json",
+    "behavior_hash": "db27d3bbc44537b53c45bf722e63018f7e08a651945e5547049180c0ba51ff26",
+    "opening_checkpoint": "/Users/johann/gpt-plays-mgba/runtime/session/gavi-team-ready-opening-20260810.state",
+    "opening_checkpoint_sha256": "8026e0d9670af59d2443f6126501f7e67530937970cec05d9c84c596f13d6698",
+    "reproductions": []
+  },
+  "failure_history": {"same_plan_attempts": 0}
+}

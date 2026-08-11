@@ -32,6 +32,8 @@ squashfs-root/
 *.bmp
 *.log
 *_ready.txt
+runtime/session/battle_transactions.jsonl
+runtime/session/*wram*.bin
 
 # Python
 __pycache__/

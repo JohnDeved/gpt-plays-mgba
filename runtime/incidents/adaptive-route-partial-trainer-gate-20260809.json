@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T211912Z-adaptive-navigation-moved-before-trainer-gate-re",
+  "status": "verified",
+  "created_at": "2026-08-09T21:19:12.510667+00:00",
+  "summary": "Adaptive navigation moved before trainer gate rejection",
+  "component": "games/runbun.py:follow_live_path_adaptive",
+  "symptom": "A cave warp approach moved Route 106 from x66,y19 to x63,y16 before a later chunk hit the damaged-party trainer gate",
+  "classification": "actuator_input",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/auto-forward-latest.state",
+    "sha256": "68c29427902ec6672c6fc47ed5a7be5d3774a825d0a99207ad61c258d024854d",
+    "canonical_state": {"map": {"group": 0, "number": 21, "x": 66, "y": 19}, "state_hash": "8fe4dd589107e5f9"},
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "A denied adaptive route performs no movement and leaves the live position unchanged",
+    "actual": "The route executed earlier chunks before trainer_engagement_blocked was raised",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "RunBunAdapter canonical RAM observation and adaptive-route regression test",
+    "sources": ["runtime/session/auto-forward-latest.state", "tests/test_runbun.py::RunBunTests.test_adaptive_path_preflights_full_route_before_first_chunk"]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "tests/test_runbun.py::RunBunTests.test_adaptive_path_preflights_full_route_before_first_chunk",
+    "fixture_sha256": null,
+    "command": "python3 -m unittest tests.test_runbun.RunBunTests.test_adaptive_path_preflights_full_route_before_first_chunk",
+    "steps": ["Build a two-tile adaptive route", "deny the complete route in the trainer gate", "assert follow_route is never called"],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "Both runs denied before any movement call."
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": true,
+    "claim": "follow_live_path_adaptive checked trainer readiness only inside follow_route chunks, allowing earlier chunks to mutate the live position before a later denial.",
+    "evidence": ["The live failure moved x66,y19 to x63,y16 before denial.", "The fixed regression rejects the full planned path before follow_route."],
+    "alternatives_falsified": ["The restored checkpoint returned the exact pre-probe map and canonical state hash."]
+  },
+  "solution": {
+    "kind": "code_fix",
+    "files": ["games/runbun.py", "tests/test_runbun.py"],
+    "contract_change": "Adaptive navigation must preflight the entire planned route before issuing the first movement chunk.",
+    "workaround": "Restore auto-forward-latest.state after any pre-fix partial route rejection."
+  },
+  "verification": {
+    "targeted_checks": [{"name": "adaptive full-path preflight", "command": "python3 -m unittest tests.test_runbun.RunBunTests.test_adaptive_path_preflights_full_route_before_first_chunk", "passed": true}],
+    "regression_checks": [{"name": "full repository tests", "command": "python3 -m unittest discover -s tests -q", "passed": true}],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "A denied route makes no movement call.",
+      "actual": "Both replay runs denied before follow_route.",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": ["Trainer-gated movement must be atomic with respect to the planned route."],
+    "regression_cases": ["A denied adaptive route must issue zero movement inputs."],
+    "tooling_contracts": ["follow_live_path_adaptive performs whole-route trainer preflight before chunk execution."]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

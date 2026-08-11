@@ -15,12 +15,11 @@ MONEY_OFFSET = 0x490
 POCKETS = {
     "items": (0x560, 20),
     "key_items": (0x5B0, 20),
-    "poke_balls": (0x600, 16),
     "tmhm": (0x640, 64),
-    "berries": (0x740, 46),
-    # Run & Bun v1.07's berry-tree script writes its confirmed Berries Pocket
-    # entry here; the vanilla offsets above contain unrelated legacy data.
-    "runbun_berries": (0x900, 46),
+    # Run & Bun v1.07's live Market/Bag UI confirmed this as the Poké Ball
+    # pocket: slot 25 is the visible "Poké Ball / In Bag: 13" entry.
+    "poke_balls": (0x740, 46),
+    "berries": (0x900, 46),
     # Promotional Potion dialogue writes the Medicine Pocket here.
     "runbun_medicine": (0xA00, 20),
 }

@@ -1,0 +1,15 @@
+{
+  "id": "20260809T063000Z-gavi-stale-command-switch",
+  "date": "2026-08-09",
+  "summary": "Stale command-menu classification hid Ponyta's queued Double Kick",
+  "scope": "battle_interface",
+  "symptom": "After Rock Tomb, the adapter reported command_menu while field mode 34 and a stale switch/task boundary still owned input. A voluntary switch cursor move was rejected; after the queue drained, RAM showed Onix fainted and the forced party selector active.",
+  "authoritative_evidence": {
+    "before": {"species": 95, "hp": 16, "opponent": 77, "hp": 29, "field_mode": 34},
+    "queued_result": "Ponyta Double Kick hit 2 times; Onix fainted",
+    "after": {"field_mode": 13, "party_switch_required": true, "text": "Choose a Pokémon.", "phaanpy_slot": 3, "phaanpy_hp": 58}
+  },
+  "root_cause": "Battle menu inference accepted a command-menu signature before the final queued opponent action and forced-faint transition had drained.",
+  "fix": "At any post-action boundary, require stable active battler identity, HP/PP, drained battle text, and no active field tasks across repeated reads before allowing a voluntary switch. Use the forced party selector when field mode 13 is authoritative.",
+  "recovery": "Continued forward using the forced selector; no save-state rewind was used."
+}

@@ -1,0 +1,154 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T13:34:59.217598+00:00",
+  "review_id": "0b5f7b7ebe2d6314faf6",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "d97eea10090da85df4170e32fd407917191cabe9824e785b149ca81341b967b1",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 29,
+  "status": "needs_improvement",
+  "classification": "terminal_loss",
+  "agent_review": {
+    "schema_version": 2,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 29,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The new behavior bundle whiteouted after 29 verified actions.",
+        "action_changing": true,
+        "observed_fact": "Bushtank was the last survivor and fainted before Bite executed against Sunflora at 22 HP.",
+        "strategic_judgment": "This was a deterministic policy/preparation-line failure, not an emulator mismatch or an acceptable variance branch.",
+        "confidence": "verified",
+        "fix_layer": "battle_policy_engine",
+        "turns": [
+          29
+        ],
+        "next_test": "Replay the corrected bundle from the identical precontact checkpoint and require a terminal win.",
+        "state_unavailable_reason": "The terminal state cannot replay the earlier causal decisions; separate turn-1, turn-15, and turn-22 states cover those causes."
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "An unproven generic Fake Out strategy overrode the proven Gavi opening on turn 1.",
+        "state": "runtime/session/battle_reviews/states/1786455254726543000/turn-001.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "70edc82b54ab0831",
+          "observed": "Corrected policy selected Spark; Spark executed with the expected PP decrement and verified Super Fang reply."
+        },
+        "observed_fact": "The engine chose Fake Out then Spark; Bibarel survived at 4 HP and forced a Lildozer pivot, while three prior clean identical-checkpoint wins opened Spark then Spark.",
+        "strategic_judgment": "Candidate strategies are suggestions, not safe unattended rules; auto-executing one changed the whole matchup sequence.",
+        "confidence": "bounded",
+        "fix_layer": "battle_policy_engine",
+        "turns": [
+          1
+        ],
+        "next_test": "From turn 1, require the corrected policy to select and execute Spark without applying fresh-entry-fake-out-tempo.",
+        "strategy_id": "fresh-entry-fake-out-tempo",
+        "requirements_matched": false
+      },
+      {
+        "kind": "reserve_misuse",
+        "severity": "high",
+        "summary": "Bushtank abandoned its Eelektrik sacrifice line after one Razor Leaf on turn 15.",
+        "state": "runtime/session/battle_reviews/states/1786455254726543000/turn-015.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "820eed93e8a10d3f",
+          "observed": "Corrected policy selected Razor Leaf; it executed, damaged Eelektrik, and kept Bushtank in the sacrifice line."
+        },
+        "observed_fact": "Switching Bushtank at 26 HP exposed Ohmnomnom and then Bugatti; prior clean runs kept using Razor Leaf until Bushtank fainted and gave Ohmnomnom a safe forced entry.",
+        "strategic_judgment": "The executable strategy encoded only the first Razor Leaf even though its declared line requires repeating the safest damage action.",
+        "confidence": "bounded",
+        "fix_layer": "reusable_executable_strategy",
+        "turns": [
+          13,
+          14,
+          15
+        ],
+        "next_test": "From turn 15, require Razor Leaf to remain selected and execute instead of a voluntary switch.",
+        "strategy_id": "status-immune-converter-preserved-finisher",
+        "requirements_matched": true
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "The Gavi profile forced 5-HP Bugatti to attempt Rollout into Dustox instead of taking the safe Birdlaw switch.",
+        "state": "runtime/session/battle_reviews/states/1786455254726543000/turn-022.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "cbe47d66ede4a4b7",
+          "observed": "Below the 18-HP threshold, the exception deactivated; Birdlaw switched in, survived Venoshock, and applied Intimidate."
+        },
+        "observed_fact": "The certificate ranked Birdlaw as surviving, but the profile vetoed that switch; Bugatti fainted before Rollout executed.",
+        "strategic_judgment": "The matchup exception lacked the verified 18-HP survival threshold and therefore overrode survival with an impossible attack.",
+        "confidence": "verified",
+        "fix_layer": "trainer_profile",
+        "turns": [
+          22
+        ],
+        "next_test": "From turn 22, require the low-HP exception to deactivate and Birdlaw to switch in successfully."
+      },
+      {
+        "kind": "downstream_resource_loss",
+        "severity": "medium",
+        "summary": "Croakatoa, Ohmnomnom, Bugatti, Birdlaw, and Bushtank were all consumed after the altered opening sequence.",
+        "action_changing": false,
+        "observed_fact": "Every faint was RAM-verified; Croakatoa and Birdlaw dealt useful damage, but the roster reached Sunflora with no healthy answer.",
+        "strategic_judgment": "These are downstream effects of the three high-severity policy defects, not five independent trainer exceptions.",
+        "confidence": "bounded",
+        "fix_layer": "battle_policy_engine",
+        "turns": [
+          9,
+          18,
+          22,
+          27,
+          29
+        ],
+        "next_test": "Confirm the corrected opening and Eelektrik line preserve enough reserves to finish Sunflora and Dustox."
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "Eight switches occurred, but only the Bushtank-to-Ohmnomnom pivot was independently harmful.",
+        "action_changing": false,
+        "observed_fact": "Five switches were forced replacements and the other two voluntary matchup entries acted productively; no consecutive no-action switch loop occurred.",
+        "strategic_judgment": "The review should fix the bad pivot without adding a blanket anti-switch rule that would break safe replacements.",
+        "confidence": "verified",
+        "fix_layer": "reusable_executable_strategy",
+        "turns": [
+          3,
+          6,
+          10,
+          13,
+          15,
+          19,
+          23,
+          28
+        ],
+        "next_test": "Audit the next clone for zero harmful voluntary pivots while preserving forced and matchup switches."
+      }
+    ],
+    "correct_choices": [
+      "All 29 actions and enemy replies were verified with no tooling discrepancy.",
+      "Fake Out legality and fresh-entry reconstruction were correct even though the turn-1 strategic preference was not.",
+      "Lildozer safely finished Bibarel after the altered opening, and Birdlaw correctly used Aerial Ace to remove Dustox."
+    ],
+    "next_test": "Run bounded turn-1, turn-15, and turn-22 regressions; resolve their attached findings only after the corrected decisions execute, then restart qualification at Clone 1."
+  }
+}

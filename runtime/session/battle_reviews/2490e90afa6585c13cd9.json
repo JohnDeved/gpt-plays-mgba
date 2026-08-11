@@ -1,0 +1,134 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T13:57:02.331624+00:00",
+  "review_id": "2490e90afa6585c13cd9",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "ee589577d15b855a6438e58060b2e7d566655dc54cfdfaf4431e65b64d3f6164",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 25,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "schema_version": 2,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 25,
+    "findings": [
+      {
+        "kind": "critical_variance",
+        "severity": "medium",
+        "summary": "Two expected-best attacks were interrupted by modeled damage variance: Lildozer fell before its second Bulldoze and Croakatoa fell to an explicit critical hit.",
+        "action_changing": false,
+        "observed_fact": "Both actions were selected from unsafe states to make progress before faint; Croakatoa still left Ponyta at the 3-HP fresh-Fake-Out threshold.",
+        "strategic_judgment": "Neither faint invalidated the role sequence or exposed a verified safer continuation; the unchanged policy adapted and retained three healthy matchup roles at that point.",
+        "confidence": "verified",
+        "fix_layer": "none_verified_variance",
+        "turns": [
+          4,
+          8
+        ],
+        "next_test": "Monitor Clone 3 for terminal success across another damage branch without adding variance-specific trainer rules."
+      },
+      {
+        "kind": "rollout_tradeoff",
+        "severity": "medium",
+        "summary": "Healthy Bugatti was spent in a locked three-turn Rollout sequence against Dustox.",
+        "action_changing": false,
+        "observed_fact": "Rollout trapped and fainted Bugatti but softened Dustox enough for a hit-free Birdlaw finish. The sole material alternative was replayed once: Birdlaw switched safely, then a critical Venoshock left it at 3 HP while Dustox remained at 29 HP.",
+        "strategic_judgment": "The Birdlaw pivot did not lexicographically dominate this fixed branch; sacrificing Bugatti preserved the faster Dustox and Sunflora finisher at 41 terminal HP. Classification remains expected-best, not forced or proven.",
+        "confidence": "bounded",
+        "fix_layer": "trainer_profile",
+        "turns": [
+          21
+        ],
+        "next_test": "Retain the thresholded Rollout exception and require Birdlaw to enter productively after Bugatti in any matching branch."
+      },
+      {
+        "kind": "converter_sequence",
+        "severity": "medium",
+        "summary": "Ohmnomnom fainted after taking over the Eelektrik line, but removed most of Eelektrik and preserved Bushtank for the endgame.",
+        "action_changing": false,
+        "observed_fact": "Fresh Fake Out plus four Sparks reduced Eelektrik for Bugatti Bug Bite; Bushtank survived the battle at 15 HP rather than being consumed as in Clone 1.",
+        "strategic_judgment": "This is a productive role conversion, not switch spam; the policy adapted to the one-Spark Bibarel branch and different trainer sendout order.",
+        "confidence": "verified",
+        "fix_layer": "reusable_executable_strategy",
+        "turns": [
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20
+        ],
+        "next_test": "Verify the policy can choose either the Bushtank-sacrifice or Ohmnomnom-converter branch without a no-action relay."
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "Seven switches occurred and none formed an immediate reversal or consecutive voluntary no-action loop.",
+        "action_changing": false,
+        "observed_fact": "Three were forced replacements; the voluntary switches assigned Lildozer to Ponyta, Bushtank then Ohmnomnom to Eelektrik, and every entrant acted before leaving or fainting.",
+        "strategic_judgment": "The sequence demonstrates dynamic role reuse across a different sendout order rather than hard-coded turn numbers.",
+        "confidence": "verified",
+        "fix_layer": "none",
+        "turns": [
+          2,
+          5,
+          9,
+          11,
+          13,
+          19,
+          22
+        ],
+        "next_test": "Repeat the switch audit after Clone 3."
+      },
+      {
+        "kind": "tempo_observation",
+        "severity": "low",
+        "summary": "The adaptive branch won in 25 certified actions, four fewer than Clone 1.",
+        "action_changing": false,
+        "observed_fact": "Eighteen move choices and seven switches ended with Bushtank at 15 HP and Birdlaw at 41 HP.",
+        "strategic_judgment": "The shorter win is useful evidence that the same declarative bundle handles RNG-driven roster order without profile rewrites.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Do not optimize further unless Clone 3 reveals a dominated action."
+      },
+      {
+        "kind": "sendout_adaptation",
+        "severity": "info",
+        "summary": "A one-Spark Bibarel KO changed Gavi next sendout and the policy still completed without stale turn assumptions.",
+        "action_changing": false,
+        "observed_fact": "The opponent order became Ponyta, Eelektrik, Dustox, Sunflora rather than Clone 1 order, while every chosen action remained legal and verified.",
+        "strategic_judgment": "This is positive evidence for state-predicate reuse over scripted action lists.",
+        "confidence": "verified",
+        "fix_layer": "none",
+        "turns": [
+          1,
+          2,
+          11,
+          21,
+          24
+        ],
+        "next_test": "Require Clone 3 to remain state-driven under whichever verified sendout order occurs."
+      }
+    ],
+    "correct_choices": [
+      "All 25 actions and the terminal reward were RAM-verified with zero execution discrepancies.",
+      "Fake Out was used only on fresh entries at turns 6, 10, and 14.",
+      "The policy handled a different enemy sendout order under the same behavior hash without turn-number rules.",
+      "The bounded Birdlaw alternative was tested once and rejected on observed evidence rather than intuition."
+    ],
+    "next_test": "Run Clone 3 from the identical checkpoint with unchanged behavior hash ee589577d15b855a6438e58060b2e7d566655dc54cfdfaf4431e65b64d3f6164; require a third reviewed terminal win with no action-changing finding."
+  }
+}

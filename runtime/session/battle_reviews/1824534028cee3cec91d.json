@@ -1,0 +1,142 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T15:41:53.470888+00:00",
+  "review_id": "1824534028cee3cec91d",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "8a706fed508d455b427c4ec33224ee513bd061b75c07a5274527f971e7a4cd75",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [],
+  "certified_actions": 25,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 25,
+    "findings": [
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "On turn 17 the scorer penalized Birdlaw despite Dustox being its declared target, chose Croakatoa, and allowed Infestation to trap and eventually faint Croakatoa.",
+        "state": "runtime/session/battle_reviews/states/gavi-system-v29-clone1/turn-017.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "60062b2954d7646a",
+          "observed": "v30 selected Birdlaw on Dustox; the corrected suffix won in six verified actions and preserved Croakatoa."
+        },
+        "observed_fact": "Birdlaw was a certified-safe legal switch; the corrected suffix selected it and won in six actions.",
+        "strategic_judgment": "Reserve roles must be rewarded against their current declared target and penalized only for off-target use.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          17
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 3d5f5813 from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "medium",
+        "summary": "One-step safety did not price Infestation trap duration and residual damage, so Croakatoa was labeled safe before a four-turn attrition faint.",
+        "action_changing": false,
+        "observed_fact": "Infestation plus repeated Venoshock exhausted Croakatoa after the selected entry action.",
+        "strategic_judgment": "Keep residual and multi-turn gaps visible in heuristic certificates; matchup-role selection now avoids this specific exposure.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          17,
+          20
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 3d5f5813 from the identical opening; review before clone 2.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bushtank fainted after dealing the prepared Eelektrik damage; no certified safe pivot dominated preserving later roles.",
+        "action_changing": false,
+        "observed_fact": "Bushtank fainted after dealing the prepared Eelektrik damage; no certified safe pivot dominated preserving later roles.",
+        "strategic_judgment": "Bushtank fainted after dealing the prepared Eelektrik damage; no certified safe pivot dominated preserving later roles.",
+        "confidence": "bounded",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          10
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 3d5f5813 from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Ohmnomnom fainted after Fake Out and two Sparks left Eelektrik in priority range for Croakatoa.",
+        "action_changing": false,
+        "observed_fact": "Ohmnomnom fainted after Fake Out and two Sparks left Eelektrik in priority range for Croakatoa.",
+        "strategic_judgment": "Ohmnomnom fainted after Fake Out and two Sparks left Eelektrik in priority range for Croakatoa.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          14
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 3d5f5813 from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Croakatoa fainted to Dustox attrition; this loss was avoidable and downstream of the turn-17 reserve-scoring defect.",
+        "action_changing": false,
+        "observed_fact": "Croakatoa fainted to Dustox attrition; this loss was avoidable and downstream of the turn-17 reserve-scoring defect.",
+        "strategic_judgment": "Croakatoa fainted to Dustox attrition; this loss was avoidable and downstream of the turn-17 reserve-scoring defect.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          20
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 3d5f5813 from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "info",
+        "summary": "A critical first Bulldoze let Lildozer survive Ponyta and shortened the line; qualification must still tolerate lines without that roll.",
+        "action_changing": false,
+        "observed_fact": "A critical first Bulldoze let Lildozer survive Ponyta and shortened the line; qualification must still tolerate lines without that roll.",
+        "strategic_judgment": "A critical first Bulldoze let Lildozer survive Ponyta and shortened the line; qualification must still tolerate lines without that roll.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          4
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 3d5f5813 from the identical opening; review before clone 2.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The win took 25 actions; corrected role entry reduced the turn-17 suffix from nine actions to six.",
+        "action_changing": false,
+        "observed_fact": "The win took 25 actions; corrected role entry reduced the turn-17 suffix from nine actions to six.",
+        "strategic_judgment": "The win took 25 actions; corrected role entry reduced the turn-17 suffix from nine actions to six.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 3d5f5813 from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "Fake Out remained restricted to verified fresh entries and denied Eelektrik an action.",
+      "The anti-switch system did not produce a zero-progress reversal loop.",
+      "Bugatti remained healthy and finished Sunflora after Birdlaw was forced out by faint."
+    ],
+    "next_test": "Reset to clone 1 and run behavior hash 3d5f5813 from the identical opening; review before clone 2."
+  }
+}

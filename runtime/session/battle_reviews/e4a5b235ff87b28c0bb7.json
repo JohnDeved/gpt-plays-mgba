@@ -1,0 +1,138 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T08:27:43.474732+00:00",
+  "review_id": "e4a5b235ff87b28c0bb7",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "c4d6179c434a5c5442c5a661ebe476db18fc0f962b7ce69150bb918e32b70f73",
+  "behavior_hash": "8feb64282362c76d46ef283b19348b42e3c675e90647c4f6f46f73cf4f4f1f30",
+  "policy_id": "gavi-coppertop-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 30,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 30,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "Turn 30 ended in an authoritative whiteout after the policy spent every healthy reserve.",
+        "state": "runtime/session/battle_reviews/states/1786436815773384000/turn-030.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The earliest causal turn-5 state now follows a bounded verified sequence: Bulldoze, priority Ice Shard sacrifice, forced full-health Croakatoa, Mud Shot KO, full-health Birdlaw switch, and two Aerial Aces that KO Dustox. The recovered state reaches Eelektrik with Bushtank selected and Ohmnomnom, Bushtank, Croakatoa, and Coppertop preserved. A fresh terminal clone remains mandatory."
+        },
+        "root_layer": "trainer_profile",
+        "observed_fact": "All 30 requested actions were verified; the terminal loss was caused by the selected line, not tooling or an unacknowledged input.",
+        "next_test": "Correct the earliest Ponyta divergence, replay turn 5, then require a terminal Cufant win before another qualification attempt."
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "Turn 5 abandoned Lildozer after only one Bulldoze at 26 HP, whereas the verified winning pattern commits the speed-controlled Ground line.",
+        "state": "runtime/session/battle_reviews/states/1786436815773384000/turn-005.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "From attached turn-005.state with prefix history reconstructed only through pre-state a97129bcc3d7e544, behavior f9e2bc2a443ed86b56152f965faecfcf99e16b25378ad516d6881fcfd30d9ae9 vetoed every switch and executed Bulldoze. The post-state preserved all other reserves and reduced Ponyta to 9 HP."
+        },
+        "root_layer": "trainer_profile",
+        "observed_fact": "The profile's HP/opponent-HP thresholds did not match, so reserve scoring overrode the reusable Bulldoze preference and selected Croakatoa.",
+        "why_bad": "This changed Gavi's reserve order and began the entire losing branch.",
+        "improvement": "Forbid voluntary switches after Lildozer's first Bulldoze while it remains at or above 20 HP.",
+        "next_test": "Replay turn 5 once and verify Bulldoze is selected and executed."
+      },
+      {
+        "kind": "reserve_misuse",
+        "severity": "high",
+        "summary": "Turns 5-9 used Croakatoa, Birdlaw, Bushtank, then damaged Lildozer as hit-absorbing switches without a coherent damage handoff.",
+        "state": "runtime/session/battle_reviews/states/1786436815773384000/turn-005.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The corrected turn-5 prefix contains no voluntary switch chain: one committed Bulldoze, one priority Ice Shard from depleted Lildozer, then a forced Croakatoa replacement. Croakatoa entered at full 44 HP and KO'd Ponyta without contact."
+        },
+        "root_layer": "trainer_profile",
+        "observed_fact": "Four voluntary switches produced only one Aerial Ace before Lildozer re-entered at 26 HP, was critically hit, burned, and fainted.",
+        "why_bad": "The line spent three future matchup answers to avoid the committed Ponyta damage line.",
+        "next_test": "The turn-5 replay must select damage rather than any switch; the next full clone must reach Eelektrik without those pivots."
+      },
+      {
+        "kind": "reserve_misuse",
+        "severity": "high",
+        "summary": "Turn 12 switched 14-HP Ohmnomnom into Ponyta's super-effective Flame Wheel for an immediate avoidable faint.",
+        "state": "runtime/session/battle_reviews/states/1786436815773384000/turn-012.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The corrected bounded sequence never enters the attached turn-12 branch. Ohmnomnom remains at 14 HP through Ponyta and Dustox while Birdlaw KO's Dustox; the resulting Eelektrik state selects full-health Bushtank instead of sacrificing Ohmnomnom."
+        },
+        "root_layer": "trainer_profile",
+        "observed_fact": "Ohmnomnom entered at 14 HP and fainted before taking an action.",
+        "why_bad": "The Bibarel lead and Dustox finisher was sacrificed only because the earlier Ponyta plan had collapsed.",
+        "next_test": "Verify the corrected Ponyta prefix never reaches this state; retain Ohmnomnom after Bibarel."
+      },
+      {
+        "kind": "suboptimal_action",
+        "severity": "high",
+        "summary": "Turns 16-24 repeated nine Coppertop Bulldozes into Dustox while Black Sludge and Roost-like recovery erased progress and Infestation exhausted Coppertop.",
+        "state": "runtime/session/battle_reviews/states/1786436815773384000/turn-016.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The corrected prefix routes Dustox to full-health Birdlaw. Profile rule birdlaw-commit-aerial-ace-dustox vetoed every switch; two verified Aerial Aces reduced Dustox 52->31->0. Coppertop remained untouched at 56 HP and spent no Bulldoze PP."
+        },
+        "root_layer": "generic_tactical_scorer",
+        "observed_fact": "Dustox began at 52 HP, remained at 27 HP after nine Ground attacks, and Coppertop fell from 56 to 0.",
+        "why_bad": "The scorer repeatedly valued nominal damage without recognizing verified non-progress and trapping attrition.",
+        "improvement": "The corrected prefix should preserve the known Birdlaw/Ohmnomnom finisher line; if Dustox still appears early, repeated same-move non-progress needs a generic veto.",
+        "next_test": "Check the next full clone for any repeated same-move cycle; add a generic progress guard only if the corrected prefix still reaches one."
+      },
+      {
+        "kind": "reserve_misuse",
+        "severity": "high",
+        "summary": "Turn 26 sent Birdlaw into Dustox at 15 HP and it fainted to Venoshock before acting.",
+        "state": "runtime/session/battle_reviews/states/1786436815773384000/turn-026.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The corrected bounded branch sends Birdlaw into Dustox at 46 HP, not 15 HP. After the entry Venoshock it remained at 27 HP, executed two Aerial Aces, KO'd Dustox, and survived at 21 HP."
+        },
+        "root_layer": "trainer_profile",
+        "observed_fact": "Birdlaw was the designated Dustox attacker but had already been reduced by the Ponyta switch chain.",
+        "why_bad": "The profile preserved the role name, not the HP required for the role to function.",
+        "next_test": "The next full clone must preserve Birdlaw through Ponyta and Eelektrik and verify a surviving Dustox action."
+      },
+      {
+        "kind": "switch_tempo_observation",
+        "severity": "medium",
+        "summary": "The fight used 13 switches in 30 actions; most extended the loss without improving matchup state.",
+        "root_layer": "reusable_executable_strategy",
+        "observed_fact": "Only forced post-faint switches and the initial Lildozer entry were strategically justified.",
+        "next_test": "Compare switch count after the committed Ponyta rule; investigate any voluntary reversal that remains."
+      },
+      {
+        "kind": "resource_tempo_summary",
+        "severity": "low",
+        "summary": "Nine Bulldoze PP were spent on Dustox and the line took eight more actions than the historical clean win.",
+        "root_layer": "trainer_profile",
+        "observed_fact": "The verified clean reference won in 22 actions; this regression lost in 30.",
+        "next_test": "Measure PP and action count after survival is restored."
+      }
+    ],
+    "correct_choices": [
+      "Turns 1-2 used Spark twice and removed Bibarel with no tooling mismatch.",
+      "Turn 3 correctly switched to Lildozer for Ponyta, and turn 4 correctly used Bulldoze.",
+      "Turn 15's Coppertop switch correctly exploited Steel immunity to Dustox's Venoshock, but lacked a viable continuation.",
+      "Every requested action produced a verified acknowledgement; this was a strategy failure, not emulator/input variance."
+    ],
+    "next_test": "Run one new full Cufant clone with behavior f9e2bc2a443ed86b56152f965faecfcf99e16b25378ad516d6881fcfd30d9ae9; inspect the Eelektrik and Sunflora phases before any second attempt."
+  }
+}

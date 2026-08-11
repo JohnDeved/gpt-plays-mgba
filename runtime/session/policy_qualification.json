@@ -1,0 +1,99 @@
+{
+  "schema_version": 2,
+  "fights": {
+    "map:0:25/local:23": {
+      "schema_version": 1,
+      "streak": 3,
+      "ready": true,
+      "behavior_hash": "291ffc53ce922b208e0bfdebb38bb873bc5132600107c7d648d425677bbd682c",
+      "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+      "last_review_id": "f12eb28cd330b96eac49",
+      "last_agent_review_id": "f12eb28cd330b96eac49",
+      "last_terminal": "win",
+      "last_status": "clean",
+      "reset_reason": null,
+      "attempts": [
+        {
+          "review_id": "7d100612b05553a06ca0",
+          "terminal": "win",
+          "status": "clean",
+          "behavior_hash": "ee589577d15b855a6438e58060b2e7d566655dc54cfdfaf4431e65b64d3f6164",
+          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+          "streak": 3
+        },
+        {
+          "review_id": "42585e1f359581e5209f",
+          "terminal": "win",
+          "status": "clean",
+          "behavior_hash": "bf66a5205e467c5a59ac43485167cb30b6ad1830e6d132b4b51a40da97c9f842",
+          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+          "streak": 1
+        },
+        {
+          "review_id": "d6450b8a7f0942fe911d",
+          "terminal": "loss",
+          "status": "needs_improvement",
+          "behavior_hash": "bf66a5205e467c5a59ac43485167cb30b6ad1830e6d132b4b51a40da97c9f842",
+          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+          "streak": 0
+        },
+        {
+          "review_id": "fb44edd4687309f993f6",
+          "terminal": "win",
+          "status": "clean",
+          "behavior_hash": "f61cecb076f8df0be0bbd40c45eb31a5b3f765a6a461cd841887a6adb7c2089c",
+          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+          "streak": 1
+        },
+        {
+          "review_id": "28ab0431a117f787db70",
+          "terminal": "loss",
+          "status": "needs_improvement",
+          "behavior_hash": "f61cecb076f8df0be0bbd40c45eb31a5b3f765a6a461cd841887a6adb7c2089c",
+          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+          "streak": 0
+        },
+        {
+          "review_id": "1824534028cee3cec91d",
+          "terminal": "win",
+          "status": "needs_improvement",
+          "behavior_hash": "8a706fed508d455b427c4ec33224ee513bd061b75c07a5274527f971e7a4cd75",
+          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+          "streak": 0
+        },
+        {
+          "review_id": "8c53a94788af27ddb9fd",
+          "terminal": "loss",
+          "status": "needs_improvement",
+          "behavior_hash": "3d5f58136f7e6c416de7c306edd4bec82ef43f2d57f5ba70b4aad27a41717827",
+          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+          "streak": 0
+        },
+        {
+          "review_id": "bc140d7fb6c7dcf12390",
+          "terminal": "win",
+          "status": "clean",
+          "behavior_hash": "291ffc53ce922b208e0bfdebb38bb873bc5132600107c7d648d425677bbd682c",
+          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+          "streak": 1
+        },
+        {
+          "review_id": "eecd02ef9a9b0bdccbea",
+          "terminal": "win",
+          "status": "clean",
+          "behavior_hash": "291ffc53ce922b208e0bfdebb38bb873bc5132600107c7d648d425677bbd682c",
+          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+          "streak": 2
+        },
+        {
+          "review_id": "f12eb28cd330b96eac49",
+          "terminal": "win",
+          "status": "clean",
+          "behavior_hash": "291ffc53ce922b208e0bfdebb38bb873bc5132600107c7d648d425677bbd682c",
+          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+          "streak": 3
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T09:22:04.458108+00:00",
+  "review_id": "365c15bea5e8da0f1a95",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "c4d6179c434a5c5442c5a661ebe476db18fc0f962b7ce69150bb918e32b70f73",
+  "behavior_hash": "f918a48fcf6ccda4d30e64bf6aed5737887a638f9892b7351edc2da5d7c6fe9e",
+  "policy_id": "gavi-coppertop-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [],
+  "certified_actions": 29,
+  "status": "needs_improvement",
+  "classification": "suboptimal_action",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 29,
+    "findings": [
+      {
+        "kind": "suboptimal_action",
+        "severity": "high",
+        "summary": "Turn 16 forced Bushtank into 26-HP Sunflora, then turn 18 switched sleeping Bushtank to Coppertop; Coppertop absorbed sleep and two attacks before finishing Sunflora.",
+        "state": "runtime/session/battle_reviews/states/gavi-no-switch-spam-clone1-20260811/turn-016.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "state": "runtime/session/battle_reviews/states/gavi-no-switch-spam-clone1-20260811/turn-016-croakatoa-sunflora-ko-fixed.state",
+          "observed": "Exact bounded replay forced full-health Croakatoa with no enemy action, then two Sludges KOed Sunflora while Croakatoa remained at 39 HP. This removes the Bushtank-to-Coppertop passive pivot."
+        },
+        "root_layer": "trainer_profile",
+        "why_bad": "The low-Sunflora threshold covered 22 HP but not the observed 26 HP damage roll.",
+        "improvement": "Expand the verified forced-Croak threshold to 26 HP and forbid switching while Croakatoa commits Sludge.",
+        "next_test": "Require Croakatoa to finish every Sunflora roll at or below 26 HP."
+      },
+      {
+        "kind": "suboptimal_action",
+        "severity": "high",
+        "summary": "Turn 22 forced low Coppertop to Tackle faster Eelektrik; Coppertop fainted before acting while full Bushtank was a verified safe switch.",
+        "state": "runtime/session/battle_reviews/states/gavi-no-switch-spam-clone1-20260811/turn-022.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "state": "runtime/session/battle_reviews/states/gavi-no-switch-spam-clone1-20260811/turn-022-bushtank-safe-pivot-fixed.state",
+          "observed": "After deleting the forced-Tackle rule, the exact checkpoint selected Bushtank, survived Shock Wave at 50/57, and the next certificate selected Razor Leaf rather than another switch."
+        },
+        "root_layer": "trainer_profile",
+        "why_bad": "An unconditional matchup preference overrode the safer action even when Coppertop could not move before fainting.",
+        "improvement": "Delete the over-specific Eelektrik Tackle preference and let verified survival and turn order rank the action.",
+        "next_test": "Ensure any Eelektrik pivot is followed by immediate damage, never another voluntary switch."
+      },
+      {
+        "kind": "resource_preservation",
+        "severity": "medium",
+        "summary": "Lildozer, Birdlaw, Ohmnomnom, Coppertop, and Bushtank fainted; four produced verified progress, while Coppertop was the avoidable loss covered by the high finding.",
+        "action_changing": false,
+        "root_layer": "trainer_profile",
+        "next_test": "The corrected clone should preserve Coppertop and reduce total faints without weakening win reliability."
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The win required 29 actions. The corrected Sunflora prefix removes three actions and one passive pivot.",
+        "action_changing": false,
+        "root_layer": "trainer_profile",
+        "next_test": "Target at most 26 actions unless verified battle variance requires more."
+      },
+      {
+        "kind": "tooling_confirmation",
+        "severity": "info",
+        "summary": "Turn 19 correctly classified sleep-prevented Tackle with no allied PP spend and no verifier discrepancy.",
+        "action_changing": false,
+        "root_layer": "shared_observation_execution_tooling",
+        "next_test": "Retain the new-sleep regression."
+      }
+    ],
+    "correct_choices": [
+      "Turns 3 and 9 were the only productive voluntary matchup pivots; each target survived entry and immediately attacked.",
+      "Turns 7, 12, 16, 23, and 28 were forced replacements after verified faints, not switch spam.",
+      "All 29 actions reached authoritative boundaries and the battle ended in a verified win."
+    ],
+    "next_test": "Qualification stays at zero. Run clone 1 with unchanged behavior a614d987 only after this review gate accepts both resolved high findings."
+  }
+}

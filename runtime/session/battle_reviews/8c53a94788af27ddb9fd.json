@@ -1,0 +1,212 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T15:45:30.268800+00:00",
+  "review_id": "8c53a94788af27ddb9fd",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "3d5f58136f7e6c416de7c306edd4bec82ef43f2d57f5ba70b4aad27a41717827",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [],
+  "certified_actions": 28,
+  "status": "needs_improvement",
+  "classification": "terminal_loss",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The verified line whiteouted on turn 28 with Dustox still active.",
+        "state": "runtime/session/battle_reviews/states/gavi-system-v30-clone1/turn-028.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "06519a0c53dc0c2b",
+          "observed": "The corrected turn-13 suffix reached an authoritative win in 19 verified actions."
+        },
+        "observed_fact": "Authoritative battle text reported whiteout.",
+        "strategic_judgment": "Qualification remains reset until the earliest causal strategy conflict is corrected.",
+        "confidence": "verified",
+        "fix_layer": "battle_policy_review",
+        "turns": [
+          28
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 291ffc53 from the identical opening; review before clone 2.",
+        "knowledge_target": "review"
+      },
+      {
+        "kind": "strategy_conflict",
+        "severity": "high",
+        "summary": "At turn 13 the generic safe-return escape overrode Bugatti before it made any Sunflora progress, spending the 13-HP Eelektrik finisher off-target.",
+        "state": "runtime/session/battle_reviews/states/gavi-system-v30-clone1/turn-013.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "06519a0c53dc0c2b",
+          "observed": "The full-health Bugatti opener used Bug Bite before allowing escape; the complete suffix won."
+        },
+        "observed_fact": "Bugatti had 30 HP and verified Bug Bite survived Leech Seed; committing once then allowing escape produced a full suffix win.",
+        "strategic_judgment": "The Gavi opener must require one full-health Bug Bite, while the later attrition boundary keeps the generic safe exit.",
+        "confidence": "verified",
+        "fix_layer": "trainer_profile",
+        "turns": [
+          13
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 291ffc53 from the identical opening; review before clone 2.",
+        "knowledge_target": "profile",
+        "matchup_specific_reason": "This threshold binds the prepared Bugatti-versus-Gavi-Sunflora opener and does not generalize to arbitrary Bug Bite users."
+      },
+      {
+        "kind": "reserve_misuse",
+        "severity": "medium",
+        "summary": "Ohmnomnom was switched into Sunflora before Bugatti attacked, then fainted seeded, leaving no intended Eelektrik finisher.",
+        "action_changing": false,
+        "observed_fact": "Ohmnomnom was switched into Sunflora before Bugatti attacked, then fainted seeded, leaving no intended Eelektrik finisher.",
+        "strategic_judgment": "Ohmnomnom was switched into Sunflora before Bugatti attacked, then fainted seeded, leaving no intended Eelektrik finisher.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          13,
+          15
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 291ffc53 from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer fainted after burn reduced it to one Bulldoze plus Ice Shard against Ponyta.",
+        "action_changing": false,
+        "observed_fact": "Lildozer fainted after burn reduced it to one Bulldoze plus Ice Shard against Ponyta.",
+        "strategic_judgment": "Lildozer fainted after burn reduced it to one Bulldoze plus Ice Shard against Ponyta.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          5
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 291ffc53 from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Croakatoa fainted after Fake Out, Mud Shot, and Vacuum Wave made necessary Ponyta progress in the low-roll line.",
+        "action_changing": false,
+        "observed_fact": "Croakatoa fainted after Fake Out, Mud Shot, and Vacuum Wave made necessary Ponyta progress in the low-roll line.",
+        "strategic_judgment": "Croakatoa fainted after Fake Out, Mud Shot, and Vacuum Wave made necessary Ponyta progress in the low-roll line.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          9
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 291ffc53 from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Ohmnomnom fainted to seeded Sunflora after the premature escape consumed it off-target.",
+        "action_changing": false,
+        "observed_fact": "Ohmnomnom fainted to seeded Sunflora after the premature escape consumed it off-target.",
+        "strategic_judgment": "Ohmnomnom fainted to seeded Sunflora after the premature escape consumed it off-target.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          15
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 291ffc53 from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bushtank fainted after three Razor Leafs into Eelektrik poison attrition.",
+        "action_changing": false,
+        "observed_fact": "Bushtank fainted after three Razor Leafs into Eelektrik poison attrition.",
+        "strategic_judgment": "Bushtank fainted after three Razor Leafs into Eelektrik poison attrition.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          22
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 291ffc53 from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bugatti fainted to a critical Shock Wave after being forced to cover Eelektrik without Ohmnomnom.",
+        "action_changing": false,
+        "observed_fact": "Bugatti fainted to a critical Shock Wave after being forced to cover Eelektrik without Ohmnomnom.",
+        "strategic_judgment": "Bugatti fainted to a critical Shock Wave after being forced to cover Eelektrik without Ohmnomnom.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          24
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 291ffc53 from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Birdlaw finished Eelektrik but entered Dustox poisoned and fainted, completing the whiteout cascade.",
+        "action_changing": false,
+        "observed_fact": "Birdlaw finished Eelektrik but entered Dustox poisoned and fainted, completing the whiteout cascade.",
+        "strategic_judgment": "Birdlaw finished Eelektrik but entered Dustox poisoned and fainted, completing the whiteout cascade.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          28
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 291ffc53 from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Ponyta burn plus later Play Rough and Eelektrik critical Shock Wave produced the severe attrition branch; the corrected suffix still won from that branch.",
+        "action_changing": false,
+        "observed_fact": "Ponyta burn plus later Play Rough and Eelektrik critical Shock Wave produced the severe attrition branch; the corrected suffix still won from that branch.",
+        "strategic_judgment": "Ponyta burn plus later Play Rough and Eelektrik critical Shock Wave produced the severe attrition branch; the corrected suffix still won from that branch.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          3,
+          5,
+          24
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 291ffc53 from the identical opening; review before clone 2.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The loss took 28 actions; the corrected turn-13 suffix won in 19 actions without changing the opening checkpoint.",
+        "action_changing": false,
+        "observed_fact": "The loss took 28 actions; the corrected turn-13 suffix won in 19 actions without changing the opening checkpoint.",
+        "strategic_judgment": "The loss took 28 actions; the corrected turn-13 suffix won in 19 actions without changing the opening checkpoint.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 291ffc53 from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "Fake Out was used only on Croakatoa and Ohmnomnom fresh entries.",
+      "Bushtank remained the Eelektrik damage role instead of switch-looping.",
+      "The bounded Bug Bite alternative survived and established the winning correction."
+    ],
+    "next_test": "Reset to clone 1 and run behavior hash 291ffc53 from the identical opening; review before clone 2."
+  }
+}

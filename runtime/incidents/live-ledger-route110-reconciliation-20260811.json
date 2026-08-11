@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260811T095957Z-live-ram-and-run-progress-ledger-disagree-after-",
+  "status": "observed",
+  "created_at": "2026-08-11T09:59:57.781181+00:00",
+  "summary": "Live RAM and run-progress ledger disagree after Gavi clone analysis",
+  "component": "progress ledger reconciliation",
+  "symptom": "Ledger claims Dewford Cufant preparation while authoritative live RAM and auto-forward checkpoint are Route 110 with Bugatti",
+  "classification": "observation_decoder",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/route110-live-reconciled-forward-20260811.state",
+    "sha256": "8c1d4642f055fcedea2543250581a00434e4a381cce0318a589848f6c2743621",
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "Ledger last_reconciled and next-action precondition match authoritative live RAM b6209a448e9358b3",
+    "actual": "Live RAM and auto-forward metadata both verify Route 110 (0,25,15,89) with Bugatti; ledger records Dewford hash be58c8e2a283ddf0 with Cufant",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T205950Z-forward-checkpoint-guard-rejected-a-matching-liv",
+  "status": "observed",
+  "created_at": "2026-08-09T20:59:50.383323+00:00",
+  "summary": "Forward checkpoint guard rejected a matching live state because preflight used raw observation semantics",
+  "component": "games/run_and_bun/capabilities.py:_live_checkpoint_guard",
+  "symptom": "game_travel_transition was blocked before input even though game_observe reported state hash 078295613599dc7a and the metadata matched it",
+  "classification": "observation_decoder",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/auto-forward-latest.state",
+    "sha256": "edc614c054fb434616a082b7da7f4056eb30010d4692a12789dab6f430a26797",
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "preflight guard hash equals the canonical CLI observation hash",
+    "actual": "preflight guard used raw MGBA observation and produced a different compact hash than RunBunAdapter canonical observation",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

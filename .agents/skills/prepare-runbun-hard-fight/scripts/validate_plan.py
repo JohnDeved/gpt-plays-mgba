@@ -88,7 +88,7 @@ def _promotion_errors(evidence: Any) -> list[str]:
 
 def template() -> dict[str, Any]:
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "fight": {
             "id": "map/local-id-or-trainer-id",
             "required": True,
@@ -102,6 +102,7 @@ def template() -> dict[str, Any]:
         "enemy_roster": [
             {
                 "species_id": 0,
+                "personality": 0,
                 "level": 0,
                 "moves": [],
                 "ability_id": None,
@@ -120,6 +121,8 @@ def template() -> dict[str, Any]:
                 "moves": [],
                 "pp": [],
                 "max_pp": [],
+                "held_item_id": 0,
+                "ability_num": 0,
                 "role": "",
             }
         ],
@@ -168,8 +171,8 @@ def validate(data: Any) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
     root = _dict(data, "plan", errors)
-    if root.get("schema_version") not in {1, 2}:
-        errors.append("schema_version must be 1 or 2")
+    if root.get("schema_version") not in {1, 2, 3}:
+        errors.append("schema_version must be 1, 2, or 3")
 
     fight = _dict(root.get("fight"), "fight", errors)
     if not isinstance(fight.get("id"), str) or not fight.get("id", "").strip():
@@ -243,6 +246,13 @@ def validate(data: Any) -> tuple[list[str], list[str]]:
             slots.add(slot)
         if not _positive_int(mon.get("species_id")):
             errors.append(f"party[{index}].species_id must be positive")
+        if root.get("schema_version") == 3:
+            if not isinstance(mon.get("personality"), int) or isinstance(mon.get("personality"), bool) or mon["personality"] < 0:
+                errors.append(f"party[{index}].personality must be a nonnegative integer")
+            if not isinstance(mon.get("held_item_id"), int) or isinstance(mon.get("held_item_id"), bool) or mon["held_item_id"] < 0:
+                errors.append(f"party[{index}].held_item_id must be a nonnegative integer")
+            if mon.get("ability_num") not in {0, 1}:
+                errors.append(f"party[{index}].ability_num must be 0 or 1")
         level = mon.get("level")
         if not _positive_int(level):
             errors.append(f"party[{index}].level must be positive")

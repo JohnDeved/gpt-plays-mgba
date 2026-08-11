@@ -47,6 +47,7 @@ fi
 export MGBA_RPC_PORT="$RPC_PORT"
 FPS_TARGET="${MGBA_FPS_TARGET:-59.7275}"
 START_STATE="${MGBA_START_STATE:-}"
+START_STATE_SHA256="${MGBA_START_STATE_SHA256:-}"
 UNCAPPED="${MGBA_UNCAPPED:-0}"
 MUTE="${MGBA_MUTE:-1}"
 if [[ "$MUTE" != "0" && "$MUTE" != "1" ]]; then
@@ -65,9 +66,9 @@ fi
 # remain unchanged unless the caller opts in explicitly.
 IDLE_STOP="${MGBA_IDLE_STOP:-$UNCAPPED}"
 export MGBA_IDLE_STOP="$IDLE_STOP"
-# zsh keeps the same PID across exec, so Lua can stop the exact emulator
-# process without broad process-name matching.
-export MGBA_PROCESS_PID="$$"
+# Direct launches keep this PID across exec. Background LaunchServices starts
+# are paused by the RPC client after it discovers the unique listener PID.
+export MGBA_PROCESS_PID="$([[ "$FOREGROUND" == "1" ]] && print "$$")"
 
 ARGS=(
   -C "mute=$MUTE"
@@ -90,21 +91,34 @@ if [[ -n "$START_STATE" ]]; then
     print -u2 "savestate not found: $START_STATE"
     exit 1
   fi
+  if [[ ! "$START_STATE_SHA256" =~ '^[0-9a-fA-F]{64}$' ]]; then
+    print -u2 "refusing unverified startup savestate; set MGBA_START_STATE_SHA256 to its SHA-256"
+    exit 2
+  fi
+  ACTUAL_STATE_SHA256="$(/usr/bin/shasum -a 256 "$START_STATE" | /usr/bin/awk '{print $1}')"
+  if [[ "${ACTUAL_STATE_SHA256:l}" != "${START_STATE_SHA256:l}" ]]; then
+    print -u2 "refusing startup savestate with unexpected SHA-256: $START_STATE"
+    exit 2
+  fi
   ARGS+=( -t "$START_STATE" )
 fi
 
-if [[ "$FOREGROUND" == "1" ]]; then
-  # mGBA's Qt frontend unconditionally shows a top-level Scripting window
-  # before loading a --script file. The ready file proves that window and the
-  # Lua bridge both exist; close that specific helper, raise gameplay, and
-  # only then publish UI readiness to clients that may pause the process.
-  (
+(
+    # mGBA's Qt frontend unconditionally shows a top-level Scripting window.
+    # Close it for every launch, but never activate background clones.
     for _ in {1..250}; do
       [[ -s "$READY_FILE" ]] && break
       sleep 0.02
     done
     if [[ -s "$READY_FILE" ]]; then
-      /usr/bin/osascript - "$MGBA_PROCESS_PID" >/dev/null 2>&1 <<'APPLESCRIPT'
+      TARGET_PID="$MGBA_PROCESS_PID"
+      if [[ -z "$TARGET_PID" ]]; then
+        TARGET_PID="$(/usr/sbin/lsof -nP -t -iTCP:"$RPC_PORT" -sTCP:LISTEN | /usr/bin/head -n 1)"
+      fi
+      if [[ "$FOREGROUND" == "0" ]]; then
+        # Accessibility can be unavailable while another fullscreen app owns
+        # secure input. A clone must still start without taking focus.
+        /usr/bin/osascript - "$TARGET_PID" >/dev/null 2>&1 <<'APPLESCRIPT' || true
 on run argv
   set targetPid to (item 1 of argv) as integer
   tell application "System Events"
@@ -112,18 +126,55 @@ on run argv
       repeat with helperWindow in (every window whose name is "Scripting")
         perform action "AXPress" of (first button of helperWindow whose subrole is "AXCloseButton")
       end repeat
-      perform action "AXRaise" of (first window whose name starts with "mGBA")
-      set frontmost to true
     end tell
   end tell
 end run
 APPLESCRIPT
+        touch "$UI_READY_FILE"
+        exit 0
+      fi
+      UI_HIDDEN=0
+      for _ in {1..100}; do
+        if /usr/bin/osascript - "$TARGET_PID" "$FOREGROUND" >/dev/null 2>&1 <<'APPLESCRIPT'
+on run argv
+  set targetPid to (item 1 of argv) as integer
+  set shouldActivate to (item 2 of argv) is "1"
+  tell application "System Events"
+    tell first application process whose unix id is targetPid
+      set gameplayWindow to first window whose name starts with "mGBA"
+      repeat with helperWindow in (every window whose name is "Scripting")
+        perform action "AXPress" of (first button of helperWindow whose subrole is "AXCloseButton")
+      end repeat
+      if shouldActivate then
+        perform action "AXRaise" of gameplayWindow
+        set frontmost to true
+      end if
+    end tell
+  end tell
+end run
+APPLESCRIPT
+        then
+          UI_HIDDEN=1
+          break
+        fi
+        sleep 0.05
+      done
+      if (( UI_HIDDEN )); then
       # Qt animates/destroys the helper asynchronously. Clients must not
       # SIGSTOP mGBA until that event has completed.
-      sleep 0.75
-      touch "$UI_READY_FILE"
+        sleep 0.75
+        touch "$UI_READY_FILE"
+      fi
     fi
-  ) &!
-fi
+) &!
 
+if [[ "$FOREGROUND" == "0" && "$EMULATOR" == */Contents/MacOS/mGBA ]]; then
+  APP_BUNDLE="${EMULATOR%/Contents/MacOS/mGBA}"
+  exec /usr/bin/open -g -n -W \
+    --env "MGBA_RPC_PORT=$RPC_PORT" \
+    --env "MGBA_RPC_READY_FILE=$READY_FILE" \
+    --env "MGBA_RUNTIME_DIR=$RUNTIME_DIR" \
+    --env "MGBA_IDLE_STOP=0" \
+    -a "$APP_BUNDLE" --args "${ARGS[@]}" "$ROM_PATH"
+fi
 exec "$EMULATOR" "${ARGS[@]}" "$ROM_PATH"

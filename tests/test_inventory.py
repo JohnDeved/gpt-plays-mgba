@@ -27,7 +27,7 @@ class FakeInventoryGBA:
             self.block1[0x4E8 + slot * 4 + 2 : 0x4E8 + slot * 4 + 4] = (self.key & 0xFFFF).to_bytes(2, "little")
         money = 199 ^ self.key
         self.block1[0x490 : 0x494] = money.to_bytes(4, "little")
-        # One normal item and one berry-pocket entry.
+        # One normal item and one live Poké Ball-pocket entry.
         self.block1[0x560 : 0x564] = struct.pack("<HH", 13, 3 ^ (self.key & 0xFFFF))
         self.block1[0x4E8 : 0x4EC] = struct.pack("<HH", 1, 25 ^ (self.key & 0xFFFF))
         self.block1[0x740 + 25 * 4 : 0x740 + 25 * 4 + 4] = struct.pack("<HH", 1, 25 ^ (self.key & 0xFFFF))
@@ -64,8 +64,8 @@ class InventoryTests(unittest.TestCase):
         inventory = read_inventory(FakeInventoryGBA())
         self.assertEqual(inventory["money"], 199)
         self.assertEqual(inventory["pockets"]["items"], [{"slot": 0, "item_id": 13, "quantity": 3, "address": 0x02010560}])
-        self.assertEqual(inventory["pockets"]["berries"][0]["quantity"], 25)
-        self.assertEqual(inventory["pockets"]["runbun_berries"], [{"slot": 0, "item_id": 520, "quantity": 34, "address": 0x02010900}])
+        self.assertEqual(inventory["pockets"]["poke_balls"][0]["quantity"], 25)
+        self.assertEqual(inventory["pockets"]["berries"], [{"slot": 0, "item_id": 520, "quantity": 34, "address": 0x02010900}])
         self.assertEqual(inventory["pockets"]["runbun_medicine"], [{"slot": 2, "item_id": 28, "quantity": 1, "address": 0x02010A08}])
         self.assertEqual(inventory["pockets"]["ui_items"][0]["item_id"], 13)
         self.assertEqual(inventory["pockets"]["ui_medicine"][0]["item_id"], 28)

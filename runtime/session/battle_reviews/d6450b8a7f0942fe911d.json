@@ -1,0 +1,154 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T15:05:23.847289+00:00",
+  "review_id": "d6450b8a7f0942fe911d",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "bf66a5205e467c5a59ac43485167cb30b6ad1830e6d132b4b51a40da97c9f842",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [],
+  "certified_actions": 26,
+  "status": "needs_improvement",
+  "classification": "terminal_loss",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 26,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "All six party members were exhausted and Camper Gavi retained an 11-HP Eelektrik.",
+        "state": "runtime/session/battle_reviews/states/gavi-system-v25-clone2/terminal.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "2f9b6a8ea0ea59f1",
+          "observed": "The bounded corrected suffix ended in an authoritative win after 22 certified actions."
+        },
+        "observed_fact": "RAM and battle text verified the whiteout after 26 certified actions.",
+        "strategic_judgment": "The final Birdlaw faint was downstream; the earliest reusable causes were the missed free Fake Out turn and stale reserve accounting.",
+        "confidence": "verified",
+        "fix_layer": "battle_policy_review",
+        "turns": [
+          "terminal"
+        ],
+        "next_test": "Restart at qualification clone 1 from checkpoint 45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238 with behavior hash f61cecb076f8df0be0bbd40c45eb31a5b3f765a6a461cd841887a6adb7c2089c; require three reviewed wins.",
+        "knowledge_target": "review"
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "Fresh Croakatoa selected Mud Shot instead of guaranteed-flinch Fake Out, allowing Ponyta a second damaging reply and exhausting the Ponyta reserves.",
+        "state": "runtime/session/battle_reviews/states/gavi-system-v25-clone2/turn-007.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "1e6b205578ce603a",
+          "observed": "Fresh Fake Out executed with a PP decrement, Ponyta flinched, no enemy move occurred, and Croakatoa reached the next decision."
+        },
+        "observed_fact": "The original certificate marked Fake Out unsafe; replay hash 1e6b205578ce603a verified Fake Out executed, Ponyta flinched, no enemy move occurred, and the next decision was reached.",
+        "strategic_judgment": "The scorer incorrectly charged next-turn damage to the flinch turn. Fresh, damaging Fake Out is immediate safe tempo unless verified ability mechanics block flinching.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          7
+        ],
+        "next_test": "Restart at qualification clone 1 from checkpoint 45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238 with behavior hash f61cecb076f8df0be0bbd40c45eb31a5b3f765a6a461cd841887a6adb7c2089c; require three reviewed wins.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "reserve_misuse",
+        "severity": "high",
+        "summary": "Reserve accounting stayed static after assigned opponents fainted and failed to preserve Birdlaw as the answer to both Sunflora and Dustox.",
+        "state": "runtime/session/battle_reviews/states/gavi-system-v26-fakeout-regression/turn-016.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "2f9b6a8ea0ea59f1",
+          "observed": "Dynamic defeated-species reserve accounting passed its unit regression and the corrected suffix ended in an authoritative win."
+        },
+        "observed_fact": "The v26 suffix spent Birdlaw on Sunflora while the already-defeated Eelektrik still kept Croakatoa reserved; the v27 scorer reconstructs defeated species from verified transitions.",
+        "strategic_judgment": "A completed matchup must release its role, while a role covering multiple remaining targets must retain a penalty for spending its future coverage.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          16
+        ],
+        "next_test": "Restart at qualification clone 1 from checkpoint 45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238 with behavior hash f61cecb076f8df0be0bbd40c45eb31a5b3f765a6a461cd841887a6adb7c2089c; require three reviewed wins.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "The Ponyta phase consumed Lildozer and Croakatoa and reduced Ohmnomnom to 10 HP before later reserves appeared.",
+        "action_changing": false,
+        "observed_fact": "Lildozer was burned and fainted, Croakatoa took two replies and fainted, and Ohmnomnom finished Ponyta at 10 HP with burn.",
+        "strategic_judgment": "This attrition was materially worse than the corrected Fake Out prefix and explains the later lack of depth.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "next_test": "Restart at qualification clone 1 from checkpoint 45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238 with behavior hash f61cecb076f8df0be0bbd40c45eb31a5b3f765a6a461cd841887a6adb7c2089c; require three reviewed wins.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Sunflora then consumed Bugatti and Ohmnomnom, leaving Bushtank and Birdlaw to face Eelektrik alone.",
+        "action_changing": false,
+        "observed_fact": "Bugatti landed two Bug Bites before fainting; burned Ohmnomnom dealt 7 damage before fainting; Birdlaw finished Sunflora.",
+        "strategic_judgment": "Each Pokémon acted, but the cumulative reserve deficit made the Eelektrik endgame unwinnable.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18
+        ],
+        "next_test": "Restart at qualification clone 1 from checkpoint 45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238 with behavior hash f61cecb076f8df0be0bbd40c45eb31a5b3f765a6a461cd841887a6adb7c2089c; require three reviewed wins.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The loss used 26 actions and eight switches, but no immediate switch reversal or no-action voluntary relay occurred.",
+        "action_changing": false,
+        "observed_fact": "Every voluntary entrant attacked before leaving or fainting; the problem was matchup allocation, not raw switch count.",
+        "strategic_judgment": "Do not add a blanket switch ban; preserve future matchup coverage and free tempo instead.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Restart at qualification clone 1 from checkpoint 45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238 with behavior hash f61cecb076f8df0be0bbd40c45eb31a5b3f765a6a461cd841887a6adb7c2089c; require three reviewed wins.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "All 26 actions, enemy replies, HP/PP/status deltas, and the whiteout were verified from RAM without a step mismatch.",
+      "The review identifies the earliest reusable divergences rather than blaming only Birdlaw’s final faint.",
+      "No switch-spam finding was fabricated: all eight switches led to an action or were forced replacements."
+    ],
+    "next_test": "Restart at qualification clone 1 from checkpoint 45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238 with behavior hash f61cecb076f8df0be0bbd40c45eb31a5b3f765a6a461cd841887a6adb7c2089c; require three reviewed wins."
+  }
+}

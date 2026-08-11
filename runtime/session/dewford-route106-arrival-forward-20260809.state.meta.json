@@ -1,0 +1,57 @@
+{
+  "path": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-route106-arrival-forward-20260809.state",
+  "sha256": "f2b61d3081a46b0f44ad4059bd62b532f210b0b9d1e983312c0b4f99ef3e6e8b",
+  "state_hash": "fe1c123f87728d0a",
+  "frame": 18417402,
+  "map": {
+    "group": 0,
+    "number": 11,
+    "x": 6,
+    "y": 0,
+    "warp_id": 255
+  },
+  "party": [
+    {
+      "slot": 0,
+      "species": 388,
+      "personality": 1476487022,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 1,
+      "species": 397,
+      "personality": 1813210531,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 2,
+      "species": 231,
+      "personality": 1744238455,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 3,
+      "species": 878,
+      "personality": 4082287436,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 4,
+      "species": 111,
+      "personality": 2559287137,
+      "ot_id": 3307282159,
+      "level": 17
+    },
+    {
+      "slot": 5,
+      "species": 543,
+      "personality": 2609223149,
+      "ot_id": 3307282159,
+      "level": 17
+    }
+  ]
+}

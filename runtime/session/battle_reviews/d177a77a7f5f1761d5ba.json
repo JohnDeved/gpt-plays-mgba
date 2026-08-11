@@ -1,0 +1,64 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T11:06:12.972466+00:00",
+  "review_id": "d177a77a7f5f1761d5ba",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "51e1d8c69a55f5bd56f0f468dc18502ea8db092914f0daac143c26cf9604923c",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 28,
+  "status": "needs_improvement",
+  "classification": "reserve_misuse",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "kind": "reserve_misuse",
+        "severity": "high",
+        "summary": "The forced selector sent Birdlaw into Sunflora and spent the reserved Dustox finisher while the prepared Sunflora converter Bugatti remained unused.",
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v5-clone1/turn-022.state",
+        "action_changing": true,
+        "resolved": true,
+        "observed_fact": "Birdlaw removed Sunflora but fainted to Dustox; Bugatti then became the sole survivor and finished 6-HP Dustox.",
+        "resolution": {
+          "verified": true,
+          "observed": "Exact turn-022 replay under the corrected profile selects Bugatti, vetoes Birdlaw, and retains Birdlaw for Dustox.",
+          "behavior_hash": "fc92db930c281ba76add43b363d1c96f04a335a730eefbab67138633764195f9"
+        }
+      },
+      {
+        "kind": "narrow_win",
+        "severity": "high",
+        "summary": "Five allies fainted and Bugatti was the only survivor; this cannot count as a clean qualification win.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The forced Sunflora handoff now preserves Birdlaw. The changed behavior resets qualification and must be validated from Clone 1.",
+          "behavior_hash": "fc92db930c281ba76add43b363d1c96f04a335a730eefbab67138633764195f9"
+        }
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "medium",
+        "summary": "The win used 28 actions and 6 switches; every voluntary replacement acted, but the attrition remained too high.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "No voluntary replacement switched back out without acting.",
+      "Croakatoa chipped Eelektrik before Bushtank's matchup entry.",
+      "Ohmnomnom used fresh Fake Out and finished Eelektrik before making progress on Sunflora.",
+      "Bugatti's final Rollout guaranteed and executed the Dustox KO."
+    ],
+    "next_test": "Restart Clone 1 with the forced Bugatti-to-Sunflora handoff and verify Birdlaw reaches Dustox healthy."
+  }
+}

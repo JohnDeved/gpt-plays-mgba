@@ -1,0 +1,74 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T11:27:29.766144+00:00",
+  "review_id": "a6f52cc3e652244249d2",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "e08a21907041a6e4a631a533b21fc6efc44214e97e8eb6a134538c2b84ab5669",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 24,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 24,
+    "findings": [
+      {
+        "kind": "invalid_strategy_requirement",
+        "severity": "high",
+        "summary": "Action 5's reusable burned-Lildozer rule vetoed preferred Bulldoze without verifying that its required Croakatoa replacement was safe, forcing weaker Rock Tomb.",
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v15-clone3/turn-005.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The invalid executable rule was removed while prose/evidence remain; exact-state replay now selects Bulldoze with 14-16 modeled damage."
+        }
+      },
+      {
+        "kind": "reserve_misuse",
+        "severity": "critical",
+        "summary": "At the forced action 14 Sunflora entry, the scorer spent Bushtank despite the Bugatti counter rule, leaving no Eelektrik answer and causing the whiteout.",
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v15-clone3/turn-014.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The Sunflora rule now forbids both Bushtank and Birdlaw; exact-state replay selects Bugatti and preserves Bushtank for Eelektrik."
+        }
+      },
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The final Birdlaw critical was downstream of spending Bushtank on Sunflora, not the earliest cause; qualification streak resets to zero.",
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v15-clone3/turn-014.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The earliest causal decision now preserves the verified Eelektrik counter; the corrected bundle must restart at Clone 1."
+        }
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "All six Pokémon fainted; the final Bugatti and Birdlaw losses were consequences of the missing Eelektrik counter rather than independent endgame defects.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "No Pokémon switched in and immediately switched back out; all replacements acted or were forced.",
+      "Ohmnomnom to Lildozer remained the correct voluntary Ponyta pivot.",
+      "Fresh Fake Out was used on both valid entries.",
+      "The review traced the loss to action 14 instead of blaming the final critical hit."
+    ],
+    "next_test": "Restart at corrected-bundle Clone 1 from the identical opening; require Bulldoze at the recorded burned turn, Bugatti on forced Sunflora, and Bushtank preserved for Eelektrik."
+  }
+}

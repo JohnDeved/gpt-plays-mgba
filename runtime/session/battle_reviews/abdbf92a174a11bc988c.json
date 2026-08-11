@@ -1,0 +1,52 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T20:30:57.856011+00:00",
+  "review_id": "abdbf92a174a11bc988c",
+  "terminal": "win",
+  "source": "live",
+  "opening_state_hash": "0506f228aa0bb862",
+  "behavior_hash": null,
+  "policy_id": "wild_capture_croagunk",
+  "trainer_key": null,
+  "matched_strategy_ids": [],
+  "certified_actions": 2,
+  "status": "needs_improvement",
+  "classification": "tooling_mismatch",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 2,
+    "findings": [
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "Fake Out flinch prevented the first Absorb, but the runner reported missing PP instead of classifying the action as flinch-prevented.",
+        "action_changing": true,
+        "improvement": "Add flinch to prevented-action classification and regression-test the exact state/action.",
+        "observed_fact": "Croagunk Fake Out PP decreased; Grotle PP did not; Grotle remained alive."
+      },
+      {
+        "kind": "policy_audit_mismatch",
+        "severity": "high",
+        "summary": "The capture oracle selected crit-safe Absorb, while the generic certificate predicted Razor Leaf; prediction output must preserve the capture policy decision.",
+        "action_changing": true,
+        "root_layer": "generic_tactical_scorer",
+        "improvement": "Pass the capture-mode decision into the certified prediction instead of emitting an unrelated generic recommendation.",
+        "observed_fact": "Absorb was executed on the second attempt, dealt 9 damage, and left Croagunk at 18/27 without a KO."
+      },
+      {
+        "kind": "resource_tempo",
+        "severity": "info",
+        "summary": "Four non-target encounters were fled, no balls were wasted, and Croagunk was caught at 18/27 HP with balls 13 to 12.",
+        "action_changing": false,
+        "observed_fact": "The target was weakened once after Fake Out and then caught safely."
+      }
+    ],
+    "correct_choices": [
+      "Used ROM encounter data and bounded hunting.",
+      "Did not throw at full HP; used a crit-safe weakening move.",
+      "Stopped weakening when Absorb was no longer crit-safe and caught with L as Croakatoa."
+    ],
+    "next_test": "Add flinch classification and capture-policy prediction alignment, then run one isolated wild-capture regression."
+  }
+}

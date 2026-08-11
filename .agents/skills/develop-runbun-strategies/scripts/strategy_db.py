@@ -10,13 +10,14 @@ import sys
 
 
 PATH = Path(__file__).resolve().parents[1] / "references" / "strategies.json"
+ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(ROOT))
+
+from games.run_and_bun.battle_policy import SUPPORTED_PREDICATES, strategy_applicable, validate_auto_match
+
 STATUSES = ("candidate", "tested", "exact_proven", "reusable_proven", "retired")
 REQUIRED = ("id", "title", "status", "tags", "intent", "scope", "requirements", "line", "blockers", "abort_rules", "evidence")
-PREDICATES = {
-    "active_role", "opponent_species", "forced_switch", "fresh_entry",
-    "player_hp_lte", "player_hp_gte", "opponent_hp_lte", "opponent_hp_gte",
-    "player_status_any", "role_available", "action_count",
-}
+PREDICATES = set(SUPPORTED_PREDICATES)
 
 
 def load() -> dict:
@@ -70,6 +71,11 @@ def validate(data: dict) -> list[str]:
                         for directive in directives:
                             if not isinstance(directive, dict) or directive.get("kind") not in {"prefer", "forbid", "reserve"}:
                                 errors.append(f"{block_prefix} has unsupported directive")
+                            elif directive.get("kind") == "reserve" and not isinstance(directive.get("role"), str):
+                                errors.append(f"{block_prefix} reserve directive needs a role")
+        auto_match = strategy.get("auto_match")
+        if auto_match is not None:
+            errors.extend(validate_auto_match(auto_match, f"{prefix}.auto_match"))
         evidence = strategy.get("evidence", {})
         for field in ("reproductions", "exhaustive_searches", "distinct_state_hashes", "trainer_keys", "counterexamples"):
             if not isinstance(evidence.get(field), list):
@@ -81,9 +87,17 @@ def eligible_status(strategy: dict) -> str:
     if strategy.get("status") == "retired":
         return "retired"
     evidence = strategy["evidence"]
-    if evidence["counterexamples"]:
+    if any(
+        item.get("requirements_matched") is True
+        and not item.get("resolved")
+        and not item.get("superseded")
+        for item in evidence["counterexamples"]
+    ):
         return "candidate"
-    wins = [item for item in evidence["reproductions"] if item.get("terminal_win")]
+    wins = [
+        item for item in evidence["reproductions"]
+        if item.get("terminal_win") and item.get("clean_review")
+    ]
     exact = any(
         item.get("terminal_win") and item.get("legal_actions_complete") and item.get("rng_ai_complete")
         for item in evidence["exhaustive_searches"]
@@ -93,6 +107,37 @@ def eligible_status(strategy: dict) -> str:
             return "reusable_proven"
         return "exact_proven"
     return "tested" if wins else "candidate"
+
+
+def summarize(data: dict) -> dict:
+    rows = []
+    status_counts = {status: 0 for status in STATUSES}
+    for strategy in data.get("strategies", []):
+        status = strategy.get("status")
+        if status in status_counts:
+            status_counts[status] += 1
+        evidence = strategy.get("evidence") or {}
+        rows.append({
+            "id": strategy.get("id"),
+            "status": status,
+            "eligible_status": eligible_status(strategy),
+            "automatic": status == "reusable_proven" and bool(strategy.get("auto_match")),
+            "reproductions": len(evidence.get("reproductions") or []),
+            "distinct_states": len(set(evidence.get("distinct_state_hashes") or [])),
+            "trainers": len(set(evidence.get("trainer_keys") or [])),
+            "unresolved_counterexamples": sum(
+                item.get("requirements_matched") is True
+                and not item.get("resolved")
+                and not item.get("superseded")
+                for item in evidence.get("counterexamples") or []
+            ),
+        })
+    return {
+        "strategy_count": len(rows),
+        "status_counts": status_counts,
+        "automatic_reusable_count": sum(item["automatic"] for item in rows),
+        "strategies": rows,
+    }
 
 
 def save(data: dict) -> None:
@@ -111,17 +156,31 @@ def record_review(data: dict, review: dict, strategy_ids: list[str]) -> None:
         evidence = strategy.setdefault("evidence", {})
         for field in ("reproductions", "exhaustive_searches", "distinct_state_hashes", "trainer_keys", "counterexamples"):
             evidence.setdefault(field, [])
-        if review.get("terminal") == "win":
-            evidence["reproductions"].append({
-                "source": review.get("source", "cartridge_clone"),
-                "pre_state_hash": review.get("opening_state_hash"),
-                "terminal_win": True,
-                "clean_review": review.get("status") == "clean",
-                "behavior_hash": review.get("behavior_hash"),
-                "certified_actions": review.get("certified_actions"),
-            })
-        for finding in review.get("findings", []):
-            if finding.get("strategy_id") not in {None, strategy.get("id")}:
+        agent = review.get("agent_review") or {}
+        clean = (
+            review.get("terminal") == "win"
+            and review.get("status") == "clean"
+            and agent.get("status") == "complete"
+            and agent.get("author") == "agent"
+        )
+        reproduction = {
+            "review_id": review.get("review_id"),
+            "source": review.get("source", "cartridge_clone"),
+            "pre_state_hash": review.get("opening_state_hash"),
+            "terminal_win": True,
+            "clean_review": True,
+            "behavior_hash": review.get("behavior_hash"),
+            "certified_actions": review.get("certified_actions"),
+        }
+        if clean and not any(item.get("review_id") == review.get("review_id") for item in evidence["reproductions"]):
+            evidence["reproductions"].append(reproduction)
+        findings = (review.get("agent_review") or {}).get("findings", review.get("findings", []))
+        for finding in findings:
+            if (
+                finding.get("strategy_id") != strategy.get("id")
+                or finding.get("requirements_matched") is not True
+                or finding.get("action_changing") is not True
+            ):
                 continue
             counterexample = {
                 "review_id": review.get("review_id"),
@@ -129,12 +188,21 @@ def record_review(data: dict, review: dict, strategy_ids: list[str]) -> None:
                 "summary": finding.get("summary"),
                 "state_hash": finding.get("state_hash"),
                 "trainer_key": review.get("trainer_key"),
+                "behavior_hash": review.get("behavior_hash"),
+                "requirements_matched": True,
+                "resolved": finding.get("resolved", False),
             }
-            if counterexample not in evidence["counterexamples"]:
+            existing = next((item for item in evidence["counterexamples"] if
+                item.get("review_id") == counterexample["review_id"]
+                and item.get("kind") == counterexample["kind"]
+            ), None)
+            if existing is None:
                 evidence["counterexamples"].append(counterexample)
-        if review.get("opening_state_hash") and review["opening_state_hash"] not in evidence["distinct_state_hashes"]:
+            else:
+                existing.update(counterexample)
+        if clean and review.get("opening_state_hash") and review["opening_state_hash"] not in evidence["distinct_state_hashes"]:
             evidence["distinct_state_hashes"].append(review["opening_state_hash"])
-        if review.get("trainer_key") and review["trainer_key"] not in evidence["trainer_keys"]:
+        if clean and review.get("trainer_key") and review["trainer_key"] not in evidence["trainer_keys"]:
             evidence["trainer_keys"].append(review["trainer_key"])
         if strategy.get("status") != "retired":
             strategy["status"] = eligible_status(strategy)
@@ -144,9 +212,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("validate")
+    sub.add_parser("summary")
     query = sub.add_parser("query")
     query.add_argument("--tag")
     query.add_argument("--status", choices=STATUSES)
+    match = sub.add_parser("match")
+    match.add_argument("context", type=Path)
     upsert = sub.add_parser("upsert")
     upsert.add_argument("record", type=Path)
     review = sub.add_parser("record-review")
@@ -162,12 +233,20 @@ def main() -> int:
         errors = validate(data)
         print(json.dumps({"valid": not errors, "errors": errors}, separators=(",", ":")))
         return bool(errors)
+    if args.command == "summary":
+        print(json.dumps(summarize(data), indent=2, ensure_ascii=False))
+        return 0
     if args.command == "query":
         rows = [
             item for item in data["strategies"]
             if (not args.tag or args.tag in item["tags"])
             and (not args.status or args.status == item["status"])
         ]
+        print(json.dumps(rows, indent=2, ensure_ascii=False))
+        return 0
+    if args.command == "match":
+        context = json.loads(args.context.read_text(encoding="utf-8"))
+        rows = [item for item in data["strategies"] if strategy_applicable(item, context)]
         print(json.dumps(rows, indent=2, ensure_ascii=False))
         return 0
     if args.command == "upsert":

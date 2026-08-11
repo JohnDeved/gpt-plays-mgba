@@ -15,6 +15,7 @@ from games.runbun import (
     decode_text_observation,
     decode_battle_mon,
     decode_box_mon,
+    nickname_target_prompt_verified,
 )
 
 
@@ -72,6 +73,41 @@ class FakeMGBA:
 
 
 class RunBunTests(unittest.TestCase):
+    def test_trainer_review_gate_only_blocks_classified_hard_fights(self):
+        adapter = RunBunAdapter.__new__(RunBunAdapter)
+        observation = {
+            "mode": "overworld",
+            "battle": {"active": False},
+            "party": {"mons": [{"state": {"species": 1, "current_hp": 10, "max_hp": 10}}]},
+        }
+        target = SimpleNamespace(map_id=(0, 24), local_id=2, graphics_id=21, script_address=0)
+        easy = {
+            "key": "map:0:24/local:2", "found": False, "trusted": False,
+            "record": None,
+        }
+        with patch.object(adapter, "observe", return_value=observation), \
+                patch.object(adapter, "inventory", return_value={"pockets": {}}), \
+                patch("games.run_and_bun.trainer_database.lookup_trainer", return_value=easy), \
+                patch("games.run_and_bun.trainer_database.is_classified_hard", return_value=False), \
+                patch("games.run_and_bun.battle_review.battle_continuation_gate", return_value={"allowed": True}), \
+                patch("games.run_and_bun.battle_review.clone_review_gate") as gate:
+            report = adapter.trainer_preflight(target)
+        self.assertTrue(report["ready"])
+        self.assertEqual(report["reason"], "unclassified_trainer_allowed")
+        gate.assert_not_called()
+
+    def test_poke_ball_quantity_does_not_count_legacy_berry_entries(self):
+        self.assertEqual(
+            RunBunAdapter._poke_ball_quantity({
+                "pockets": {
+                    "poke_balls": [{"item_id": 1, "quantity": 2}],
+                    "ui_poke_balls": [{"item_id": 1, "quantity": 3}],
+                    "berries": [{"item_id": 1, "quantity": 13}],
+                },
+            }),
+            5,
+        )
+
     def test_nickname_keyboard_plan_uses_shortest_uppercase_grid_path(self):
         name, keys = RunBunAdapter._nickname_keyboard_plan("OhmNomNom")
         self.assertEqual(name, "Ohmnomnom")
@@ -92,6 +128,12 @@ class RunBunTests(unittest.TestCase):
             }),
             ("Give a nickname?",),
         )
+
+    def test_nickname_target_prompt_accepts_printer_truncation(self):
+        self.assertTrue(nickname_target_prompt_verified("Which Pokémon's nickname should\nI chang"))
+        self.assertTrue(nickname_target_prompt_verified("Which Pokémon's nickname should\nI chan"))
+        self.assertTrue(nickname_target_prompt_verified("Which Pokémon's nickname should I change?"))
+        self.assertFalse(nickname_target_prompt_verified("Which Pokémon should I release?"))
 
     def test_ball_hotkey_closes_move_menu_before_throwing(self):
         class Gba:
@@ -145,6 +187,69 @@ class RunBunTests(unittest.TestCase):
                 RunBunAdapter._trainer_sight_tiles(None, (0, 1), ignored_local_ids={4}),
                 set(),
             )
+
+    def test_route_gate_ignores_verified_defeated_trainers(self):
+        adapter = RunBunAdapter.__new__(RunBunAdapter)
+        adapter.gba = object()
+        adapter.enforce_live_trainer_gate = True
+        adapter.observe = lambda: {
+            "mode": "overworld",
+            "battle": {"active": False},
+            "map": {"group": 0, "number": 24, "x": 1, "y": 2},
+        }
+        event = SimpleNamespace(
+            local_id=7, trainer_type=1, map_id=(0, 24), current_x=2, current_y=2,
+            position=(2, 2), trainer_sight_radius=3, movement_type=8,
+        )
+        live = SimpleNamespace(
+            local_id=7, trainer_type=1, map_id=(0, 24), current_x=2, current_y=2,
+            position=(2, 2), trainer_range_or_berry_id=3, facing_direction=3,
+            active=True, invisible=False, is_player=False,
+        )
+        with patch("games.run_and_bun.objects.read_live_event_targets", return_value=[event]), \
+                patch("games.run_and_bun.objects.read_live_objects", return_value=[live]), \
+                patch.object(adapter, "trainer_preflight", return_value={"ready": False}):
+            self.assertFalse(adapter._trainer_route_gate(["RIGHT"])["allowed"])
+            self.assertTrue(
+                adapter._trainer_route_gate(
+                    ["RIGHT"], verified_defeated_trainer_local_ids={7}
+                )["allowed"]
+            )
+
+    def test_route_gate_allows_explicit_damaged_crossing_only_for_known_easy_trainer(self):
+        adapter = RunBunAdapter.__new__(RunBunAdapter)
+        adapter.gba = object()
+        adapter.enforce_live_trainer_gate = True
+        adapter.observe = lambda: {
+            "mode": "overworld",
+            "battle": {"active": False},
+            "map": {"group": 0, "number": 24, "x": 1, "y": 2},
+        }
+        event = SimpleNamespace(
+            local_id=7, trainer_type=1, map_id=(0, 24), current_x=2, current_y=2,
+            position=(2, 2), trainer_sight_radius=3, movement_type=8,
+        )
+        live = SimpleNamespace(
+            local_id=7, trainer_type=1, map_id=(0, 24), current_x=2, current_y=2,
+            position=(2, 2), trainer_range_or_berry_id=3, facing_direction=3,
+            active=True, invisible=False, is_player=False,
+        )
+        report = {
+            "ready": False, "reason": "healing_required", "classification": "easy",
+            "trainer": {"found": True, "trusted": True},
+        }
+        with patch("games.run_and_bun.objects.read_live_event_targets", return_value=[event]), \
+                patch("games.run_and_bun.objects.read_live_objects", return_value=[live]), \
+                patch.object(adapter, "trainer_preflight", return_value=report):
+            self.assertFalse(adapter._trainer_route_gate(["RIGHT"])['allowed'])
+            allowed = adapter._trainer_route_gate(
+                ["RIGHT"], allow_damaged_trainer_sight_lines=True
+            )
+        self.assertTrue(allowed["allowed"])
+        self.assertEqual(
+            allowed["preflights"]["7"]["reason"],
+            "damaged_trainer_sightline_explicitly_allowed",
+        )
 
     @staticmethod
     def _capture_observation(*, target_hp=30, target_max_hp=30, moves=(44, 342, 0, 0)):
@@ -545,6 +650,24 @@ class RunBunTests(unittest.TestCase):
         }]}
         self.assertTrue(RunBunAdapter(gba)._field_start_menu_open())
 
+    def test_bag_task_is_detected_from_cursor_payload(self):
+        self.assertTrue(RunBunAdapter._is_field_bag_task({
+            "active": 1,
+            "data": [10876, 512, 51237, 2077, 51445, 2077, 4, 4, 0, 8, 12305, 1792, 0, 3],
+        }))
+        self.assertFalse(RunBunAdapter._is_field_bag_task({"active": 1, "data": [0] * 16}))
+
+    def test_follow_route_rejects_hidden_bag_task(self):
+        fake = FakeMGBA()
+        adapter = RunBunAdapter(fake, enforce_live_trainer_gate=False)
+        adapter.observe = lambda: {
+            "mode": "overworld",
+            "battle": {"active": False},
+            "ui": {"field_bag_open": True, "field_start_menu_open": False},
+        }
+        with self.assertRaisesRegex(RuntimeError, "field UI is active"):
+            adapter.follow_route(["RIGHT"])
+
     def test_npc_interaction_gap_supports_counter_service_range(self):
         class FakeLiveMap:
             def __init__(self, walkable):
@@ -646,7 +769,7 @@ class RunBunTests(unittest.TestCase):
 
     def test_follow_route_batches_input_and_checks_endpoint(self):
         fake = FakeMGBA()
-        adapter = RunBunAdapter(fake)
+        adapter = RunBunAdapter(fake, enforce_live_trainer_gate=False)
 
         result = adapter.follow_route(
             ["RIGHT", "DOWN"],
@@ -661,7 +784,7 @@ class RunBunTests(unittest.TestCase):
 
     def test_follow_route_compresses_clear_straight_runs(self):
         fake = FakeMGBA()
-        adapter = RunBunAdapter(fake)
+        adapter = RunBunAdapter(fake, enforce_live_trainer_gate=False)
 
         adapter.follow_route(["RIGHT", "RIGHT", "RIGHT"], settle_frames=8)
 
@@ -672,6 +795,78 @@ class RunBunTests(unittest.TestCase):
                 {"keys": [], "frames": 8},
             ],
         )
+
+    def test_npc_path_preflights_full_route_before_first_chunk(self):
+        adapter = RunBunAdapter.__new__(RunBunAdapter)
+        adapter.gba = FakeMGBA()
+        adapter.enforce_live_trainer_gate = True
+        adapter.observe = lambda: {
+            "mode": "overworld",
+            "battle": {"active": False},
+            "map": {"group": 0, "number": 24, "x": 1, "y": 1},
+        }
+        target = SimpleNamespace(
+            local_id=2,
+            graphics_id=21,
+            trainer_type=0,
+            current_x=3,
+            current_y=1,
+            facing_direction=0,
+            as_dict=lambda: {"local_id": 2},
+        )
+        gate_calls = []
+        adapter.trainer_preflight = lambda _target: {"ready": True}
+        adapter._npc_approach_target = lambda *args, **kwargs: (
+            (1, 1), ["RIGHT", "RIGHT"], 1
+        )
+        adapter.follow_route = lambda *args, **kwargs: self.fail(
+            "movement must not start after a rejected full-path preflight"
+        )
+        adapter._trainer_route_gate = lambda directions, **kwargs: (
+            gate_calls.append(list(directions)) or {"allowed": False, "reason": "test"}
+        )
+        with patch("games.run_and_bun.objects.read_live_objects", return_value=[target]), \
+                patch("games.run_and_bun.objects.select_live_object", return_value=target), \
+                patch("games.run_and_bun.live_map.read_live_map", return_value=object()):
+            with self.assertRaisesRegex(RuntimeError, "trainer_engagement_blocked"):
+                adapter.follow_live_path_to_npc(local_id=2)
+        self.assertEqual(gate_calls, [["RIGHT", "RIGHT"]])
+
+    def test_adaptive_path_preflights_full_route_before_first_chunk(self):
+        adapter = RunBunAdapter.__new__(RunBunAdapter)
+        adapter.gba = FakeMGBA()
+        adapter.enforce_live_trainer_gate = True
+        adapter.observe = lambda: {
+            "mode": "overworld",
+            "battle": {"active": False},
+            "map": {"group": 0, "number": 21, "x": 1, "y": 1},
+        }
+        class FakeLiveMap:
+            active_width = 80
+            active_height = 20
+
+            @staticmethod
+            def walkable(_x, _y):
+                return True
+
+            @staticmethod
+            def path_to(*_args, **_kwargs):
+                return ["RIGHT", "RIGHT"]
+
+        gate_calls = []
+        adapter._trainer_route_gate = lambda directions, **kwargs: (
+            gate_calls.append(list(directions)) or {"allowed": False, "reason": "test"}
+        )
+        adapter.follow_route = lambda *args, **kwargs: self.fail(
+            "adaptive movement must not start after a rejected full-path preflight"
+        )
+        with patch("games.run_and_bun.live_map.read_live_map", return_value=FakeLiveMap()), \
+                patch("games.run_and_bun.objects.read_live_objects", return_value=[]):
+            with self.assertRaisesRegex(RuntimeError, "trainer_engagement_blocked"):
+                adapter.follow_live_path_adaptive(
+                    (3, 1), expected_map=(0, 21), avoid_trainer_sight_lines=False
+                )
+        self.assertEqual(gate_calls, [["RIGHT", "RIGHT"]])
 
     def test_battle_strategy_avoids_flash_fire(self):
         observation = {
@@ -756,6 +951,76 @@ class RunBunTests(unittest.TestCase):
         self.assertEqual(report["chosen"]["move_id"], 16)
         self.assertTrue(report["proof"]["caveat"])
 
+    def test_tactical_report_models_accuracy_priority_and_outcome_set(self):
+        observation = {
+            "battle": {"active": True, "format": "single", "mons": [
+                {"slot": 0, "present": True, "state": {
+                    "species": 1, "current_hp": 30, "max_hp": 30,
+                    "attack": 30, "defense": 20, "speed": 50,
+                    "special_attack": 20, "special_defense": 20, "level": 20,
+                    "types": (0,), "moves": (10, 0, 0, 0), "pp": (10, 0, 0, 0),
+                    "stat_stages": (6,) * 8,
+                }},
+                {"slot": 1, "present": True, "state": {
+                    "species": 2, "current_hp": 12, "max_hp": 30,
+                    "attack": 20, "defense": 20, "speed": 10,
+                    "special_attack": 20, "special_defense": 20, "level": 20,
+                    "types": (0,), "moves": (20, 0, 0, 0), "pp": (10, 0, 0, 0),
+                    "stat_stages": (6,) * 8,
+                }},
+            ]},
+            "party": {"mons": []},
+        }
+        move = lambda move_id, accuracy, priority: SimpleNamespace(
+            move_id=move_id, name=str(move_id), power=80, type_id=0,
+            type_name="Normal", accuracy=accuracy, pp=10,
+            secondary_chance=0, target_flags=0, priority=priority,
+            category="physical",
+        )
+        report = RunBunAdapter.explain_battle_action(
+            observation,
+            move_data={10: move(10, 50, 0), 20: move(20, 100, 1)},
+        )
+        chosen = report["chosen"]
+        self.assertEqual(chosen["hit_probability"], 0.5)
+        self.assertFalse(chosen["guaranteed_hit"])
+        self.assertFalse(chosen["ko_before_hit"])
+        self.assertEqual(chosen["order"], "second")
+        self.assertEqual(chosen["outcome_set"]["miss_probability"], 0.5)
+
+    def test_tactical_report_lists_unmodeled_mechanics_in_one_coverage_envelope(self):
+        observation = {
+            "battle": {"active": True, "format": "single", "mons": [
+                {"slot": 0, "present": True, "state": {
+                    "species": 1, "current_hp": 30, "max_hp": 30, "level": 20,
+                    "attack": 30, "defense": 20, "speed": 50, "special_attack": 20, "special_defense": 20,
+                    "types": (0,), "moves": (10, 0, 0, 0), "pp": (10, 0, 0, 0),
+                    "ability": 77, "held_item": 123, "stat_stages": (6,) * 8,
+                }},
+                {"slot": 1, "present": True, "state": {
+                    "species": 2, "current_hp": 30, "max_hp": 30, "level": 20,
+                    "attack": 20, "defense": 20, "speed": 10, "special_attack": 20, "special_defense": 20,
+                    "types": (0,), "moves": (20, 0, 0, 0), "pp": (10, 0, 0, 0),
+                    "ability": 78, "held_item": 124, "stat_stages": (6,) * 8,
+                }},
+            ]},
+            "party": {"mons": []},
+        }
+        move = lambda move_id, chance: SimpleNamespace(
+            move_id=move_id, name=str(move_id), power=40, type_id=0, type_name="Normal",
+            accuracy=100, pp=10, secondary_chance=chance, target_flags=0, priority=0,
+            category="physical",
+        )
+        report = RunBunAdapter.explain_battle_action(
+            observation, move_data={10: move(10, 30), 20: move(20, 0)},
+        )
+        gaps = report["proof"]["material_uncertainty"]
+        self.assertFalse(report["proof"]["mechanics_complete"])
+        self.assertIn("secondary_effect_identity_unmodeled", gaps)
+        self.assertIn("attacker_ability_effect_unmodeled:77", gaps)
+        self.assertIn("defender_held_item_effect_unmodeled:124", gaps)
+        self.assertEqual(report["chosen"]["mechanics_coverage"]["gaps"], report["chosen"]["uncertainties"])
+
     def test_learned_damage_is_reported_as_bounds_not_a_forced_max_ko(self):
         observation = {
             "battle": {"active": True, "mons": [
@@ -799,11 +1064,22 @@ class RunBunTests(unittest.TestCase):
         mon = {"state": {"species": 388, "types": (12, 12, 9)}}
         self.assertEqual(RunBunAdapter._mon_types(mon), (12,))
 
+    def test_current_party_fallback_types_cover_switch_scoring(self):
+        self.assertEqual(RunBunAdapter._mon_types({"state": {"species": 453}}), (3, 1))
+        self.assertEqual(RunBunAdapter._mon_types({"state": {"species": 777}}), (13, 8))
+
     def test_ground_is_neutral_into_water_for_bulldoze_estimate(self):
         attacker = {"state": {"species": 231, "level": 17, "attack": 24, "types": (4, 4, 9)}}
         defender = {"state": {"species": 400, "level": 16, "defense": 29, "types": (0, 11, 9)}}
         low, high = RunBunAdapter._damage_bounds(523, attacker, defender)
         self.assertLessEqual(high, 17.0)
+
+    def test_burn_halves_physical_damage_unless_the_attacker_has_guts(self):
+        attacker = {"state": {"species": 231, "level": 17, "attack": 24, "types": (4, 4, 9), "status": 16}}
+        defender = {"state": {"species": 77, "level": 17, "defense": 28, "types": (10, 10, 9)}}
+        self.assertEqual(RunBunAdapter._damage_bounds(523, attacker, defender), (14.0, 18.0))
+        attacker["state"]["ability"] = 62
+        self.assertEqual(RunBunAdapter._damage_bounds(523, attacker, defender), (24.0, 30.0))
 
     def test_levitate_blocks_ground_moves(self):
         attacker = {"state": {"species": 878, "level": 17, "attack": 33, "types": (8, 8, 9)}}
@@ -814,6 +1090,15 @@ class RunBunTests(unittest.TestCase):
         attacker = {"state": {"species": 603, "level": 17, "special_attack": 35, "types": (13, 13, 9)}}
         defender = {"state": {"species": 95, "level": 17, "special_defense": 21, "types": (5, 4, 9)}}
         self.assertEqual(RunBunAdapter._damage_bounds(351, attacker, defender), (0.0, 0.0))
+
+    def test_verified_dual_type_resistances_are_not_treated_as_neutral(self):
+        grass = {"state": {"species": 192, "level": 16, "special_attack": 43, "types": (12,)}}
+        venipede = {"state": {"species": 543, "level": 17, "special_defense": 21, "types": (6, 3)}}
+        electric = {"state": {"species": 603, "level": 17, "special_attack": 35, "types": (13,)}}
+        grotle = {"state": {"species": 388, "level": 17, "special_defense": 35, "types": (12,)}}
+        energy_ball = SimpleNamespace(power=90, type_id=12, category="special")
+        self.assertEqual(RunBunAdapter._damage_bounds(412, grass, venipede, move_data={412: energy_ball}), (9.0, 11.0))
+        self.assertEqual(RunBunAdapter._damage_bounds(351, electric, grotle), (6.0, 8.0))
 
     def test_gavi_known_damage_ranges_match_cartridge_observations(self):
         def move(power, type_id, category):

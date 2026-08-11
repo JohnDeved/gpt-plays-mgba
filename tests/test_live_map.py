@@ -4,6 +4,9 @@ import unittest
 from games.run_and_bun.live_map import (
     MAP_TYPE_UNDERGROUND,
     LiveMap,
+    LiveWarp,
+    classify_building_sign,
+    detect_pokecenter_entrances,
     is_land_encounter_tile,
     read_live_connections,
     read_live_map,
@@ -178,13 +181,35 @@ class LiveMapTests(unittest.TestCase):
         self.assertEqual(tile["metatile_id"], 0x00D)
         self.assertTrue(tile["walkable"])
         self.assertTrue(tile["grass"])
-
         layout = live.layout(include_tiles=False)
         self.assertEqual(layout["grid_ptr"], 0x02010000)
         self.assertIn('"', layout["ascii"])
         blocked = LiveMap(3, 3, 0, tuple([1 << 10] * 9), origin=0, active_width=3, active_height=3)
         self.assertIn("#", blocked.ascii())
 
+    def test_detects_pokecenter_door_and_right_sign_signature(self):
+        words = [3 << 12] * 15
+        words[2 + 1 * 5] = (1 << 10) | 0x061
+        words[3 + 1 * 5] = (1 << 10) | 0x062
+        live = LiveMap(5, 3, 0x02010000, tuple(words), origin=0, active_width=5, active_height=3)
+        warp = LiveWarp(x=2, y=1, warp_id=0, map_num=1, map_group=3)
+        entrances = detect_pokecenter_entrances(live, [warp])
+        self.assertEqual(len(entrances), 1)
+        self.assertEqual(entrances[0]["sign_position"], [3, 1])
+        words[3 + 1 * 5] = (1 << 10) | 0x063
+        self.assertEqual(
+            detect_pokecenter_entrances(
+                LiveMap(5, 3, 0x02010000, tuple(words), origin=0, active_width=5, active_height=3),
+                [warp],
+            ),
+            [],
+        )
+
+    def test_classifies_building_from_decoded_sign_content(self):
+        self.assertEqual(classify_building_sign(["Pok<1B>mon Center"]), "pokecenter")
+        self.assertEqual(classify_building_sign(["Dewford Town Pok<1B>mon Gym"]), "gym")
+        self.assertEqual(classify_building_sign(["Pok<1B>mon Mart"]), "pokemart")
+        self.assertIsNone(classify_building_sign(["Dewford Hall"]))
 
 if __name__ == "__main__":
     unittest.main()

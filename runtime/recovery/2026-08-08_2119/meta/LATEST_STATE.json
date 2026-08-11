@@ -1,0 +1,9 @@
+{
+  "timestamp": "2026-08-08T21:19:00+02:00",
+  "authoritative_checkpoint": "r109_double_post_nido_replacements.ss0",
+  "source_archive": "gpt-plays-mgba-recovery-backup-2026-08-08_1611.zip",
+  "location": "Route 109",
+  "progress_note": "Furthest verified state found in prior bundle; later than the older handoff that described Flaaffy mid-battle.",
+  "battle_context": "Route 109 double battle; earlier inspection showed Flaaffy + Luxio with Grotle + Venipede active, and subsequent states progressed through Nidorina replacement/KO handling.",
+  "resume_instruction": "Restore this savestate first. Read battler/party RAM before issuing input. Continue from the live double-battle command/replacement state rather than replaying older Route 109 fights."
+}

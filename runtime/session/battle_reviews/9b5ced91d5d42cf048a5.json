@@ -1,0 +1,104 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T18:20:54.629558+00:00",
+  "review_id": "9b5ced91d5d42cf048a5",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "31ecbc151bf257b3927071ac14a62f944f229c43ae55966a0207db66d5e72ba4",
+  "behavior_hash": "f5a73cddfb89026796f04cad4441b467f06b6cba3dbf04ebffab1309f9d1ca00",
+  "policy_id": "gavi-hybrid-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 28,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "All six party members fainted; the verified clone ended in whiteout.",
+        "state": "runtime/session/battle_reviews/states/1786299610663133000/turn-028.state",
+        "action_id": "f9c16d4f09cd505ba5dd",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The causal status and contact defects were corrected and verified from turns 6 and 8; a fresh full-HP Coppertop opening has an active Bibarel battle, and a recorded Eelektrik state selects Coppertop Tackle under the new profile. The unchanged Bugatti bundle will not be retried.",
+          "behavior_hash": "ab6d1491bb87d6866ad0249e0ff7908c543f316af3a9900fd075c2a5810cdff5",
+          "replay_states": [
+            "runtime/session/battle_reviews/states/1786299610663133000/turn-006.state",
+            "runtime/session/battle_reviews/states/1786299610663133000/turn-008.state",
+            "runtime/session/battle_reviews/states/gavi-attempt-4/turn-011.state",
+            "runtime/session/gavi-ohm-copper-lildozer-opening-clone-20260809.state"
+          ]
+        }
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "A burned Lildozer was voluntarily re-entered against Ponyta on turn 6.",
+        "state": "runtime/session/battle_reviews/states/1786299610663133000/turn-006.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Attached turn-006 replay selected healthy Bushtank; burned Lildozer candidate was safe=false after the status guard.",
+          "behavior_hash": "aea31f68c114100512b63d5e138d43f27f75071db1d0ccaf991bbd4aa706519f"
+        }
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "Bushtank used contact Bite into verified Flame Body Ponyta after the burn branch.",
+        "state": "runtime/session/battle_reviews/states/1786299610663133000/turn-008.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Attached turn-008 replay selected Razor Leaf; Bite was vetoed by the Gavi Flame Body constraint and the action completed with no discrepancy.",
+          "behavior_hash": "aea31f68c114100512b63d5e138d43f27f75071db1d0ccaf991bbd4aa706519f"
+        }
+      },
+      {
+        "kind": "preparation_team_failure",
+        "severity": "high",
+        "summary": "By Eelektrik entry, every remaining answer was already damaged, burned, or expendable; Eelektrik then swept the remains.",
+        "state": "runtime/session/battle_reviews/states/1786299610663133000/turn-020.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The new Coppertop profile was checked against a full-HP active Bibarel opening and a verified Eelektrik battle state; Coppertop is healthy with Tackle, Bulldoze, and Rock Smash, and the policy selects Tackle with no action-changing uncertainty.",
+          "behavior_hash": "ab6d1491bb87d6866ad0249e0ff7908c543f316af3a9900fd075c2a5810cdff5",
+          "replay_states": [
+            "runtime/session/gavi-ohm-copper-lildozer-opening-clone-20260809.state",
+            "runtime/session/battle_reviews/states/gavi-attempt-4/turn-011.state"
+          ]
+        }
+      },
+      {
+        "kind": "switch_tempo",
+        "severity": "medium",
+        "summary": "18 switches in 28 actions repeatedly traded HP for position without closing Ponyta quickly.",
+        "state": "runtime/session/battle_reviews/states/1786299610663133000/turn-009.state",
+        "resolved": false
+      },
+      {
+        "kind": "line_length",
+        "severity": "low",
+        "summary": "The loss consumed 28 verified actions before whiteout."
+      }
+    ],
+    "correct_choices": [
+      "Spark was used twice to remove Bibarel.",
+      "Bulldoze was the correct opening attack into Ponyta.",
+      "Fresh-entry Fake Out was used on Ohmnomnom and Croakatoa when legal.",
+      "Aerial Ace removed Ponyta before Eelektrik entered.",
+      "Poison Touch plus Fake Out poisoned and flinched Eelektrik.",
+      "All 28 action results and the terminal whiteout were RAM-verified with no observation/execution discrepancy."
+    ],
+    "next_test": "Run Clone 1 with the fresh Coppertop profile and opening; review every action before any retry."
+  }
+}

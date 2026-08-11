@@ -43,6 +43,45 @@ def _decoded_rom_text(gba: Any, address: int) -> str:
     return decode_gen3(raw[:end]).strip()
 
 
+def is_plausible_script_text(text: str) -> bool:
+    """Reject pointer/code noise while retaining ordinary sign dialogue."""
+    normalized = " ".join(text.split())
+    tag_count = normalized.count("<")
+    return (
+        2 <= len(normalized) <= 120
+        and sum(character.isalpha() for character in normalized) >= 4
+        and tag_count <= 8
+    )
+
+
+def script_texts(
+    gba: Any, script_address: int, *, scan_bytes: int = SCRIPT_SCAN_BYTES
+) -> list[str]:
+    """Extract bounded, decodable Gen III strings referenced by an event script."""
+    if not ROM_POINTER_MIN <= script_address < ROM_POINTER_MAX:
+        return []
+    # Background sign events in this ROM may point directly at encoded text,
+    # while object scripts point at bytecode containing text pointers.
+    direct = " ".join(_decoded_rom_text(gba, script_address).split())
+    if is_plausible_script_text(direct):
+        return [direct]
+    raw = gba.read_range(script_address, min(SCRIPT_SCAN_BYTES, scan_bytes))
+    texts: list[str] = []
+    seen_addresses: set[int] = set()
+    for offset in range(0, len(raw) - 3):
+        address = struct.unpack_from("<I", raw, offset)[0]
+        if not ROM_POINTER_MIN <= address < ROM_POINTER_MAX or address in seen_addresses:
+            continue
+        seen_addresses.add(address)
+        try:
+            text = " ".join(_decoded_rom_text(gba, address).split())
+        except (RuntimeError, ValueError):
+            continue
+        if is_plausible_script_text(text) and text not in texts:
+            texts.append(text)
+    return texts
+
+
 def script_transit_texts(
     gba: Any, script_address: int, *, scan_bytes: int = SCRIPT_SCAN_BYTES
 ) -> list[str]:
@@ -54,21 +93,10 @@ def script_transit_texts(
     """
     if not ROM_POINTER_MIN <= script_address < ROM_POINTER_MAX:
         return []
-    raw = gba.read_range(script_address, min(SCRIPT_SCAN_BYTES, scan_bytes))
-    texts: list[str] = []
-    seen_addresses: set[int] = set()
-    for offset in range(0, len(raw) - 3):
-        address = struct.unpack_from("<I", raw, offset)[0]
-        if not ROM_POINTER_MIN <= address < ROM_POINTER_MAX or address in seen_addresses:
-            continue
-        seen_addresses.add(address)
-        try:
-            text = _decoded_rom_text(gba, address)
-        except (RuntimeError, ValueError):
-            continue
-        if text and is_transit_text(text) and text not in texts:
-            texts.append(text)
-    return texts
+    return [
+        text for text in script_texts(gba, script_address, scan_bytes=scan_bytes)
+        if is_transit_text(text)
+    ]
 
 
 @dataclass(frozen=True)

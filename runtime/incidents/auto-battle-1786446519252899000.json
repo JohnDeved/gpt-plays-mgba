@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260811T110839Z-certified-battle-step-prediction-mismatch",
+  "status": "observed",
+  "created_at": "2026-08-11T11:08:39.284458+00:00",
+  "summary": "Certified battle step prediction mismatch",
+  "component": "certified battle interface",
+  "symptom": "battle step ended at unverified boundary timeout",
+  "classification": "prediction_model",
+  "severity": "high",
+  "live_state": {
+    "required": false,
+    "preserved": false,
+    "artifact": null,
+    "sha256": null,
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "One legal action reaches a changed stable battle boundary: {'kind': 'move', 'slot': 0, 'move_id': 205, 'pp': 20}",
+    "actual": "{\"allied_action_outcome\": \"executed\", \"allied_pp_deltas\": [{\"battler\": 0, \"delta\": 1, \"move_id\": 205, \"slot\": 0}], \"enemy_move_id\": null, \"opponent_pp_deltas\": [{\"battler\": 1, \"delta\": 1, \"move_id\": 474, \"slot\": 0}, {\"battler\": 1, \"delta\": 1, \"move_id\": 611, \"slot\": 1}, {\"battler\": 1, \"delta\": 2, \"move_id\": 355, \"slot\": 2}], \"resolution\": {\"feedback\": \"It's not very effective\\u2026\\nBugatti has been afflicted\\nwith an infestation by Foe Dustox!\\nBugatti used\\nRollout!\\nIt's super effective!\\nFoe Dustox's Black Sludge\\nrestored its HP a little!\\nBugatti is hurt\\nby Infestation!\\nFoe Dustox used\\nRoost!\\nFoe Dustox regained\\nhealth!\\nBugatti used\\nRollout!\\nIt's super effective!\\nFoe Dustox's Black Sludge\\nrestored its HP a little!\\nBugatti is hurt\\nby Infestation!\\nFoe Dustox used\\nRoost!\\nFoe Dustox regained\\nhealth!\\nBugatti used\\nRollout!\\nA critical hit!\\nIt's super effective!\\nFoe Dustox's Black Sludge\\nrestored its HP a little!\\nBugatti is hurt\\nby Infestation!\\nFoe Dustox used\\nVenoshock!\\nIt's not very effective\\u2026\\nBugatti used\\nRollout!\\nIt's super effective!\\nFoe Dustox\\nfainted!<PROMPT_CLEAR>\\nBugatti gained\\n0 Exp. Points!<PROMPT_CLEAR>\\nPlayer defeated\\nCamper Gavi!<PROMPT_CLEAR>\\nBeing cool isn't enough to win\\u2026<CTRL_09>\", \"frames\": 1824, \"presses\": 65, \"state\": \"timeout\"}}",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

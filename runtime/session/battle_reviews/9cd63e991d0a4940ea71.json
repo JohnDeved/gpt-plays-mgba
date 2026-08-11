@@ -1,0 +1,78 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T12:09:12.828946+00:00",
+  "review_id": "9cd63e991d0a4940ea71",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "47dc4d1933206238cefcdb92e700ac86bd74cf8a412c673ec42550b155d04241",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 29,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 29,
+    "findings": [
+      {
+        "kind": "tactical_error",
+        "severity": "critical",
+        "summary": "The earliest causal error was forced action 19 after Birdlaw's critical-hit faint: the policy chose Croakatoa instead of full-HP Bugatti against Dustox. Croakatoa then spent six low-damage turns and fainted, leaving no healthy Sunflora answer.",
+        "action_changing": true,
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v20-clone2/turn-019.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "A bounded replay switched directly to Bugatti, then Rollout defeated Dustox and carried into Sunflora. Bugatti survived at 14 HP and guaranteed the final KO with Bug Bite while Croakatoa remained untouched.",
+          "evidence": "runtime/session/battle_reviews/states/gavi-bugatti-v20-clone2/turn-019-bugatti-bugbite-post.state"
+        }
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "The Gavi profile knew Bugatti should use Rollout once active against Dustox but did not select Bugatti at the forced replacement where that strategy had to begin.",
+        "action_changing": true,
+        "state": "runtime/session/battle_reviews/states/gavi-bugatti-v20-clone2/turn-019.state",
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The forced-bugatti-rollout-dustox profile rule now selects Bugatti at the exact saved state; 158 tests pass under behavior hash 4d294d8a4eeed854db837092144f8b45cfe7329b05f92e5032a87050a060c43f.",
+          "evidence": "runtime/session/battle_reviews/states/gavi-bugatti-v20-clone2/turn-019-bugatti-rollout-post.state"
+        }
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Birdlaw fainted to a critical Venoshock after two Aerial Aces. The replacement policy must tolerate this verified variance rather than assume Birdlaw survives.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bushtank's final Razor Leaf was interrupted at 1 HP and Ohmnomnom attacked once before fainting; both sacrifices created free replacements and damaged or exposed the Eelektrik finish, with no bounded dominating alternative established.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "All eight switches were matchup entries or forced replacements. Every voluntary entrant acted before leaving; there were zero no-action switch cycles and zero immediate reversals.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "Lildozer defeated Ponyta in two Bulldozes and remained available at 6 HP.",
+      "Fresh-entry Fake Out was used legally and no status-prevented move was selected.",
+      "Croakatoa switched to Birdlaw for Dustox; Birdlaw delivered two super-effective attacks before critical-hit variance forced the corrected fallback.",
+      "No Pokémon was voluntarily switched in, hit, and switched back out without acting."
+    ],
+    "next_test": "Restart qualification at Clone 1 with behavior hash 4d294d8a4eeed854db837092144f8b45cfe7329b05f92e5032a87050a060c43f; verify forced Bugatti after a Birdlaw Dustox faint, no switch spam, and a clean terminal win."
+  }
+}

@@ -5,7 +5,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from games.run_and_bun.trainer_database import DEFAULT_DATABASE, lookup_trainer, stable_trainer_key
+from games.run_and_bun.trainer_database import (
+    DEFAULT_DATABASE,
+    RomImage,
+    is_classified_hard,
+    lookup_trainer,
+    mark_hard_fight,
+    profile_from_npc_script,
+    stable_trainer_key,
+)
 
 
 class TrainerDatabaseTests(unittest.TestCase):
@@ -68,6 +76,35 @@ class TrainerDatabaseTests(unittest.TestCase):
         self.assertTrue(result["found"])
         self.assertFalse(result["trusted"])
         self.assertTrue(result["identity_mismatches"])
+
+    def test_loss_classification_is_durable_and_additive(self):
+        path = Path(self.temporary.name) / "hard-fights.json"
+        key = stable_trainer_key(3, 4, 5)
+        self.assertFalse(is_classified_hard(key, path))
+        mark_hard_fight(key, review_id="loss-1", path=path)
+        mark_hard_fight(key, review_id="loss-2", path=path)
+        self.assertTrue(is_classified_hard(key, path))
+        data = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(data["hard_fights"][key]["first_loss_review_id"], "loss-1")
+
+    def test_rom_npc_decoder_builds_exact_profile_skeleton(self):
+        rom_path = Path(__file__).parents[1] / "runtime/run-bun/Pokemon Run & Bun (v1.07).gba"
+        if not rom_path.is_file():
+            self.skipTest("local Run & Bun ROM fixture is unavailable")
+        profile = profile_from_npc_script(
+            RomImage.from_path(rom_path),
+            script_address=0x082238BB,
+            map_group=0,
+            map_number=21,
+            local_id=4,
+            graphics_id=55,
+        )
+        self.assertEqual(profile["overworld"]["trainer_id"], 340)
+        self.assertEqual(profile["name"], "Dale")
+        self.assertEqual([mon["species_id"] for mon in profile["roster"]], [557, 769, 303, 446])
+        self.assertEqual(profile["roster"][0]["held_item_name"], "Berry Juice")
+        self.assertEqual(profile["roster"][0]["moves"], [450, 350, 282, 564])
+        self.assertFalse(profile["battle"]["roster_complete"])
 
 
 if __name__ == "__main__":

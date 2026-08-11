@@ -28,7 +28,10 @@ LIVE_MAP_HEADER = 0x020368DC
 MAP_HEADER_EVENTS_OFFSET = 0x04
 MAP_EVENTS_OBJECT_COUNT_OFFSET = 0x00
 MAP_EVENTS_OBJECTS_PTR_OFFSET = 0x04
+MAP_EVENTS_BG_COUNT_OFFSET = 0x03
+MAP_EVENTS_BG_PTR_OFFSET = 0x10
 EVENT_TEMPLATE_STRIDE = 0x18
+BG_EVENT_STRIDE = 0x0C
 
 
 def _u16(raw: bytes, offset: int) -> int:
@@ -144,6 +147,34 @@ class LiveEventTarget:
         }
 
 
+@dataclass(frozen=True)
+class LiveBackgroundEvent:
+    """Static map background event, including sign/script identity."""
+
+    slot: int
+    x: int
+    y: int
+    elevation: int
+    kind: int
+    script_address: int
+    map_id: tuple[int, int]
+
+    @property
+    def position(self) -> tuple[int, int]:
+        return self.x, self.y
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "slot": self.slot,
+            "position": self.position,
+            "elevation": self.elevation,
+            "kind": self.kind,
+            "script_address": f"0x{self.script_address:08x}",
+            "map_id": self.map_id,
+            "source": "map_background_event",
+        }
+
+
 def read_live_event_targets(gba: Any, *, map_id: tuple[int, int]) -> list[LiveEventTarget]:
     """Read the active map's object-event templates through the Lua bridge."""
     header = gba.read_range(LIVE_MAP_HEADER, 8)
@@ -180,6 +211,35 @@ def read_live_event_targets(gba: Any, *, map_id: tuple[int, int]) -> list[LiveEv
                 flag_id=_u16(raw, offset + 0x14),
                 current_x=x,
                 current_y=y,
+                map_id=map_id,
+            )
+        )
+    return result
+
+
+def read_live_background_events(gba: Any, *, map_id: tuple[int, int]) -> list[LiveBackgroundEvent]:
+    """Read map sign/background events from the loaded ROM event table."""
+    header = gba.read_range(LIVE_MAP_HEADER, 8)
+    events_ptr = struct.unpack_from("<I", header, MAP_HEADER_EVENTS_OFFSET)[0]
+    if not events_ptr:
+        return []
+    events = gba.read_range(events_ptr, 0x14)
+    count = events[MAP_EVENTS_BG_COUNT_OFFSET]
+    bg_ptr = struct.unpack_from("<I", events, MAP_EVENTS_BG_PTR_OFFSET)[0]
+    if not count or not bg_ptr:
+        return []
+    raw = gba.read_range(bg_ptr, count * BG_EVENT_STRIDE)
+    result: list[LiveBackgroundEvent] = []
+    for slot in range(count):
+        offset = slot * BG_EVENT_STRIDE
+        result.append(
+            LiveBackgroundEvent(
+                slot=slot,
+                x=_u16(raw, offset),
+                y=_u16(raw, offset + 2),
+                elevation=raw[offset + 4],
+                kind=raw[offset + 5],
+                script_address=struct.unpack_from("<I", raw, offset + 8)[0],
                 map_id=map_id,
             )
         )

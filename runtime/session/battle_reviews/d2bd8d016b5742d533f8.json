@@ -1,0 +1,76 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T17:33:14.469964+00:00",
+  "review_id": "d2bd8d016b5742d533f8",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "316df946fab6612cccb04d0be80df19e76aa2412fb8fab0632a66b72326f836b",
+  "behavior_hash": "62d60f36c3f2ed22b5ae1c3e12a611edbcedb0b9e67381ceb074b41b226b1cac",
+  "policy_id": "gavi-hybrid-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 31,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 31,
+    "findings": [
+      {
+        "severity": "critical",
+        "observed_fact": "The authoritative terminal state was a loss.",
+        "next_test": "Require a bounded replay that preserves a healthy Dustox answer before another full clone."
+      },
+      {
+        "severity": "high",
+        "observed_fact": "Croakatoa eventually used fresh-entry Fake Out and Sludge correctly, but only after the team had lost substantial HP and tempo.",
+        "next_test": "Replay only the Eelektrik prefix with reserve-HP constraints and compare the first materially different safe line."
+      },
+      {
+        "severity": "high",
+        "observed_fact": "Dustox applied Infestation in this sequence and Mud Shot did not produce a reliable finish before the endgame collapsed.",
+        "next_test": "Replay the turn-25 prefix once with each materially plausible legal continuation, deduplicated by state/action hash."
+      },
+      {
+        "severity": "high",
+        "observed_fact": "The trace appears to allow a voluntary switch after a volatile trap was recorded, but the exact pre/post identity boundary needs confirmation.",
+        "next_test": "Inspect the saved turn-25 and turn-26 states and prove whether the switch was voluntary, forced, or already queued."
+      },
+      {
+        "severity": "high",
+        "observed_fact": "The automatic review incorrectly treated strategy-vetoed Fake Out and forbidden alternatives as missed or dominated actions.",
+        "next_test": "Keep the veto-aware review regression tests and require forbidden candidates to be excluded from dominance and counterfactual queues."
+      },
+      {
+        "severity": "medium",
+        "observed_fact": "The line spent multiple turns attacking while the intended Croakatoa pivot was unsafe at the observed HP.",
+        "next_test": "Bounded-replay the Bite alternatives only after modeling the incoming damage and switch survival."
+      },
+      {
+        "severity": "medium",
+        "observed_fact": "The fight spent over one third of its actions switching and still reached a forced 6-HP reserve.",
+        "next_test": "Measure switches and reserve HP in the next clone; reject lines that add pivots without preserving a required answer."
+      },
+      {
+        "severity": "low",
+        "observed_fact": "Ohmnomnom's two Spark actions, Lildozer's Bulldoze actions, Croakatoa's fresh Fake Out plus Sludge, and Bugatti's Poison Tail all matched their intended matchup roles.",
+        "next_test": "Protect these opening rules in regression fixtures while changing only the failed transition logic."
+      },
+      {
+        "severity": "info",
+        "observed_fact": "The attempt used 20 move actions, 18 PP decrements, and 11 switches.",
+        "next_test": "Track these metrics on every subsequent clone and retain the safer line when terminal outcome is equal."
+      }
+    ],
+    "correct_choices": [
+      "Ohmnomnom Spark into Bibarel on turns 1-2.",
+      "Lildozer Bulldoze into Ponyta on turns 4-5.",
+      "Croakatoa Fake Out on fresh Eelektrik entry at turn 17 followed by Sludge at turn 18.",
+      "The controller did not send a further live input after the accidental trainer dialogue engagement."
+    ],
+    "next_test": "Fix and test the veto-aware review, prove the Infestation boundary from saved states, then run a new disposable Clone 1 with the revised reserve-preserving policy. Do not engage the live trainer until three clean agent-reviewed clone wins exist."
+  }
+}

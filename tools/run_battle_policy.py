@@ -7,9 +7,9 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
-import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,7 +19,7 @@ from client.mgba_clone import disposable_clone
 from client.mgba_rpc import MGBA
 from games.runbun import RunBunAdapter
 from games.run_and_bun.battle_policy import BattleHistory, BattlePolicy, PolicyError, load_profile, load_strategies
-from games.run_and_bun.battle_review import QualificationLedger, persist_review, review_episode
+from games.run_and_bun.battle_review import REVIEW_STATE_DIR, QualificationLedger, clone_review_gate, live_qualification_gate, persist_review, review_episode
 from games.run_and_bun.capabilities import (
     CapabilityError,
     _battle_certificate,
@@ -32,6 +32,14 @@ from games.run_and_bun.capabilities import (
 def _emit_progress(record: dict) -> None:
     """Emit one machine-readable progress card without buffering."""
     print(json.dumps(record, separators=(",", ":")), flush=True)
+
+
+def _review_progress(review: dict) -> dict:
+    """Keep terminal output small; the complete compact review lives on disk."""
+    return {
+        key: review.get(key)
+        for key in ("review_id", "terminal", "status", "classification", "certified_actions")
+    }
 
 
 def _terminal_from_result(result: dict) -> str | None:
@@ -85,6 +93,105 @@ def _advance(adapter: RunBunAdapter, gba: MGBA) -> tuple[dict, dict] | None:
     return _stable(adapter, gba)
 
 
+def _clone_start_error(observation: dict, trainer_local_id: int | None) -> str | None:
+    if observation.get("battle", {}).get("active") or trainer_local_id is not None:
+        return None
+    return "clone state is outside battle; pass --trainer-local-id for an atomic precontact launch"
+
+
+def _engage_trainer(
+    adapter: RunBunAdapter,
+    local_id: int,
+    trainer_key: str | None,
+    *,
+    require_ready: bool,
+) -> None:
+    """Start a named trainer after the caller's clone/live gates have passed."""
+    match = re.fullmatch(r"map:(\d+):(\d+)/local:(\d+)", trainer_key or "")
+    expected_map = (int(match.group(1)), int(match.group(2))) if match else None
+    if match and int(match.group(3)) != local_id:
+        raise RuntimeError("clone trainer local_id does not match profile trainer_key")
+    result = adapter.follow_live_path_to_npc(
+        local_id=local_id,
+        expected_map=expected_map,
+        interact=True,
+        require_trainer_ready=require_ready,
+        avoid_trainer_sight_lines=False,
+    )
+    if result.get("reason") != "interacted":
+        raise RuntimeError(f"trainer interaction failed: {result.get('reason')}")
+    pages = adapter.advance_dialogue()
+    final = adapter.observe()
+    remaining_frames = 120
+    while not final.get("battle", {}).get("active") and remaining_frames > 0:
+        if final.get("mode") == "dialogue":
+            pages.extend(adapter.advance_dialogue(max_pages=32 - len(pages)))
+        else:
+            adapter.gba.wait_frames(12)
+            remaining_frames -= 12
+        final = adapter.observe()
+    if not final.get("battle", {}).get("active"):
+        raise RuntimeError(json.dumps({
+            "error": "trainer interaction did not start a battle",
+            "interaction_mode": (result.get("state") or {}).get("mode"),
+            "interaction_text": ((result.get("state") or {}).get("text") or {}).get("current"),
+            "pages": pages,
+            "final_mode": final.get("mode"),
+            "final_text": (final.get("text") or {}).get("current"),
+        }, default=str, separators=(",", ":")))
+
+
+def _live_preflight(adapter: RunBunAdapter, plan: dict) -> dict:
+    """Reject a live battle fixture whose map or prepared party is stale."""
+    state = adapter.observe()
+    actual_map = state.get("map") or {}
+    errors: list[str] = []
+    fight_id = str((plan.get("fight") or {}).get("id", ""))
+    match = re.search(r"map:(\d+):(\d+)", fight_id)
+    if match and (actual_map.get("group"), actual_map.get("number")) != (int(match.group(1)), int(match.group(2))):
+        errors.append(f"map mismatch: expected {match.group(1)}:{match.group(2)}, got {actual_map.get('group')}:{actual_map.get('number')}")
+    expected_party = sorted(plan.get("party") or [], key=lambda item: item.get("slot", -1))
+    actual_party = sorted((state.get("party") or {}).get("mons", []), key=lambda item: item.get("slot", -1))
+    if len(expected_party) != len(actual_party):
+        errors.append(f"party count mismatch: expected {len(expected_party)}, got {len(actual_party)}")
+    strict_fields = {
+        "species_id": "species", "personality": "personality", "level": "level",
+        "current_hp": "current_hp", "max_hp": "max_hp", "status": "status",
+        "moves": "moves", "pp": "pp", "held_item_id": "held_item", "ability_num": "ability_num",
+    }
+    if int(plan.get("schema_version", 1)) >= 3:
+        for expected in expected_party:
+            missing = sorted(set(strict_fields) - set(expected))
+            if missing:
+                errors.append(f"party slot {expected.get('slot')} missing strict fields: {','.join(missing)}")
+    for expected, actual in zip(expected_party, actual_party):
+        observed = actual.get("state") or {}
+        for expected_field, observed_field in strict_fields.items():
+            if expected_field not in expected:
+                continue
+            value = observed.get(observed_field)
+            if expected_field in {"moves", "pp"}:
+                value = list(value or [])
+            if value != expected[expected_field]:
+                errors.append(f"party slot {expected.get('slot')} {expected_field} mismatch: expected {expected[expected_field]}, got {value}")
+        if (observed.get("checksum") or {}).get("valid") is False:
+            errors.append(f"party slot {expected.get('slot')} has an invalid encrypted-record checksum")
+    return {
+        "allowed": not errors,
+        "errors": errors,
+        "state_hash": _compact_state_for_preflight(state),
+        "map": actual_map,
+        "party_species": [((mon.get("state") or {}).get("species")) for mon in actual_party],
+    }
+
+
+def _compact_state_for_preflight(state: dict) -> str:
+    """Use the canonical hash without importing the capability module twice."""
+    from games.run_and_bun.capabilities import _compact_state
+
+    return _compact_state(state)["state_hash"]
+
+
 def _run_probe(gba: MGBA, adapter: RunBunAdapter, task: dict) -> dict:
     state_path = task.get("state_path")
     if not state_path or not Path(state_path).is_file():
@@ -124,6 +231,13 @@ def main() -> int:
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--plan", type=Path)
     parser.add_argument("--battle-id")
+    parser.add_argument("--history-battle-id", help="verified prefix source for --regression-run")
+    parser.add_argument("--trainer-local-id", type=int, help="atomically start this precontact trainer after clone/live gates pass")
+    parser.add_argument("--decision-only", action="store_true", help="print one clone policy decision without input or review")
+    parser.add_argument("--review-gate-only", action="store_true", help="record the latest completed clone review without launching a battle")
+    parser.add_argument("--live-preflight-only", action="store_true", help="verify live qualification and RAM without sending battle input")
+    parser.add_argument("--regression-action", help="execute one JSON action in a disposable state without advancing qualification")
+    parser.add_argument("--regression-run", action="store_true", help="run a bounded policy replay from an attached battle state without advancing qualification")
     parser.add_argument("--max-actions", type=int, default=50)
     parser.add_argument("--save-on-stop", type=Path)
     parser.add_argument("--review-state-dir", type=Path)
@@ -131,6 +245,20 @@ def main() -> int:
     args = parser.parse_args()
     if args.live and args.plan is None:
         parser.error("--live requires --plan")
+    if args.live and args.decision_only:
+        parser.error("--decision-only is clone-only")
+    if args.live_preflight_only and not args.live:
+        parser.error("--live-preflight-only requires --live")
+    if args.review_gate_only and (args.live or args.decision_only or args.regression_action or args.regression_run):
+        parser.error("--review-gate-only is a standalone clone review operation")
+    if args.regression_action and (args.live or args.decision_only):
+        parser.error("--regression-action requires --state and cannot combine with --decision-only")
+    if args.regression_run and (args.live or args.decision_only or args.regression_action):
+        parser.error("--regression-run requires --state and cannot combine with another execution mode")
+    if args.history_battle_id and not args.regression_run:
+        parser.error("--history-battle-id is only valid with --regression-run")
+    profile = load_profile(args.profile)
+    strategies = load_strategies()
     if args.live:
         check = subprocess.run(
             [sys.executable, str(ROOT / ".agents/skills/prepare-runbun-hard-fight/scripts/validate_plan.py"), str(args.plan)],
@@ -141,15 +269,35 @@ def main() -> int:
         if check.returncode:
             print(check.stdout, end="")
             return 2
+    elif not args.decision_only and not args.regression_action and not args.regression_run:
+        review_gate = clone_review_gate(trainer_key=profile.get("trainer_key"))
+        if args.review_gate_only:
+            _emit_progress({"terminal": "review_gate_only", "review_gate": review_gate})
+            return 0 if review_gate["allowed"] else 2
+        if not review_gate["allowed"]:
+            _emit_progress({"terminal": "review_gate_blocked", "review_gate": review_gate})
+            return 2
 
-    profile = load_profile(args.profile)
-    strategies = load_strategies()
     history_path = ROOT / "runtime" / "session" / "battle_transactions.jsonl"
-    history = BattleHistory.from_jsonl(history_path, battle_id=args.battle_id) if args.battle_id else BattleHistory()
+    # Each disposable clone is a fresh battle. Reusing the trainer key here
+    # leaks prior clone action counts into the next policy attempt.
+    history_battle_id = args.battle_id
+    if not args.live and history_battle_id and not args.regression_run:
+        history_battle_id = f"{history_battle_id}:attempt:{time.time_ns()}"
+    history_source_id = args.history_battle_id or history_battle_id
+    history = BattleHistory.from_jsonl(history_path, battle_id=history_source_id) if history_source_id else BattleHistory()
     policy = BattlePolicy(profile, strategies=strategies, history=history)
     if args.live:
         plan_data = json.loads(args.plan.read_text(encoding="utf-8"))
         evidence = plan_data.get("evidence", {})
+        qualification_gate = live_qualification_gate(
+            policy.behavior_hash,
+            evidence.get("opening_checkpoint_sha256"),
+            trainer_key=profile.get("trainer_key"),
+        )
+        if not qualification_gate["allowed"]:
+            _emit_progress({"terminal": "live_gate_blocked", "qualification": qualification_gate})
+            return 2
         profile_rel = str(args.profile.resolve().relative_to(ROOT.resolve()))
         if evidence.get("policy_profile") != profile_rel or evidence.get("behavior_hash") != policy.behavior_hash:
             _emit_progress({
@@ -168,12 +316,59 @@ def main() -> int:
     opening_state_hash = None
     review_state_dir = args.review_state_dir
     if review_state_dir is None and not args.live:
-        review_state_dir = ROOT / "runtime" / "session" / "policy-review-states" / str(time.time_ns())
+        review_state_dir = REVIEW_STATE_DIR / str(time.time_ns())
     if review_state_dir:
         review_state_dir.mkdir(parents=True, exist_ok=True)
 
     with session as gba:
-        adapter = RunBunAdapter(gba)
+        adapter = RunBunAdapter(gba, enforce_live_trainer_gate=False)
+        if args.regression_action:
+            try:
+                action = json.loads(args.regression_action)
+                if not isinstance(action, dict):
+                    raise ValueError("action must be a JSON object")
+            except (json.JSONDecodeError, ValueError) as error:
+                parser.error(str(error))
+            result = _run_probe(gba, adapter, {"state_path": str(args.state), "action": action})
+            if args.save_on_stop:
+                gba.save_state(args.save_on_stop.resolve())
+            _emit_progress({"terminal": "regression_replay", **result})
+            return 0 if result["verified"] else 2
+        if not args.live and (error := _clone_start_error(adapter.observe(), args.trainer_local_id)):
+            _emit_progress({"terminal": "invocation_error", "error": error})
+            return 2
+        if not args.live and args.trainer_local_id is not None and not adapter.observe().get("battle", {}).get("active"):
+            _engage_trainer(adapter, args.trainer_local_id, profile.get("trainer_key"), require_ready=False)
+        if args.decision_only:
+            stable = _stable(adapter, gba)
+            if stable is None:
+                raise RuntimeError("decision-only state did not stabilize")
+            observation, _ = stable
+            if observation.get("battle", {}).get("menu", {}).get("state") not in {"command_menu", "move_menu", "party_switch"}:
+                stable = _advance(adapter, gba)
+                if stable is None:
+                    raise RuntimeError("decision-only battle did not reach a legal decision boundary")
+                observation, _ = stable
+            if args.battle_id:
+                history = BattleHistory.from_jsonl(
+                    history_path,
+                    battle_id=args.battle_id,
+                    before_state_hash=_compact_state_for_preflight(observation),
+                )
+                policy = BattlePolicy(profile, strategies=strategies, history=history)
+            certificate = _battle_certificate(adapter, observation)
+            _emit_progress({"certificate": certificate["certificate_id"], "decision": policy.decide(certificate)})
+            return 0
+        if args.live:
+            live_preflight = _live_preflight(adapter, plan_data)
+            if not live_preflight["allowed"]:
+                _emit_progress({"terminal": "live_preflight_blocked", "live_preflight": live_preflight})
+                return 2
+            if args.live_preflight_only:
+                _emit_progress({"terminal": "live_preflight_only", "live_preflight": live_preflight})
+                return 0
+            if args.trainer_local_id is not None and not adapter.observe().get("battle", {}).get("active"):
+                _engage_trainer(adapter, args.trainer_local_id, profile.get("trainer_key"), require_ready=True)
         for turn in range(1, args.max_actions + 1):
             stable = _stable(adapter, gba)
             if stable is None:
@@ -181,6 +376,13 @@ def main() -> int:
                 stop = {"error": "battle did not stabilize after five no-input samples"}
                 break
             observation, compact = stable
+            if args.regression_run and not transitions and args.battle_id:
+                history = BattleHistory.from_jsonl(
+                    history_path,
+                    battle_id=history_source_id,
+                    before_state_hash=compact["state_hash"],
+                )
+                policy = BattlePolicy(profile, strategies=strategies, history=history)
             if opening_state_hash is None:
                 opening_state_hash = (
                     hashlib.sha256(args.state.read_bytes()).hexdigest()
@@ -229,7 +431,7 @@ def main() -> int:
                     "certificate_id": certificate["certificate_id"],
                     "action": action,
                     "policy_decision": decision,
-                    "battle_id": args.battle_id or profile.get("trainer_key"),
+                    "battle_id": history_battle_id or profile.get("trainer_key"),
                     "max_frames": 1800,
                 }, adapter=adapter, persist=True)
                 if pre_state_path:
@@ -273,6 +475,19 @@ def main() -> int:
             terminal_state_path = review_state_dir / "terminal.state"
             gba.save_state(terminal_state_path.resolve())
 
+        if args.regression_run:
+            _emit_progress({
+                "terminal": f"regression_{terminal}",
+                "verified": terminal == "win",
+                "behavior_hash": policy.behavior_hash,
+                "certified_actions": len(action_ids),
+                "action_ids": action_ids,
+                "final_state_hash": _compact_state_for_preflight(final),
+                "save_state": str(args.save_on_stop.resolve()) if args.save_on_stop else None,
+                "stop": stop,
+            })
+            return 0 if terminal == "win" else 2
+
         review = review_episode(
             transitions,
             terminal=terminal,
@@ -292,30 +507,14 @@ def main() -> int:
                 restored = _stable(adapter, gba)
                 if restored is not None:
                     final, _ = restored
-        persist_review(review)
+        review_artifact = persist_review(review)
         qualification = None
         if not args.live:
-            qualification = QualificationLedger().record(review)
-            if not args.no_record_strategies and profile.get("strategy_ids"):
-                handle = tempfile.NamedTemporaryFile(prefix="runbun-review-", suffix=".json", delete=False)
-                review_path = Path(handle.name)
-                handle.close()
-                try:
-                    review_path.write_text(json.dumps(review), encoding="utf-8")
-                    subprocess.run([
-                        sys.executable,
-                        str(ROOT / ".agents/skills/develop-runbun-strategies/scripts/strategy_db.py"),
-                        "record-review",
-                        str(review_path),
-                        *sum((["--strategy-id", item] for item in profile["strategy_ids"]), []),
-                    ], cwd=ROOT, check=True, capture_output=True, text=True)
-                except subprocess.CalledProcessError as error:
-                    stop = {**(stop or {}), "strategy_record_error": error.stderr[-500:]}
-                finally:
-                    review_path.unlink(missing_ok=True)
+            qualification = QualificationLedger(fight_key=profile.get("trainer_key")).record(review)
         _emit_progress({
             "terminal": terminal,
-            "review": review,
+            "review": _review_progress(review),
+            "review_file": str(review_artifact),
             "qualification": qualification,
             "certified_actions": len(action_ids),
             "action_ids": action_ids,

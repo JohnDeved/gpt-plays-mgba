@@ -1,0 +1,224 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T15:27:28.499877+00:00",
+  "review_id": "28ab0431a117f787db70",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "f61cecb076f8df0be0bbd40c45eb31a5b3f765a6a461cd841887a6adb7c2089c",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [],
+  "certified_actions": 35,
+  "status": "needs_improvement",
+  "classification": "terminal_loss",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 35,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The verified line whiteouted on turn 35 after all six roles were exhausted.",
+        "state": "runtime/session/battle_reviews/states/gavi-system-v27-clone2/turn-035.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "97e1e87e22bf1092",
+          "observed": "The corrected suffix reached an authoritative win in 11 verified actions."
+        },
+        "observed_fact": "Authoritative battle text reported whiteout.",
+        "strategic_judgment": "Qualification must reset and the earliest causal divergence must be fixed before retry.",
+        "confidence": "verified",
+        "fix_layer": "battle_policy_review",
+        "turns": [
+          35
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 8a706fed from the identical opening; review before clone 2.",
+        "knowledge_target": "review"
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "At turn 20 every permitted attack was unsafe, yet two anti-switch guards vetoed the only certified-safe return to Ohmnomnom.",
+        "state": "runtime/session/battle_reviews/states/gavi-system-v27-clone2/turn-020.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "97e1e87e22bf1092",
+          "observed": "At turn 20 v29 selected the certified-safe Ohmnomnom return and the suffix won."
+        },
+        "observed_fact": "Bug Bite had survival margin 0 while the Ohmnomnom switch was safe and survived the bounded replay.",
+        "strategic_judgment": "Anti-switch guards must yield only when all permitted actions are unsafe and the return switch is certified safe.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          20
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 8a706fed from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "strategy_conflict",
+        "severity": "high",
+        "summary": "The Gavi Bugatti commit rule forbade every switch even after Bugatti no longer had a safe attack.",
+        "state": "runtime/session/battle_reviews/states/gavi-system-v27-clone2/turn-020.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "97e1e87e22bf1092",
+          "observed": "The Gavi rule now prefers Bug Bite without forbidding the safe exit; the suffix won."
+        },
+        "observed_fact": "The profile vetoed the safe Ohmnomnom switch and forced unsafe Bug Bite.",
+        "strategic_judgment": "A matchup damage plan should prefer its attack, not forbid survival exits beyond its valid window.",
+        "confidence": "verified",
+        "fix_layer": "trainer_profile",
+        "turns": [
+          20
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 8a706fed from the identical opening; review before clone 2.",
+        "knowledge_target": "profile",
+        "matchup_specific_reason": "This rule binds Gavi Sunflora to the prepared Bugatti role and is not a universal Bug Bite rule."
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "Defeated-species history read flattened verified mons as nested state and falsely marked living Sunflora defeated.",
+        "state": "runtime/session/battle_reviews/states/gavi-system-v27-clone2/turn-020.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "97e1e87e22bf1092",
+          "observed": "Flattened mons now normalize correctly; live Sunflora remained absent from defeated_species until actually defeated."
+        },
+        "observed_fact": "History listed species 192 defeated while Sunflora still had 54 HP.",
+        "strategic_judgment": "All verified post mons must pass through the shared battle-state normalizer before reserve release.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          19,
+          20
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 8a706fed from the identical opening; review before clone 2.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer fainted after the prepared two-Bulldoze Ponyta line and priority follow-up.",
+        "action_changing": false,
+        "observed_fact": "Lildozer fainted after the prepared two-Bulldoze Ponyta line and priority follow-up.",
+        "strategic_judgment": "Lildozer fainted after the prepared two-Bulldoze Ponyta line and priority follow-up.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          6
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 8a706fed from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bushtank fainted after four Razor Leafs into Eelektrik; no certified safe pivot dominated preserving the reserved later roles.",
+        "action_changing": false,
+        "observed_fact": "Bushtank fainted after four Razor Leafs into Eelektrik; no certified safe pivot dominated preserving the reserved later roles.",
+        "strategic_judgment": "Bushtank fainted after four Razor Leafs into Eelektrik; no certified safe pivot dominated preserving the reserved later roles.",
+        "confidence": "bounded",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          14
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 8a706fed from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bugatti fainted on the unsafe second Sunflora attack; this was downstream of the turn-20 policy defect.",
+        "action_changing": false,
+        "observed_fact": "Bugatti fainted on the unsafe second Sunflora attack; this was downstream of the turn-20 policy defect.",
+        "strategic_judgment": "Bugatti fainted on the unsafe second Sunflora attack; this was downstream of the turn-20 policy defect.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          21
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 8a706fed from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Ohmnomnom fainted trying to finish Sunflora from 4 HP after Bugatti was lost.",
+        "action_changing": false,
+        "observed_fact": "Ohmnomnom fainted trying to finish Sunflora from 4 HP after Bugatti was lost.",
+        "strategic_judgment": "Ohmnomnom fainted trying to finish Sunflora from 4 HP after Bugatti was lost.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          24
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 8a706fed from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Birdlaw completed two Aerial Aces but fainted to Dustox, leaving only burned Croakatoa after the earlier cascade.",
+        "action_changing": false,
+        "observed_fact": "Birdlaw completed two Aerial Aces but fainted to Dustox, leaving only burned Croakatoa after the earlier cascade.",
+        "strategic_judgment": "Birdlaw completed two Aerial Aces but fainted to Dustox, leaving only burned Croakatoa after the earlier cascade.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          29
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 8a706fed from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Sunflora rolled a critical Sludge Bomb on Bugatti; variance exposed the unsafe policy but was not the earliest cause.",
+        "action_changing": false,
+        "observed_fact": "Sunflora rolled a critical Sludge Bomb on Bugatti; variance exposed the unsafe policy but was not the earliest cause.",
+        "strategic_judgment": "Sunflora rolled a critical Sludge Bomb on Bugatti; variance exposed the unsafe policy but was not the earliest cause.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          21
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 8a706fed from the identical opening; review before clone 2.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The losing line took 35 actions; the corrected suffix reduced the same turn-20 remainder from 16 actions to 11.",
+        "action_changing": false,
+        "observed_fact": "The losing line took 35 actions; the corrected suffix reduced the same turn-20 remainder from 16 actions to 11.",
+        "strategic_judgment": "The losing line took 35 actions; the corrected suffix reduced the same turn-20 remainder from 16 actions to 11.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Reset to clone 1 and run behavior hash 8a706fed from the identical opening; review before clone 2.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "Fresh-entry Fake Out denied Ponyta and Sunflora immediate actions.",
+      "Bushtank remained the prepared Eelektrik answer rather than starting a zero-progress switch loop.",
+      "The bounded correction preserved Bugatti and produced a terminal win."
+    ],
+    "next_test": "Reset to clone 1 and run behavior hash 8a706fed from the identical opening; review before clone 2."
+  }
+}

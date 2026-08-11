@@ -1,0 +1,16 @@
+{
+  "id": "20260809T062000Z-gavi-opening-damage-model",
+  "date": "2026-08-09",
+  "summary": "Live Gavi opening damage fell outside the static Razor Leaf interval",
+  "scope": "battle_model",
+  "state": {
+    "trainer": "map:0:25/local:23",
+    "player": {"species": 388, "move": 75, "hp_before": 57, "hp_after": 29, "pp_before": 25, "pp_after": 24},
+    "opponent": {"species": 400, "hp_before": 56, "hp_after": 24, "pp_before": 10, "pp_after": 9}
+  },
+  "prediction": {"move": "Razor Leaf", "damage_range": [37, 45], "reason": "best modeled two-turn line"},
+  "observed": {"razor_leaf_damage": 32, "super_fang_damage": 28, "opponent_move": 162, "line": "Bibarel remains at 24/56; Grotle remains at 29/57"},
+  "root_cause": "The generic damage model lacks the exact custom trainer stat/roll context for this ROM matchup.",
+  "fix": "Persist exact live samples keyed by attacker/move/defender and prefer them when stage/status context matches; do not claim a forced KO from the static interval.",
+  "battle_status": "battle active; command menu returned; no loss or accidental duplicate input"
+}

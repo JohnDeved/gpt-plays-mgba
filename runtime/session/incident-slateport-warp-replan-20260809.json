@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T193136Z-slateport-center-warp-navigation-exhausted-its-b",
+  "status": "observed",
+  "created_at": "2026-08-09T19:31:36.140776+00:00",
+  "summary": "Slateport Center warp navigation exhausted its bounded replans without changing map or position.",
+  "component": "live_map_warp_navigation",
+  "symptom": "game_travel_warp destination [0,1] targeted source warp (7,8), but adaptive routing exceeded 32 replans from map 9:11 position (10,2).",
+  "classification": "unknown",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/incident-slateport-warp-replan-20260809.state",
+    "sha256": "e9b36bce8d4a72228f54588f70eced86cd30dfc8359f8d0b07af1349c1a1a6c3",
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "The verified source warp should be reached and destination map (0,1) loaded.",
+    "actual": "RAM remained map 9:11 at (10,2), battle inactive, party unchanged; no map transition occurred.",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

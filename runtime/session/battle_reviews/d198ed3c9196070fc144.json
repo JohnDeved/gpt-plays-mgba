@@ -1,0 +1,69 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T19:13:03.149696+00:00",
+  "review_id": "d198ed3c9196070fc144",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "5d3ba87823b47419423f802a0cec667b4a42984aed27aaa2fe332106bd087c32",
+  "behavior_hash": "3bccd9df29bb698080bc01242aef401b2b1918cc5ffecb288cbd30e7dc2b9438",
+  "policy_id": "gavi-coppertop-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 28,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "observed_fact": "The clone whiteouted after Bushtank, Coppertop, Ohmnomnom, Croakatoa, and Birdlaw were lost; Eelektrik remained alive near 30 HP.",
+        "next_test": "Return to PC/Pokécenter preparation and produce a team that preserves a full-health Eelektrik converter before another clone."
+      },
+      {
+        "kind": "preparation_team_failure",
+        "severity": "critical",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786302740309881000/turn-005.state",
+        "resolved": false,
+        "why_bad": "The policy spent ten pivots around Ponyta and still lost Lildozer without creating a safe reserve line.",
+        "improvement": "Reject the current team for this clone and prepare a stronger Ponyta response plus a preserved Eelektrik converter.",
+        "observed_fact": "The opening damage sequence left Lildozer at 25 HP against Ponyta at 35 HP; no legal action safely completed the matchup with this roster state.",
+        "next_test": "Use the attached turn-5 state to verify the revised party/role plan before retrying."
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "observed_fact": "At Coppertop 35 HP versus Eelektrik 54 HP, the line switched to Bushtank at 26 HP; Razor Leaf and then Bite exposed Bushtank to Shock Wave and Mega Drain until it fainted.",
+        "next_test": "Rebuild party order and reserve objectives so Croakatoa or another verified converter reaches Eelektrik at usable HP."
+      },
+      {
+        "kind": "resource_attrition",
+        "severity": "high",
+        "observed_fact": "The line used 15 switches and 13 moves, with six allied faints before terminal loss.",
+        "next_test": "Compare the prepared roster with exact damage bounds and require a finite switch budget before the next clone."
+      },
+      {
+        "kind": "correct_choice",
+        "severity": "info",
+        "observed_fact": "Ohmnomnom used Spark to remove Bibarel; Fake Out then Spark safely finished Ponyta after the forced flinch.",
+        "next_test": "Retain this opening/finisher behavior while changing the preparation plan."
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "observed_fact": "The fight required 28 verified actions and spent substantial time switching before terminal loss.",
+        "next_test": "Measure action count only after the revised team produces a safe win."
+      }
+    ],
+    "correct_choices": [
+      "All 28 action results matched RAM-verified outcomes; no observation or execution mismatch was found.",
+      "Spark removed Bibarel, and Fake Out was used on Ponyta only after Ohmnomnom fresh entry."
+    ],
+    "next_test": "Do not launch another clone with the unchanged party or behavior bundle. Complete PC/Pokécenter preparation for a safe Ponyta response and a preserved Eelektrik converter, then create a revised bounded clone plan."
+  }
+}

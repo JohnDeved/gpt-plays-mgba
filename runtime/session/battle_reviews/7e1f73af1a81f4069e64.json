@@ -1,0 +1,72 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T12:35:50.663151+00:00",
+  "review_id": "7e1f73af1a81f4069e64",
+  "terminal": "win",
+  "source": "live",
+  "opening_state_hash": "6bda67d09d08d3c7",
+  "behavior_hash": "48575e91466ff521446c39c42a85bde6a918812b1c563141df95da626547f71b",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 28,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer was burned and fainted after two executed Bulldozes into Ponyta. The damage enabled Croakatoa to finish safely, but the accepted sacrifice reduced endgame redundancy; no verified alternative dominated it.",
+        "action_changing": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bushtank fainted after four executed Razor Leafs into Eelektrik while absorbing Super Fang, Toxic, and Shock Wave pressure. It completed its counter role and created a free Ohmnomnom entry; no safer verified conversion was available.",
+        "action_changing": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bugatti took a critical Energy Ball on entry, executed two Bug Bites into Sunflora, then fainted to Sludge Bomb. The critical hit was verified variance and Bugatti still made productive progress before leaving.",
+        "action_changing": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Birdlaw executed two Aerial Aces into Dustox but fainted to Venoshock and Infestation before the KO. Ohmnomnom finished Dustox immediately, but this left only two damaged survivors.",
+        "action_changing": false
+      },
+      {
+        "kind": "resilience_margin",
+        "severity": "medium",
+        "summary": "The verified win ended with Ohmnomnom at 15 HP and burned Croakatoa at 14 HP while four teammates were fainted. The line succeeded but retained little protection against worse damage or accuracy variance.",
+        "action_changing": false
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "No switch spam occurred. Every voluntary entrant acted at least twice before leaving; all later replacements followed a verified faint. There was no no-action reversal or consecutive voluntary switch cycle.",
+        "action_changing": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The battle required 28 decisions. Four planned matchup converters fainted, but every selected attack executed and every switch either advanced the matchup or was forced.",
+        "action_changing": false
+      }
+    ],
+    "correct_choices": [
+      "Ohmnomnom opened with two Sparks into Bibarel and later converted two legal fresh-entry Fake Outs without attempting Fake Out from a stale entry.",
+      "Lildozer, Bushtank, Bugatti, and Birdlaw each remained in long enough to act before any later switch, preventing sacrificial no-action cycling.",
+      "The final forced Ohmnomnom entry used Spark immediately and authoritatively defeated Dustox and Camper Gavi."
+    ],
+    "next_test": "Carry the global no-action switch veto into future battles and seek higher-survivor lines when verified alternatives exist; do not replay this completed live fight."
+  }
+}

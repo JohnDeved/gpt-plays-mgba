@@ -1,0 +1,61 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T08:59:14.766101+00:00",
+  "review_id": "932a62c785b4c5f011f3",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "c4d6179c434a5c5442c5a661ebe476db18fc0f962b7ce69150bb918e32b70f73",
+  "behavior_hash": "4ef8a6d6d40964821574ec18d7b5e489aeb82c04acddabf6b6f87f4181670064",
+  "policy_id": "gavi-coppertop-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 28,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "kind": "reserve_misuse",
+        "severity": "high",
+        "summary": "Turns 9-13 left Croakatoa against healing Dustox for four Mud Shots and Vacuum Wave; Dustox fell only from 52 to 42 while Croakatoa fell from 44 to 0 without fulfilling its Sunflora role.",
+        "state": "runtime/session/battle_reviews/states/gavi-coppertop-no-spam-regression2-20260811/turn-009.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "state": "runtime/session/battle_reviews/states/gavi-coppertop-no-spam-regression2-20260811/turn-009-fixed-after-dustox-spark.state", "observed": "Reloaded turn 9 with behavior 43e751d3: Birdlaw entered immediately, dealt 44 verified damage with two Aerial Aces, forced Ohmnomnom entered without a hit, and faster Spark guaranteed and executed the KO. Croakatoa stayed 44/44 and Bushtank stayed 57/57 for Eelektrik."},
+        "root_layer": "generic_tactical_scorer",
+        "why_bad": "A scoring dimension intended only for endangered actions accidentally made any safe weak attack outrank the stronger safe matchup switch.",
+        "improvement": "Pre-KO action priority now applies only when an action is unsafe; safe attacks and safe switches compare their actual matchup progress.",
+        "next_test": "Require the direct Birdlaw-Dustox handoff and preserved Croakatoa in the next full clone."
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "medium",
+        "summary": "The win took 28 actions, including five low-impact Croakatoa actions into Black Sludge recovery; the corrected bounded line removes those turns.",
+        "action_changing": false,
+        "root_layer": "generic_tactical_scorer",
+        "next_test": "Compare action count and Dustox turns in the next clone."
+      },
+      {
+        "kind": "intentional_resource_spend",
+        "severity": "low",
+        "summary": "Bushtank and Coppertop fainted, but both dealt verified Eelektrik damage before forced replacements; these were progress-making sacrifices rather than switch stalls.",
+        "action_changing": false,
+        "root_layer": "trainer_profile",
+        "next_test": "Retain only if the corrected Dustox line still reaches Sunflora with a reliable finisher."
+      }
+    ],
+    "correct_choices": [
+      "The battle was won authoritatively in 28 verified actions.",
+      "Only turns 3 and 17 were voluntary switches; both entered above the verified critical-survival bound and immediately enabled matchup damage.",
+      "Turns 7, 14, 21, and 25 were forced replacements after verified faints, not switch spam.",
+      "Lildozer used priority Ice Shard before its intentional faint, and Birdlaw used Quick Attack to finish 2-HP Eelektrik before removing Sunflora with two Aerial Aces.",
+      "No immediate reversal, consecutive voluntary switch, unsafe voluntary switch, hidden extra input, or execution mismatch occurred."
+    ],
+    "next_test": "Run clone 1 again with unchanged behavior 43e751d3; qualification remains zero because this reviewed win contained a confirmed high-severity suboptimal line."
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260808T233215Z-trainer-dialogue-a-no-op",
+  "status": "observed",
+  "created_at": "2026-08-08T23:32:15.462695+00:00",
+  "summary": "trainer dialogue A no-op",
+  "component": "dialogue input boundary",
+  "symptom": "A press acknowledged by bridge but completed trainer dialogue page did not advance or start battle",
+  "classification": "timing_protocol",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/route109-trainer-dialogue-live-20260809.ss",
+    "sha256": "811c0f527c8d3e2bcb81309faba365e5f58f9c3157714626a28906910e2f1364",
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "one A on stable trainer local 7 page should advance the script toward the prepared double battle",
+    "actual": "bridge action completed, but map, mode, field mode, text page, and battle-active state remained unchanged",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

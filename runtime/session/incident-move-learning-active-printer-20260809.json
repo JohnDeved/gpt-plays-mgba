@@ -1,0 +1,24 @@
+{
+  "id": "20260809T060000Z-move-learning-active-printer",
+  "date": "2026-08-09",
+  "summary": "Move-learning decoder exposed stale current text while the active printer showed the live page",
+  "scope": "tooling_interface",
+  "symptom": "During Snarl/Bulldoze acknowledgement, text.current retained a partial or older page while an active field printer and screenshot showed the current selector or learned page. Generic current-text gating would have pressed at the wrong boundary.",
+  "authoritative_evidence": {
+    "live_map": [9, 11, 7, 8],
+    "party_species": 551,
+    "verified_replacements": [
+      {"from": 43, "to": 555, "slot": 0},
+      {"from": 644, "to": 523, "slot": 1}
+    ],
+    "active_printer_pages": ["Which move should be forgotten?", "Sandile learned\\nSnarl!", "Sandile learned\\nBulldoze!"],
+    "final_state": {"level": 17, "moves": [555, 523, 317, 44], "field_mode": 0, "mode": "overworld"}
+  },
+  "root_cause": "The decoder preserves multiple text printers for forensics, but text.current is not guaranteed to identify the active field printer after a page transition.",
+  "fix": "Gate move-learning A presses on page text belonging to active window-5/6 printers; use the current text only as a fallback. Treat the mode-33 forget question as a separate acknowledgement before directional selection, and use B-only cleanup after the party move tuple changes.",
+  "regression": {
+    "command": "python3 -m unittest discover -s tests -q",
+    "result": "96 tests passed",
+    "synthetic_active_page_check": "stale Use-on-current text did not override active learned page"
+  }
+}

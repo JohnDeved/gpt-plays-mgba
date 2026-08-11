@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T211501Z-granite-cave-warp-path-exhausted-replans",
+  "status": "observed",
+  "created_at": "2026-08-09T21:15:01.083192+00:00",
+  "summary": "Granite Cave warp path exhausted replans",
+  "component": "games/runbun.py:follow_live_path_adaptive/_travel_warp",
+  "symptom": "The Granite Cave warp request exhausted 32 replans at Route 106 x66,y19 without reaching the warp; only emulator frame/time changed",
+  "classification": "timing_protocol",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/auto-forward-latest.state",
+    "sha256": "5b3076787601a2fa3a18da4b421a52f71d6a57385b693ac9b05676b65aa5c84c",
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "The warp path reaches the RAM-listed warp or fails before mutating the live position",
+    "actual": "The request timed out after waits and left the same map and coordinates with a changed canonical frame hash",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

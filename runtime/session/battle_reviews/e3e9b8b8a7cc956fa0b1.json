@@ -1,0 +1,59 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T12:26:40.401875+00:00",
+  "review_id": "e3e9b8b8a7cc956fa0b1",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "48575e91466ff521446c39c42a85bde6a918812b1c563141df95da626547f71b",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 23,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 23,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bushtank fainted only after five Razor Leaf selections into Eelektrik, four of which executed; its last interrupted attack created a free Ohmnomnom entry.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bugatti used three Bug Bites into Sunflora before fainting to Energy Ball. Ohmnomnom then converted the forced entry into legal Fake Out and completed the matchup transition.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "All six switches were direct matchup entries or forced replacements. Every voluntary entrant acted before leaving; no reversal followed a no-action entry and no consecutive switch stall occurred.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The fight used 23 decisions and 16 executed attacks. One selected Bushtank attack was interrupted by its faint, but no verified alternative dominated the reserve-preserving sacrifice.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "Lildozer defeated Ponyta in two Bulldozes and survived at 8 HP before switching once to the Eelektrik counter.",
+      "Ohmnomnom used fresh Fake Out and Spark against Eelektrik, then later used another legal fresh Fake Out after Bugatti's productive Sunflora damage.",
+      "Birdlaw entered against Dustox only after Ohmnomnom acted, then stayed in through the terminal KO.",
+      "The authoritative terminal state verified victory with Ohmnomnom 13 HP, Croakatoa 46 HP, Lildozer 8 HP, and Birdlaw 8 HP."
+    ],
+    "next_test": "Record this reviewed win as qualification streak 3 for the unchanged opening and behavior hashes, then validate the live gate before any live input."
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T09:35:37.649863+00:00",
+  "review_id": "477271db78aad1aaa87b",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "c4d6179c434a5c5442c5a661ebe476db18fc0f962b7ce69150bb918e32b70f73",
+  "behavior_hash": "a614d987ef10e112549208e09876eda3077ecfdcb9d41d968bbd0a747d243837",
+  "policy_id": "gavi-coppertop-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [],
+  "certified_actions": 29,
+  "status": "needs_improvement",
+  "classification": "preparation_team_failure",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 29,
+    "findings": [
+      {
+        "kind": "preparation_team_failure",
+        "severity": "critical",
+        "summary": "A high Energy Ball roll fainted Ohmnomnom after one Metal Claw; the Cufant party then suffered five status-prevented turns and all six members fainted before Eelektrik.",
+        "state": "runtime/session/battle_reviews/states/gavi-no-switch-spam-revised-clone1-20260811/turn-015.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "state": "runtime/session/dewford-center-gavi-bugatti-team-ready-forward-20260811.state",
+          "observed": "Current forward RAM now contains full-health Bugatti instead of Cufant. Bugatti outspeeds Sunflora, resists Grass and Poison attacks, carries super-effective Poison Tail plus Protect, and the strategy ledger contains two authoritative 23-action Gavi wins for this pairing."
+        },
+        "root_layer": "hard_fight_preparation",
+        "why_bad": "Cufant did not provide a reliable answer to GrassWhistle and consumed the resources needed for Eelektrik.",
+        "improvement": "Retire the historical Cufant opening and qualify only the current Bugatti team from a new forward checkpoint.",
+        "next_test": "Create a new precontact checkpoint from the verified Bugatti party and restart qualification at clone 1."
+      },
+      {
+        "kind": "suboptimal_action",
+        "severity": "high",
+        "summary": "The Sunflora line relayed status from forced Bushtank to Coppertop and back, producing attacks only after multiple sleep-prevented turns.",
+        "state": "runtime/session/battle_reviews/states/gavi-no-switch-spam-revised-clone1-20260811/turn-017.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "state": "runtime/session/dewford-center-gavi-bugatti-team-ready-forward-20260811.state",
+          "observed": "The current profile now forces Bugatti after the Sunflora handoff and commits Poison Tail without another switch; the passive Bushtank-Cufant pairing is absent from the prepared party."
+        },
+        "root_layer": "trainer_profile",
+        "why_bad": "Safe-switch scoring could not solve repeated sleep when neither replacement was a true matchup counter.",
+        "improvement": "Bind the proven Bugatti role as the dedicated Sunflora finisher and forbid voluntary switching while it attacks.",
+        "next_test": "Reject any clone where Bugatti enters Sunflora and leaves without first producing damage."
+      },
+      {
+        "kind": "fake_out_policy",
+        "severity": "medium",
+        "summary": "The reusable strategy vetoed Croakatoa Fake Out even on a fresh forced entry, discarding a legitimate free flinch.",
+        "action_changing": false,
+        "root_layer": "reusable_executable_strategy",
+        "improvement": "The veto now applies only when fresh_entry is false; a regression confirms fresh Fake Out remains legal and stale Fake Out is vetoed.",
+        "next_test": "Use Fake Out only when the reconstructed transaction history proves a fresh entry."
+      },
+      {
+        "kind": "intentional_resource_spend",
+        "severity": "medium",
+        "summary": "Lildozer and Birdlaw fainted after making verified Ponyta and Dustox progress; later losses were caused by the failed Sunflora preparation rather than those sacrifices.",
+        "action_changing": false,
+        "root_layer": "trainer_profile",
+        "next_test": "Retain the early line only if Bugatti reaches Sunflora healthy."
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The loss consumed 29 actions, including five status-prevented actions; the Bugatti line should remove that stall.",
+        "action_changing": false,
+        "root_layer": "hard_fight_preparation",
+        "next_test": "Compare status-prevented actions and total switches in the first Bugatti clone."
+      }
+    ],
+    "correct_choices": [
+      "Actions 1-13 made verified direct progress through Bibarel, Ponyta, and Dustox without a switch reversal.",
+      "Turns 7, 12, 15, 21, and 25 were forced replacements after faints; they were not voluntary switch spam.",
+      "The terminal whiteout was detected authoritatively even though the game auto-healed the party afterward."
+    ],
+    "next_test": "The loss resets qualification to clone 1. Build the new Route 110 Bugatti opening and do not enter the live fight."
+  }
+}

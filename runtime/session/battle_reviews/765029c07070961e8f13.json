@@ -1,0 +1,73 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T12:07:12.327669+00:00",
+  "review_id": "765029c07070961e8f13",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "47dc4d1933206238cefcdb92e700ac86bd74cf8a412c673ec42550b155d04241",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 28,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer fainted only after entering for Ponyta and executing Bulldoze twice plus Ice Shard; the later Croakatoa entry finished the 2-HP target safely. No no-action pivot occurred.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bushtank fainted to poison after three Razor Leafs into Eelektrik. It completed its assigned damage role before the forced replacement; no verified alternative lexicographically dominates preserving Croakatoa for later.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Bugatti attacked Sunflora twice and then fainted to a critical Sludge Bomb. The critical hit caused the loss of Bugatti; it was not switch churn or a deterministic policy error.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Birdlaw attacked Dustox twice before fainting to Venoshock; forced Ohmnomnom then finished. This was productive damage, not a switch-in-and-out cycle.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "All eight switches were matchup entries or forced replacements. Every voluntary entrant acted before leaving; there were zero immediate reversals, consecutive no-action switches, or status-prevented moves.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The battle required 28 decisions. No shorter line was verified to improve survival, win reliability, or strategic preservation.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "Every voluntary switch-in produced at least one move before leaving; the observed switch spam defect did not recur.",
+      "Fake Out was used only on fresh entry and each use produced a free hit.",
+      "No move was selected while deterministically asleep or frozen.",
+      "The authoritative terminal state verified victory with Ohmnomnom at 5 HP and Croakatoa at 42 HP."
+    ],
+    "next_test": "Run unchanged-bundle Clone 2 from the identical opening; repeat the no-action-switch, immediate-reversal, fresh-only Fake Out, and deterministic-status audits."
+  }
+}

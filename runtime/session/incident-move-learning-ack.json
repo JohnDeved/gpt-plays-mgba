@@ -1,0 +1,23 @@
+{
+  "id": "20260809T045000Z-move-learning-ack-stall",
+  "date": "2026-08-09",
+  "summary": "Endless Candy move replacement stalled after selecting the forget slot",
+  "scope": "tooling_interface",
+  "symptom": "Sandile's move-learning resolver selected Torment for deletion, then waited for the party tuple while the ROM was waiting for A acknowledgements on the Poof/forgot/And/learned message pages. The resolver timed out and reported move_learning_party_ack_missing even though the UI was progressing correctly.",
+  "authoritative_evidence": {
+    "map": [3, 1, 7, 4],
+    "species": 551,
+    "old_moves": [43, 644, 259, 44],
+    "new_moves": [43, 644, 317, 44],
+    "verified_text": ["Sandile forgot how to use Torment.", "Sandile learned Rock Tomb!"],
+    "postcondition": "field target layer closed, party full HP, battle inactive"
+  },
+  "root_cause": "The resolver treated the party tuple as the only acknowledgement boundary and did not advance the queued field-message pages. Its generic cleanup then risked pressing A on Use on which Pokemon and consuming a second Candy.",
+  "fix": "Advance only RAM-verified move-learning dialogue pages until the requested move tuple changes; stop at the reusable target prompt and close that layer with B. Add a guard against target-prompt A presses.",
+  "regression": {
+    "command": "python3 -m unittest discover -s tests -q",
+    "result": "96 tests passed",
+    "live_replay": "The live Sandile sequence completed with exactly one Rock Tomb replacement and no second Candy use."
+  },
+  "recovery": "No savestate load was needed; the live state was corrected by one-page RAM-gated inputs. A verified forward checkpoint was saved after the correction."
+}

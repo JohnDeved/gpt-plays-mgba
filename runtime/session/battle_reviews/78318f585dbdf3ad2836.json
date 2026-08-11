@@ -1,0 +1,65 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-09T18:15:13.011549+00:00",
+  "review_id": "78318f585dbdf3ad2836",
+  "terminal": "step_mismatch",
+  "source": "cartridge_clone",
+  "opening_state_hash": "31ecbc151bf257b3927071ac14a62f944f229c43ae55966a0207db66d5e72ba4",
+  "behavior_hash": "f5a73cddfb89026796f04cad4441b467f06b6cba3dbf04ebffab1309f9d1ca00",
+  "policy_id": "gavi-hybrid-v1",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 14,
+  "status": "needs_improvement",
+  "classification": "unresolved",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 14,
+    "findings": [
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "Infestation history stored the pre-switch Bugatti identity and the switch guard then rejected a later action at the wrong active identity.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786299288632531000/turn-014.state",
+        "action_id": null,
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Attached turn-014 replay after the history fix: Infestation was attributed to active Ohmnomnom, voluntary switches were vetoed for that identity, and the policy selected Spark; battle_step verified execution with no discrepancy."
+        },
+        "observed_fact": "The repair replay switched Bugatti out for Ohmnomnom, but the history snapshot retained personality:2609223149 as trapped while Ohmnomnom was active; the next switch failed at the command menu."
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "The repair replay entered a Dustox branch with Lildozer at 6 HP and then oscillated between Birdlaw and Bugatti without a verified damage line.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/1786299288632531000/turn-009.state",
+        "action_id": null,
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Attached turn-009 replay after the reserve-score fix: Birdlaw selected Aerial Ace against Dustox and battle_step verified execution; the erroneous Birdlaw/Bugatti switch oscillation was removed."
+        },
+        "observed_fact": "The hidden AI branch left Ponyta alive after the second Bulldoze; the policy then spent eight switches before the tooling mismatch stopped the replay."
+      },
+      {
+        "kind": "switch_tempo_observation",
+        "severity": "medium",
+        "summary": "Eight switches occurred in 14 certified actions before the tooling stop.",
+        "action_changing": false,
+        "resolved": true
+      }
+    ],
+    "correct_choices": [
+      "Spark opening and both early Bulldozes were verified legal and executed.",
+      "The replay stopped at the first tooling mismatch rather than continuing on stale trap state.",
+      "No live input was sent."
+    ],
+    "next_test": "Run the next normal isolated clone with a fresh attempt history. Any terminal loss, unresolved finding, or new tooling mismatch resets the qualification streak and requires another complete review."
+  }
+}

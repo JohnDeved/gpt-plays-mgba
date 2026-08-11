@@ -1,0 +1,66 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T12:25:21.769210+00:00",
+  "review_id": "4da8c234a8c8fa2d08ff",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "48575e91466ff521446c39c42a85bde6a918812b1c563141df95da626547f71b",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 23,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 23,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer fainted after two Bulldozes and Ice Shard into Ponyta; it made progress on every turn and enabled the forced priority finish.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bushtank fainted after three Razor Leafs into Eelektrik, creating a free Ohmnomnom entry while preserving the terminal reserves.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Ohmnomnom used fresh Fake Out plus Spark and Metal Claw before fainting to Mega Drain; Croakatoa then finished Eelektrik without taking damage.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "switch_audit",
+        "severity": "low",
+        "summary": "All six switches were forced replacements or direct matchup entries. Every voluntary entrant attacked before any later switch; there were zero reversals, no-action pivots, or switch stalls.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The battle used 23 decisions and 17 attacks, improving on Clone 1 without sacrificing terminal reliability.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "Fresh-entry Fake Out was used only once in this branch and executed successfully.",
+      "Croakatoa entered only after Ohmnomnom fainted, used priority Vacuum Wave to finish Eelektrik, and remained untouched.",
+      "Birdlaw switched into Dustox once, then stayed in for four consecutive Aerial Aces across Dustox and Sunflora.",
+      "The authoritative terminal state verified victory with Croakatoa 46 HP, Bugatti 41 HP, and Birdlaw 16 HP."
+    ],
+    "next_test": "Run unchanged-bundle Clone 3 from the identical opening; repeat all switch, status, Fake Out, incapacitated-entry, resource, and terminal audits."
+  }
+}

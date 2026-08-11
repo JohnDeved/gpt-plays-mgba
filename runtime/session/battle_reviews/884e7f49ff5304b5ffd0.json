@@ -1,0 +1,53 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T11:24:35.245441+00:00",
+  "review_id": "884e7f49ff5304b5ffd0",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+  "behavior_hash": "e08a21907041a6e4a631a533b21fc6efc44214e97e8eb6a134538c2b84ab5669",
+  "policy_id": "gavi-bushtank-bugatti-v5",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 27,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 27,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Five Pokémon fainted, but each loss was strategically productive: Lildozer and Croakatoa chipped priority targets, Bushtank enabled a free Ohmnomnom finish, Ohmnomnom dealt 22 to Sunflora, and Bugatti protected Birdlaw's entry.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "observation_gap",
+        "severity": "medium",
+        "summary": "Static move safety still does not price Leech Seed drain across locked Rollout turns; the Gavi profile and cartridge replay cover this matchup, but the generic oracle should eventually expose residual volatile damage.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "The clean win used 27 decisions; shortening it is lower priority than preserving its reliable forced-entry sequence.",
+        "action_changing": false,
+        "resolved": false
+      }
+    ],
+    "correct_choices": [
+      "The only voluntary switch was Ohmnomnom to Lildozer; Lildozer then acted for three consecutive turns.",
+      "All five later switches were authoritative forced replacements after a faint.",
+      "No Pokémon switched in and switched back out without executing a move.",
+      "Fresh Fake Out was used once and Vacuum Wave finished Ponyta.",
+      "Bugatti stayed against Dustox, and Birdlaw entered at full HP before three uninterrupted Aerial Aces won."
+    ],
+    "next_test": "Run unchanged v15 Clone 2 from the identical opening and require the same no-switch-spam invariant plus a terminal reviewed win."
+  }
+}

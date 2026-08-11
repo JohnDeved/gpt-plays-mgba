@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260809T212830Z-route-106-adaptive-transition-stalled",
+  "status": "observed",
+  "created_at": "2026-08-09T21:28:30.854279+00:00",
+  "summary": "Route 106 adaptive transition stalled",
+  "component": "games/runbun.py adaptive route planner",
+  "symptom": "game_travel_transition exceeded 32 replans at (52,19) while targeting the south Dewford transition",
+  "classification": "missing_capability",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/route106-navigation-failure-forward-20260809.state",
+    "sha256": "ea730231956a32a1ad0bd263e8109ad1b5c83f07dc622f82eda5ba1d9a5ee91f",
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "Planner reaches the selected south connection and verifies map 0:11",
+    "actual": "Planner stopped after partial movement at map 0:21 (52,19) with TRANSIENT_FAILURE",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

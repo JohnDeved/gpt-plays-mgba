@@ -1,0 +1,88 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T10:30:38.807208+00:00",
+  "review_id": "e0228e9aae312830f4f6",
+  "terminal": "policy_gap",
+  "source": "cartridge_clone",
+  "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+  "behavior_hash": "74a90bec6aebd825eb9502aab8051de9a9c83696e5daf41824ad1724832eb599",
+  "policy_id": "gavi-bushtank-bugatti-v3",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "status-immune-converter-preserved-finisher"
+  ],
+  "certified_actions": 10,
+  "status": "needs_improvement",
+  "classification": "policy_gap",
+  "agent_review": {
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 10,
+    "findings": [
+      {
+        "kind": "avoidable_resource_switch",
+        "severity": "critical",
+        "summary": "Lildozer switched full-health Ohmnomnom into Ponyta instead of using priority Ice Shard before its expected faint.",
+        "state": "runtime/session/battle_reviews/states/gavi-bushtank-bugatti-v3-clone1/turn-006.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Decision-only replay of turn-006 with the corrected profile selects priority Ice Shard and vetoes every switch, preserving Ohmnomnom at 50/50.",
+          "behavior_hash": "b285d2b84a2512baf0c68de177c0a60bb806f03cefd65844862ec5e8bbd68433"
+        },
+        "observed_fact": "Double Kick reduced Ohmnomnom from 50 to 22 on entry; Iron Barbs and Spark finished Ponyta, but the reserved Eelektrik answer lost 28 HP."
+      },
+      {
+        "kind": "counter_entered_damaged",
+        "severity": "high",
+        "summary": "Ohmnomnom began Eelektrik at 22 HP, so Super Fang and two resisted Shock Waves removed it after only Nuzzle and two Metal Claws.",
+        "state": "runtime/session/battle_reviews/states/gavi-bushtank-bugatti-v3-clone1/turn-010.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The earliest causal turn-006 replay now preserves full-health Ohmnomnom; the damaged turn-010 branch belongs to the retired behavior and will not be retried.",
+          "behavior_hash": "b285d2b84a2512baf0c68de177c0a60bb806f03cefd65844862ec5e8bbd68433"
+        },
+        "observed_fact": "Eelektrik remained at 33/54 when Ohmnomnom fainted; the profile then had no permitted forced replacement."
+      },
+      {
+        "kind": "forced_replacement_policy_gap",
+        "severity": "high",
+        "summary": "The profile forbade every forced replacement after Ohmnomnom fainted, so the runner stopped safely instead of starting another death relay.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The after-Nuzzle rule now requires forced_switch=false, so it cannot veto legal forced replacements. The unchanged all-veto behavior is retired.",
+          "behavior_hash": "b285d2b84a2512baf0c68de177c0a60bb806f03cefd65844862ec5e8bbd68433"
+        },
+        "observed_fact": "Bushtank 9, Lildozer 10, Birdlaw 46, Bugatti 41, and Croakatoa 46 were legal in RAM, but profile vetoes covered all candidates."
+      },
+      {
+        "kind": "automatic_review_false_positive",
+        "severity": "medium",
+        "summary": "The automatic review flagged missing fresh-entry Fake Out on Ponyta, but Spark was a verified guaranteed KO and allowed no enemy reply.",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "Spark dealt the remaining 13 HP and immediately triggered Eelektrik's send-out; Fake Out was not required for safety."
+      },
+      {
+        "kind": "tempo",
+        "severity": "low",
+        "summary": "The attempt used ten actions and only two voluntary switches; there was no repeated no-action switching.",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "Bushtank-to-Lildozer was productive; Lildozer-to-Ohmnomnom was the single bad switch."
+      }
+    ],
+    "correct_choices": [
+      "Bushtank removed Bibarel with two Razor Leafs and preserved Ohmnomnom through the opening.",
+      "Lildozer used two verified Bulldozes into Ponyta before the faulty switch decision.",
+      "Nuzzle and Metal Claw executed exactly as predicted with no observation or input mismatch.",
+      "The runner stopped at the all-vetoed forced menu rather than feeding Birdlaw and Bugatti into Eelektrik."
+    ],
+    "next_test": "At the attached turn-006 state, expand the priority-sacrifice rule to the observed 25-HP Ponyta branch. Verify Ice Shard, then restart Clone 1 with full-health Ohmnomnom reserved for Eelektrik."
+  }
+}

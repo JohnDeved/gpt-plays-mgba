@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
-"""Run the persisted Gavi policy in one bounded clone or validated live battle."""
+"""Run the retired Gavi policy as a bounded disposable-clone regression oracle."""
 
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
-import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from client.mgba_clone import disposable_clone
-from client.mgba_rpc import MGBA
 from games.runbun import RunBunAdapter
 from games.run_and_bun.capabilities import (
     CapabilityError,
@@ -27,29 +25,13 @@ from games.run_and_bun.gavi_policy import GaviPolicy
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--state", type=Path)
-    mode.add_argument("--live", action="store_true")
-    parser.add_argument("--plan", type=Path)
+    parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--max-actions", type=int, default=40)
     parser.add_argument("--save-on-stop", type=Path)
     args = parser.parse_args()
-    if args.live:
-        if args.plan is None:
-            parser.error("--live requires --plan")
-        check = subprocess.run(
-            [sys.executable, str(ROOT / ".agents/skills/prepare-runbun-hard-fight/scripts/validate_plan.py"), str(args.plan)],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-        )
-        if check.returncode:
-            print(check.stdout, end="")
-            return 2
 
-    session = MGBA(timeout=15) if args.live else disposable_clone(args.state)
-    with session as gba:
-        adapter, policy, action_ids, stop = RunBunAdapter(gba), GaviPolicy(), [], None
+    with disposable_clone(args.state) as gba:
+        adapter, policy, action_ids, stop = RunBunAdapter(gba, enforce_live_trainer_gate=False), GaviPolicy(), [], None
         for turn in range(1, args.max_actions + 1):
             for _ in range(5):
                 try:
@@ -92,7 +74,7 @@ def main() -> int:
             result = _battle_step(
                 {"state_hash": compact["state_hash"], "certificate_id": certificate["certificate_id"], "action": action, "max_frames": 1800},
                 adapter=adapter,
-                persist=args.live,
+                persist=False,
             )
             if not result["verified"]:
                 terminal = "step_mismatch"

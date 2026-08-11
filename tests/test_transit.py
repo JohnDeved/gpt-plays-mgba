@@ -1,7 +1,7 @@
 import struct
 import unittest
 
-from games.run_and_bun.transit import is_transit_text, script_transit_texts
+from games.run_and_bun.transit import is_transit_text, script_texts, script_transit_texts
 
 
 class TransitTests(unittest.TestCase):
@@ -31,6 +31,15 @@ class TransitTests(unittest.TestCase):
             script_transit_texts(ROM(), 0x08001000, scan_bytes=8),
             ["Anchors aweigh"],
         )
+
+    def test_script_scan_accepts_direct_background_text(self):
+        class ROM:
+            def read_range(self, address, length):
+                if address == 0x08001000:
+                    return b"\xce\xe3\xe8\x00\xd5\x00\xda\xd9\xe6\xe6\xed\xff" + bytes(length - 12)
+                raise AssertionError(hex(address))
+
+        self.assertEqual(script_texts(ROM(), 0x08001000), ["Tot a ferry"])
 
 
 if __name__ == "__main__":

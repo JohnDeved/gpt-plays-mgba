@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260811T090500Z-certified-battle-step-prediction-mismatch",
+  "status": "observed",
+  "created_at": "2026-08-11T09:05:00.363173+00:00",
+  "summary": "Certified battle step prediction mismatch",
+  "component": "certified battle interface",
+  "symptom": "selected move PP delta was missing, expected exactly one",
+  "classification": "prediction_model",
+  "severity": "high",
+  "live_state": {
+    "required": false,
+    "preserved": false,
+    "artifact": null,
+    "sha256": null,
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "One legal action reaches a changed stable battle boundary: {'kind': 'move', 'slot': 0, 'move_id': 44, 'pp': 25}",
+    "actual": "{\"allied_action_outcome\": \"executed\", \"allied_pp_deltas\": [], \"enemy_move_id\": 320, \"opponent_pp_deltas\": [{\"battler\": 1, \"delta\": 1, \"move_id\": 320, \"slot\": 3}], \"resolution\": {\"feedback\": \"Bushtank\\nfell asleep!\\nBushtank is fast\\nasleep.\\n<0xA0>                     What will\\nBushtank do?\", \"frames\": 192, \"presses\": 3, \"state\": \"command_menu\"}}",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

@@ -67,6 +67,28 @@ GRASS_METATILE_IDS = frozenset(
     }
 )
 
+# Run & Bun v1.07 uses the same exterior Pokémon Center doorway/sign pair on
+# the overworld maps observed so far. Keep this as a cartridge signature and
+# require the adjacent sign before a warp can be called a Center entrance.
+POKECENTER_DOOR_METATILE = 0x061
+POKECENTER_SIGN_METATILE = 0x062
+
+
+def classify_building_sign(texts: list[str] | tuple[str, ...]) -> str | None:
+    """Classify a building from decoded sign text; return None when unknown."""
+    normalized = [
+        " ".join(text.casefold().replace("<1b>", "e").split())
+        for text in texts
+    ]
+    joined = " | ".join(normalized)
+    if "pokemon center" in joined or "pokémon center" in joined:
+        return "pokecenter"
+    if "pokemon mart" in joined or "pokémart" in joined or "pokemart" in joined:
+        return "pokemart"
+    if "pokemon gym" in joined or "pokémon gym" in joined:
+        return "gym"
+    return None
+
 
 @dataclass(frozen=True)
 class LiveMap:
@@ -305,6 +327,43 @@ class LiveWarp:
             "map_group": self.map_group,
             "destination": self.destination,
         }
+
+
+def detect_pokecenter_entrances(
+    live: LiveMap,
+    warps: list[LiveWarp],
+) -> list[dict[str, Any]]:
+    """Find legacy Center-shaped entrances using the adjacent sign tile."""
+    return [
+        entrance for entrance in detect_building_entrances(live, warps)
+        if entrance["door_metatile_id"] == POKECENTER_DOOR_METATILE
+    ]
+
+
+def detect_building_entrances(
+    live: LiveMap,
+    warps: list[LiveWarp],
+) -> list[dict[str, Any]]:
+    """Find door warps whose right-hand tile is the cartridge sign tile."""
+    entrances: list[dict[str, Any]] = []
+    for warp in warps:
+        door = live.metatile_id(warp.x, warp.y)
+        sign_position = (warp.x + 1, warp.y)
+        try:
+            sign = live.metatile_id(*sign_position)
+        except ValueError:
+            continue
+        if sign != POKECENTER_SIGN_METATILE:
+            continue
+        entrances.append({
+            "warp": warp.as_dict(),
+            "door_position": [warp.x, warp.y],
+            "sign_position": list(sign_position),
+            "door_metatile_id": door,
+            "sign_metatile_id": sign,
+            "signature": "building-exterior-door-plus-right-sign-v1",
+        })
+    return entrances
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "id": "20260809T010000Z-route-110-gavi-eelektrik-loss4",
+  "status": "observed",
+  "created_at": "2026-08-09T01:00:00+00:00",
+  "summary": "Route 110 Camper Gavi revision-3 plan failed in the Eelektrik phase",
+  "component": "battle strategy and damage model",
+  "symptom": "The deliberate revision-3 retry exhausted all six party members while Camper Gavi's Eelektrik remained alive at 25/54 HP.",
+  "classification": "prediction_model",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/route110-gavi-loss4-healed-forward-20260809.ss",
+    "sha256": "1156accea26e3a54ab7a32de86eb2c901354435d6704ff19daf0561aef8b62d0",
+    "canonical_state": {
+      "state_hash": "078e95499b32de32",
+      "map": [0, 1, 19, 20],
+      "mode": "overworld",
+      "battle_active": false,
+      "party_hp": [
+        [388, 57, 57],
+        [397, 46, 46],
+        [543, 41, 41],
+        [95, 44, 44],
+        [231, 58, 58],
+        [878, 56, 56]
+      ]
+    },
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "Revision 3 was marked ready and expected to preserve enough Eelektrik-phase resources to reach Sunflora/Dustox.",
+    "actual": "Cufant entered Eelektrik at 56/56 and fell to 3; Staravia, Venipede, Phanpy, Grotle, Onix, and the remaining Cufant line were then exhausted. Eelektrik survived at 25/54. GPT whited out and auto-healed at map (0,1).",
+    "diff": [
+      "Rock Smash dealt 8 and then a critical 14; Shock Wave dealt 22; Mega Drain could KO Onix.",
+      "Poison Tail triggered Eelektrik's Sitrus Berry at 28 -> 19 and restored it to 32, defeating the planned Venipede chip line.",
+      "The static evaluator did not provide a complete safe matchup model for custom Levitate Eelektrik."
+    ],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "Battle RAM HP/species/PP, victory/whiteout text, post-loss map and party RAM, and checkpoint SHA-256",
+    "sources": [
+      "emulator_api game_battle_commit/game_battle_verify transactions",
+      "ROM trainer record map:0:25/local:23 trainer_id 334",
+      "runtime/session/runbun_experience.jsonl",
+      "runtime/session/goal_unexpected_outcomes.md"
+    ]
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": "/Users/johann/gpt-plays-mgba/runtime/session/route110-gavi-loss4-healed-forward-20260809.ss",
+    "fixture_sha256": "1156accea26e3a54ab7a32de86eb2c901354435d6704ff19daf0561aef8b62d0",
+    "command": "Run the revision-3 Gavi plan from a fresh healed six-member checkpoint with canonical battle transactions.",
+    "steps": [
+      "Verify Gavi identity and healed party from RAM.",
+      "Execute the recorded Bibarel/Ponyta opening.",
+      "Enter Eelektrik with Cufant and record HP/PP/species after each acknowledged action.",
+      "Compare the survival result with the expected-best plan and stop after whiteout."
+    ],
+    "run_count": 1,
+    "same_outcome": false,
+    "observed": "One live run; not promoted as deterministic."
+  },
+  "hypotheses": [
+    "A dedicated full-health non-Ground Eelektrik counter with a reliable strong move is required.",
+    "The current generic evaluator needs matchup-specific samples and Levitate-aware candidate filtering before it can rank a safe line."
+  ],
+  "root_cause": {
+    "verified": false,
+    "claim": "The current party and revision-3 plan lack a robust Levitate-Eelektrik counter.",
+    "evidence": [
+      "Three unchanged-plan failures are now recorded.",
+      "Live Eelektrik-phase HP/PP and all-party exhaustion are RAM-verified."
+    ],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": "strategy_revision",
+    "files": [
+      ".agents/skills/prepare-runbun-hard-fight/references/trainers.json",
+      "runtime/session/run_progress.json"
+    ],
+    "contract_change": "Gavi readiness remains not_ready until a dedicated Eelektrik counter and a stable battle-action acknowledgement boundary are verified.",
+    "workaround": "Do not approach Gavi; use ROM encounter lookup and safe backtracking from the healed Slateport state."
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 1,
+      "expected": "Ready plan reaches the endgame with a preserved full-health counter.",
+      "actual": "All party members fainted during Eelektrik; no replay promotion performed.",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [
+      "Levitate makes Ground-based Eelektrik answers invalid unless the ability is removed or bypassed.",
+      "Eelektrik's Sitrus Berry and Mega Drain materially change chip-line survival."
+    ],
+    "regression_cases": [
+      "Cufant Rock Smash versus Eelektrik observed damage 8 and critical 14.",
+      "Eelektrik Shock Wave versus Cufant observed damage 22.",
+      "Poison Tail 28 -> 19 triggered Sitrus restoration to 32."
+    ],
+    "tooling_contracts": [
+      "Move-menu return is not an action acknowledgement when the queued battler can faint before execution.",
+      "Battle verification must require stable active identity, HP, PP, and drained battle text."
+    ]
+  },
+  "action_changing_unknowns": [
+    "Which reachable ROM encounter provides a full-health non-Ground Eelektrik counter with sufficient neutral or super-effective damage?",
+    "Whether the battle verifier can reliably distinguish a stale move menu from a command-menu acknowledgement after a queued turn.",
+    "Whether the new counter also covers Sunflora and Dustox without consuming the Eelektrik reserve."
+  ],
+  "next_experiments": [
+    {
+      "hypothesis": "The ROM encounter index exposes a reachable species that survives Eelektrik and has a reliable non-Ground answer.",
+      "action": "Query visited-only wild encounters and score candidates by type, legal moves, bulk, and level-cap training cost.",
+      "expected_discriminator": "At least one candidate has a safe, verifiable Eelektrik line and does not rely on Ground damage.",
+      "risk": "None; ROM/read-only analysis.",
+      "cost": "Low tool-call and token cost.",
+      "rollback": "No game mutation; keep the live healed state unchanged."
+    },
+    {
+      "hypothesis": "The verifier race can be closed by requiring a stable command menu after move resolution.",
+      "action": "Replay the saved transaction fixture on a copy and compare move PP/active identity across two stable RAM observations.",
+      "expected_discriminator": "The stale move-menu and misclassified party-switch states become explicit unresolved outcomes instead of false verification.",
+      "risk": "Replay copy only; do not mutate live progress.",
+      "cost": "Bounded emulator replay and focused tests.",
+      "rollback": "Restore the newest live checkpoint after the probe and verify its hash."
+    }
+  ]
+}
