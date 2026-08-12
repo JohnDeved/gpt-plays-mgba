@@ -6,7 +6,10 @@
       "id": "setup-window-sweep",
       "title": "Create a bounded setup window, then sweep",
       "status": "retired",
-      "superseded_by": ["fresh-entry-fake-out-tempo", "trainer-profile:gavi"],
+      "superseded_by": [
+        "fresh-entry-fake-out-tempo",
+        "trainer-profile:gavi"
+      ],
       "tags": [
         "setup",
         "sweep",
@@ -69,7 +72,10 @@
       "id": "status-immune-converter-preserved-finisher",
       "title": "Use a status-immune converter and preserve the endgame finisher",
       "status": "retired",
-      "superseded_by": ["trainer-profile:gavi", "generic-tactical-scorer"],
+      "superseded_by": [
+        "trainer-profile:gavi",
+        "generic-tactical-scorer"
+      ],
       "tags": [
         "pivot",
         "status-immunity",
@@ -1146,7 +1152,7 @@
     {
       "id": "fresh-entry-fake-out-tempo",
       "title": "Take the fresh-entry Fake Out tempo when it is mechanically safe",
-      "status": "candidate",
+      "status": "tested",
       "tags": [
         "fake-out",
         "tempo",
@@ -1177,6 +1183,14 @@
         "RAM history cannot prove fresh entry",
         "the action is unsafe under the current tactical certificate"
       ],
+      "preconditions": {
+        "battle_format": [
+          "single"
+        ],
+        "party_move_ids_any": [
+          252
+        ]
+      },
       "auto_match": {
         "battle_formats": [
           "single"
@@ -1221,10 +1235,190 @@
         ]
       },
       "evidence": {
-        "reproductions": [],
+        "reproductions": [
+          {
+            "review_id": "5f384ec1d918708041bf",
+            "source": "cartridge_clone",
+            "pre_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "360b6184de3a08f763800872143cf576780b6abedd1ab70c88d06589f79c5400",
+            "certified_actions": 25,
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "6046abbfeb5d1cdd1bc1",
+            "source": "cartridge_clone",
+            "pre_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "eb293f6568ed9d0201e52c6da4cda745e06166c7d8d91019ac423acf6813ff7f",
+            "certified_actions": 29,
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "2f8cfe3e2ff5fdb0d68c",
+            "source": "cartridge_clone",
+            "pre_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "eb293f6568ed9d0201e52c6da4cda745e06166c7d8d91019ac423acf6813ff7f",
+            "certified_actions": 28,
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "c97e8ec85fbaa2f63dce",
+            "source": "cartridge_clone",
+            "pre_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "eb293f6568ed9d0201e52c6da4cda745e06166c7d8d91019ac423acf6813ff7f",
+            "certified_actions": 28,
+            "trainer_key": "map:0:25/local:23"
+          }
+        ],
         "exhaustive_searches": [],
-        "distinct_state_hashes": [],
-        "trainer_keys": [],
+        "distinct_state_hashes": [
+          "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff"
+        ],
+        "trainer_keys": [
+          "map:0:25/local:23"
+        ],
+        "counterexamples": []
+      }
+    },
+    {
+      "id": "fresh-tempo-one-control",
+      "title": "Spend one control move after fresh-entry tempo",
+      "status": "tested",
+      "tags": [
+        "tempo",
+        "control",
+        "one-use",
+        "single-battle"
+      ],
+      "intent": "After a fresh-entry tempo move creates breathing room, use one verified control move while the active still survives, then return control to the tactical scorer.",
+      "scope": {
+        "format": "single",
+        "claim": "move-capability strategy independent of trainer, species, nickname, or party slot"
+      },
+      "requirements": [
+        "the active Pokémon has Fake Out and Nuzzle",
+        "the fresh-entry action has already been spent",
+        "Nuzzle has not been used against the current opponent",
+        "the active survives the modeled critical reply"
+      ],
+      "line": [
+        "use Fake Out through the fresh-entry tempo strategy",
+        "prefer Nuzzle exactly once while critical-safe",
+        "return subsequent actions to the tactical scorer"
+      ],
+      "blockers": [
+        "missing move or PP",
+        "the active cannot survive the modeled reply",
+        "Nuzzle was already used against this opponent"
+      ],
+      "abort_rules": [
+        "verified immunity or mechanics invalidate the control effect",
+        "the action is unsafe under the current tactical certificate"
+      ],
+      "preconditions": {
+        "battle_format": [
+          "single"
+        ],
+        "party_move_ids_all": [
+          252,
+          609
+        ]
+      },
+      "auto_match": {
+        "battle_formats": [
+          "single"
+        ],
+        "active_move_ids_all": [
+          252,
+          609
+        ]
+      },
+      "executable": {
+        "rules": [
+          {
+            "id": "one-control-after-entry",
+            "when": {
+              "fresh_entry": false,
+              "active_move_ids_all": [
+                252,
+                609
+              ],
+              "survives_critical": true,
+              "action_count": {
+                "move_id": 609,
+                "equals": 0
+              }
+            },
+            "directives": [
+              {
+                "kind": "prefer",
+                "action": {
+                  "kind": "move",
+                  "move_id": 609
+                },
+                "priority": 2
+              }
+            ]
+          }
+        ]
+      },
+      "evidence": {
+        "reproductions": [
+          {
+            "review_id": "5f384ec1d918708041bf",
+            "source": "cartridge_clone",
+            "pre_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "360b6184de3a08f763800872143cf576780b6abedd1ab70c88d06589f79c5400",
+            "certified_actions": 25,
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "6046abbfeb5d1cdd1bc1",
+            "source": "cartridge_clone",
+            "pre_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "eb293f6568ed9d0201e52c6da4cda745e06166c7d8d91019ac423acf6813ff7f",
+            "certified_actions": 29,
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "2f8cfe3e2ff5fdb0d68c",
+            "source": "cartridge_clone",
+            "pre_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "eb293f6568ed9d0201e52c6da4cda745e06166c7d8d91019ac423acf6813ff7f",
+            "certified_actions": 28,
+            "trainer_key": "map:0:25/local:23"
+          },
+          {
+            "review_id": "c97e8ec85fbaa2f63dce",
+            "source": "cartridge_clone",
+            "pre_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+            "terminal_win": true,
+            "clean_review": true,
+            "behavior_hash": "eb293f6568ed9d0201e52c6da4cda745e06166c7d8d91019ac423acf6813ff7f",
+            "certified_actions": 28,
+            "trainer_key": "map:0:25/local:23"
+          }
+        ],
+        "exhaustive_searches": [],
+        "distinct_state_hashes": [
+          "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff"
+        ],
+        "trainer_keys": [
+          "map:0:25/local:23"
+        ],
         "counterexamples": []
       }
     },
@@ -1232,7 +1426,9 @@
       "id": "major-status-safe-pivot",
       "title": "Prefer a verified safe pivot out of sleep or freeze",
       "status": "retired",
-      "superseded_by": ["generic-tactical-scorer"],
+      "superseded_by": [
+        "generic-tactical-scorer"
+      ],
       "tags": [
         "status",
         "pivot",
@@ -1297,7 +1493,9 @@
       "id": "verified-volatile-trap-no-switch",
       "title": "Respect a verified volatile trap before switching",
       "status": "retired",
-      "superseded_by": ["battle-history:verified-volatile-trap"],
+      "superseded_by": [
+        "battle-history:verified-volatile-trap"
+      ],
       "tags": [
         "volatile-status",
         "switch-control",

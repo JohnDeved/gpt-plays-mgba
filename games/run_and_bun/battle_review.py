@@ -30,6 +30,7 @@ FINDING_KIND_ALIASES = {
     "observation_gap": "prediction_gap",
     "damage_model_uncertainty": "prediction_gap",
     "mechanics_uncertainty": "prediction_gap",
+    "mechanics_gap": "prediction_gap",
     "unmodeled_ability_interaction": "prediction_gap",
     "strategy_profile_conflict": "strategy_conflict",
     "invalid_strategy_requirement": "strategy_conflict",
@@ -446,15 +447,18 @@ def review_episode(
         classification = blocking[0]["kind"]
     else:
         classification = "verified_win" if terminal == "win" else "unresolved"
-    matched_strategy_ids = set(profile_strategy_ids or [])
     applied_ids = {
         str(item).split("strategy:", 1)[1].split("/rule:", 1)[0]
         for transition in transitions
         for item in (transition.get("policy_decision") or {}).get("applied_strategy_ids", [])
         if str(item).startswith("strategy:")
     }
-    if profile_strategy_ids is not None:
-        matched_strategy_ids = matched_strategy_ids & applied_ids
+    matched_strategy_ids = applied_ids
+    influential_strategy_ids = {
+        str(strategy_id)
+        for transition in transitions
+        for strategy_id in (transition.get("policy_decision") or {}).get("influential_strategy_ids", [])
+    } & applied_ids
     postmortem = _postmortem(
         transitions,
         terminal=terminal,
@@ -473,6 +477,7 @@ def review_episode(
         "policy_id": policy_id,
         "trainer_key": trainer_key,
         "matched_strategy_ids": sorted(matched_strategy_ids),
+        "influential_strategy_ids": sorted(influential_strategy_ids),
         "certified_actions": len(transitions),
         "findings": findings,
         "observations": observations,
@@ -516,7 +521,7 @@ def _compact_review(review: dict[str, Any]) -> dict[str, Any]:
         for key in (
             "schema_version", "created_at", "review_id", "terminal", "source",
             "opening_state_hash", "behavior_hash", "policy_id", "trainer_key",
-            "matched_strategy_ids", "certified_actions", "status", "classification",
+            "matched_strategy_ids", "influential_strategy_ids", "certified_actions", "status", "classification",
         )
         if key in review
     }

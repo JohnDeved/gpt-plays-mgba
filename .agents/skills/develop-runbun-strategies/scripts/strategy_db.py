@@ -13,9 +13,11 @@ PATH = Path(__file__).resolve().parents[1] / "references" / "strategies.json"
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT))
 
-from games.run_and_bun.battle_policy import SUPPORTED_PREDICATES, strategy_applicable, validate_auto_match
+from games.run_and_bun.battle_policy import PREBATTLE_PREDICATES, SUPPORTED_PREDICATES, prebattle_strategy_applicable, strategy_applicable, validate_auto_match
+from games.run_and_bun.battle_review import agent_review_complete, unresolved_attached_findings
 
-STATUSES = ("candidate", "tested", "exact_proven", "reusable_proven", "retired")
+STATUSES = ("candidate", "tested", "reusable_tested", "exact_proven", "reusable_proven", "retired")
+REVIEW_DIR = ROOT / "runtime" / "session" / "battle_reviews"
 REQUIRED = ("id", "title", "status", "tags", "intent", "scope", "requirements", "line", "blockers", "abort_rules", "evidence")
 PREDICATES = set(SUPPORTED_PREDICATES)
 
@@ -76,6 +78,12 @@ def validate(data: dict) -> list[str]:
         auto_match = strategy.get("auto_match")
         if auto_match is not None:
             errors.extend(validate_auto_match(auto_match, f"{prefix}.auto_match"))
+        preconditions = strategy.get("preconditions", {})
+        if not isinstance(preconditions, dict):
+            errors.append(f"{prefix}.preconditions must be an object")
+        else:
+            for key in sorted(set(preconditions) - set(PREBATTLE_PREDICATES)):
+                errors.append(f"{prefix}.preconditions.{key} is unsupported")
         evidence = strategy.get("evidence", {})
         for field in ("reproductions", "exhaustive_searches", "distinct_state_hashes", "trainer_keys", "counterexamples"):
             if not isinstance(evidence.get(field), list):
@@ -102,10 +110,18 @@ def eligible_status(strategy: dict) -> str:
         item.get("terminal_win") and item.get("legal_actions_complete") and item.get("rng_ai_complete")
         for item in evidence["exhaustive_searches"]
     )
+    wins_by_trainer: dict[str, int] = {}
+    for item in wins:
+        trainer = item.get("trainer_key")
+        if trainer:
+            wins_by_trainer[str(trainer)] = wins_by_trainer.get(str(trainer), 0) + 1
+    cross_trainer = sum(count >= 3 for count in wins_by_trainer.values()) >= 2
     if exact and len(wins) >= 2:
-        if len(set(evidence["distinct_state_hashes"])) >= 3 and len(set(evidence["trainer_keys"])) >= 2:
+        if cross_trainer and len(set(evidence["distinct_state_hashes"])) >= 3:
             return "reusable_proven"
         return "exact_proven"
+    if cross_trainer:
+        return "reusable_tested"
     return "tested" if wins else "candidate"
 
 
@@ -121,7 +137,7 @@ def summarize(data: dict) -> dict:
             "id": strategy.get("id"),
             "status": status,
             "eligible_status": eligible_status(strategy),
-            "automatic": status == "reusable_proven" and bool(strategy.get("auto_match")),
+            "automatic": status in {"reusable_tested", "reusable_proven"} and bool(strategy.get("auto_match")),
             "reproductions": len(evidence.get("reproductions") or []),
             "distinct_states": len(set(evidence.get("distinct_state_hashes") or [])),
             "trainers": len(set(evidence.get("trainer_keys") or [])),
@@ -140,6 +156,79 @@ def summarize(data: dict) -> dict:
     }
 
 
+def system_health(data: dict, review_dir: Path = REVIEW_DIR) -> dict:
+    """Audit durable learning without creating a second progress ledger."""
+    reviews, invalid = [], []
+    for path in sorted(review_dir.glob("*.json")):
+        try:
+            review = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            invalid.append({"path": str(path), "error": str(error)})
+            continue
+        reviews.append(review)
+
+    latest: dict[str, dict] = {}
+    for review in reviews:
+        trainer = review.get("trainer_key")
+        if trainer and str(review.get("created_at", "")) >= str(latest.get(trainer, {}).get("created_at", "")):
+            latest[trainer] = review
+    latest_blockers = [
+        {
+            "trainer_key": trainer,
+            "review_id": review.get("review_id"),
+            "agent_review_complete": agent_review_complete(review),
+            "unresolved_findings": len(unresolved_attached_findings(review)),
+        }
+        for trainer, review in sorted(latest.items())
+        if not agent_review_complete(review) or unresolved_attached_findings(review)
+    ]
+    findings = [
+        finding
+        for review in reviews
+        for finding in (review.get("agent_review") or {}).get("findings", [])
+        if isinstance(finding, dict)
+    ]
+    by_target: dict[str, int] = {}
+    for finding in findings:
+        target = str(finding.get("knowledge_target") or "legacy_unclassified")
+        by_target[target] = by_target.get(target, 0) + 1
+
+    strategies = summarize(data)
+    promotion_drift = [
+        row["id"] for row in strategies["strategies"]
+        if row["status"] != row["eligible_status"] and row["status"] != "retired"
+    ]
+    cross_trainer_gaps = [
+        row["id"] for row in strategies["strategies"]
+        if row["status"] == "tested" and row["trainers"] < 2
+    ]
+    priorities = []
+    if invalid:
+        priorities.append({"severity": "critical", "kind": "invalid_review_json", "count": len(invalid)})
+    if latest_blockers:
+        priorities.append({"severity": "high", "kind": "latest_review_gate_blocked", "count": len(latest_blockers)})
+    if promotion_drift:
+        priorities.append({"severity": "high", "kind": "strategy_promotion_drift", "strategy_ids": promotion_drift})
+    if cross_trainer_gaps:
+        priorities.append({"severity": "medium", "kind": "cross_trainer_evidence_gap", "strategy_ids": cross_trainer_gaps})
+    if not strategies["automatic_reusable_count"]:
+        priorities.append({"severity": "info", "kind": "no_automatic_reusable_strategy"})
+    return {
+        "healthy_to_continue": not invalid and not latest_blockers and not promotion_drift,
+        "reviews": {
+            "total": len(reviews),
+            "agent_complete": sum(agent_review_complete(review) for review in reviews),
+            "legacy_or_incomplete": sum(not agent_review_complete(review) for review in reviews),
+            "latest_trainer_gates": len(latest),
+            "latest_blockers": latest_blockers,
+            "invalid": invalid,
+            "finding_targets": dict(sorted(by_target.items())),
+        },
+        "strategies": strategies,
+        "priorities": priorities,
+    }
+
+
 def save(data: dict) -> None:
     errors = validate(data)
     if errors:
@@ -149,7 +238,7 @@ def save(data: dict) -> None:
 
 def record_review(data: dict, review: dict, strategy_ids: list[str]) -> None:
     """Merge one concise episode review without rewriting executable policy."""
-    selected = set(review["matched_strategy_ids"]) if "matched_strategy_ids" in review else set(strategy_ids)
+    selected = set(review.get("influential_strategy_ids", review.get("matched_strategy_ids", strategy_ids)))
     for strategy in data["strategies"]:
         if strategy.get("id") not in selected:
             continue
@@ -171,6 +260,7 @@ def record_review(data: dict, review: dict, strategy_ids: list[str]) -> None:
             "clean_review": True,
             "behavior_hash": review.get("behavior_hash"),
             "certified_actions": review.get("certified_actions"),
+            "trainer_key": review.get("trainer_key"),
         }
         if clean and not any(item.get("review_id") == review.get("review_id") for item in evidence["reproductions"]):
             evidence["reproductions"].append(reproduction)
@@ -213,11 +303,13 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("validate")
     sub.add_parser("summary")
+    sub.add_parser("health")
     query = sub.add_parser("query")
     query.add_argument("--tag")
     query.add_argument("--status", choices=STATUSES)
     match = sub.add_parser("match")
     match.add_argument("context", type=Path)
+    match.add_argument("--mode", choices=("clone_trial", "blind_live"))
     upsert = sub.add_parser("upsert")
     upsert.add_argument("record", type=Path)
     review = sub.add_parser("record-review")
@@ -236,6 +328,10 @@ def main() -> int:
     if args.command == "summary":
         print(json.dumps(summarize(data), indent=2, ensure_ascii=False))
         return 0
+    if args.command == "health":
+        health = system_health(data)
+        print(json.dumps(health, indent=2, ensure_ascii=False))
+        return 0 if health["healthy_to_continue"] else 2
     if args.command == "query":
         rows = [
             item for item in data["strategies"]
@@ -246,8 +342,19 @@ def main() -> int:
         return 0
     if args.command == "match":
         context = json.loads(args.context.read_text(encoding="utf-8"))
-        rows = [item for item in data["strategies"] if strategy_applicable(item, context)]
-        print(json.dumps(rows, indent=2, ensure_ascii=False))
+        if args.mode:
+            rows = [item for item in data["strategies"] if prebattle_strategy_applicable(item, context)]
+            if args.mode == "blind_live":
+                rows = [item for item in rows if item.get("status") in {"reusable_tested", "exact_proven", "reusable_proven"}]
+            print(json.dumps({
+                "mode": args.mode,
+                "selected": [item["id"] for item in rows],
+                "soft": [item["id"] for item in rows if item.get("status") == "reusable_tested"],
+                "full": [item["id"] for item in rows if item.get("status") in {"exact_proven", "reusable_proven"}],
+            }, indent=2, ensure_ascii=False))
+        else:
+            rows = [item for item in data["strategies"] if strategy_applicable(item, context)]
+            print(json.dumps(rows, indent=2, ensure_ascii=False))
         return 0
     if args.command == "upsert":
         record = json.loads(args.record.read_text(encoding="utf-8"))

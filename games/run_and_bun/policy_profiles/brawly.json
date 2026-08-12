@@ -1,0 +1,121 @@
+{
+  "schema_version": 2,
+  "id": "generated-map-3-3-local-1",
+  "trainer_key": "map:3:3/local:1",
+  "party_bindings": {
+    "member_0": {
+      "personality": 506087644,
+      "ot_id": 3307282159
+    },
+    "member_1": {
+      "personality": 1744238455,
+      "ot_id": 3307282159
+    },
+    "member_2": {
+      "personality": 3325952935,
+      "ot_id": 3307282159
+    },
+    "member_3": {
+      "personality": 1476487022,
+      "ot_id": 3307282159
+    },
+    "member_4": {
+      "personality": 4136568345,
+      "ot_id": 3307282159
+    },
+    "member_5": {
+      "personality": 4082287436,
+      "ot_id": 3307282159
+    }
+  },
+  "matchup_assignments": [
+    {
+      "target": {
+        "roster_position": 1,
+        "species": 891
+      },
+      "primary": "member_1",
+      "backups": [
+        "member_3",
+        "member_2"
+      ]
+    },
+    {
+      "target": {
+        "roster_position": 2,
+        "species": 428
+      },
+      "primary": "member_0",
+      "backups": [
+        "member_1",
+        "member_3"
+      ]
+    },
+    {
+      "target": {
+        "roster_position": 3,
+        "species": 256
+      },
+      "primary": "member_1",
+      "backups": [
+        "member_0",
+        "member_4"
+      ]
+    },
+    {
+      "target": {
+        "roster_position": 4,
+        "species": 237
+      },
+      "primary": "member_0",
+      "backups": [
+        "member_1",
+        "member_3"
+      ]
+    },
+    {
+      "target": {
+        "roster_position": 5,
+        "species": 61
+      },
+      "primary": "member_0",
+      "backups": [
+        "member_2",
+        "member_3"
+      ]
+    },
+    {
+      "target": {
+        "roster_position": 6,
+        "species": 559
+      },
+      "primary": "member_0",
+      "backups": [
+        "member_1",
+        "member_3"
+      ]
+    }
+  ],
+  "strategy_manifest": {
+    "clone_trial": [
+      "fresh-entry-fake-out-tempo",
+      "fresh-tempo-one-control"
+    ],
+    "blind_live_soft": [],
+    "full_live": [],
+    "rejected": []
+  },
+  "exceptions": [],
+  "generation": {
+    "party_state_hash": "e24e32a0c8750538",
+    "trainer_record_hash": "aa2c080477d7d63cd5968666780f55d98330267c98cf3edb7469d00f7d35040a",
+    "classification": "expected-best",
+    "uncertainties": [
+      "Lopunny ability unresolved",
+      "Combusken ability unresolved",
+      "Hitmontop ability unresolved",
+      "Poliwhirl ability unresolved",
+      "Scraggy ability unresolved"
+    ]
+  }
+}

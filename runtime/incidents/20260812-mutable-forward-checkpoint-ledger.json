@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "id": "20260812T163538Z-mutable-rolling-savestate-recorded-as-immutable-",
+  "status": "verified",
+  "created_at": "2026-08-12T16:35:38.120997+00:00",
+  "summary": "Mutable rolling savestate recorded as immutable progress checkpoint",
+  "component": "progress ledger checkpoint recording",
+  "symptom": "run_progress validation reports checkpoint 31 hash mismatch",
+  "classification": "prediction_model",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/incidents/20260812-ledger-checkpoint31-live-preserved.state",
+    "sha256": "7351e5cfe36294895b0664c21932747ec75d11795047d96b37b7effb842d17ca",
+    "canonical_state": {
+      "state_hash": "04157d8e1931cbdc",
+      "map": [3, 1, 7, 4],
+      "battle_active": false,
+      "party_fully_healed": true
+    },
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "Every verified ledger checkpoint path remains content-addressable and matches its recorded SHA-256.",
+    "actual": "Checkpoint 31 points to auto-forward-latest.state, whose correct rolling replacement changed its SHA-256 after later actions.",
+    "diff": [
+      "Recorded SHA-256 e7f4e28e no longer matched the rolling path after later certified actions.",
+      "The ledger's immutable Slateport furthest checkpoint remained valid and selected."
+    ],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "A recorded checkpoint remains valid only when SHA-256(path) equals its stored digest after later rolling-state replacements.",
+    "sources": [
+      "run_progress.json checkpoint 31 path and digest",
+      "progress.py validate hash oracle",
+      "content-addressed snapshot regression"
+    ]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "/Users/johann/gpt-plays-mgba/tests/test_progress_tracking.py",
+    "fixture_sha256": "395424f84ccd3812cd7f12d61a38e53bd70373c7f85d741d99ecd97010bf692c",
+    "command": "python3 -m unittest tests.test_progress_tracking",
+    "steps": [
+      "Record auto-forward-latest.state through record_checkpoint.",
+      "Replace the rolling source bytes.",
+      "Verify the recorded immutable path and digest are unchanged."
+    ],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "Both focused and full-suite runs preserved the first content-addressed bytes after replacing the rolling source."
+  },
+  "hypotheses": [
+    {
+      "claim": "The ledger was corrupted by a bad hash calculation.",
+      "predicted_discriminator": "Rehashing the unchanged recorded bytes would disagree.",
+      "result": "falsified; the file content changed because the path is intentionally rolling."
+    },
+    {
+      "claim": "A mutable rolling filename was stored where the ledger contract requires immutable content.",
+      "predicted_discriminator": "Later certified actions replace the path while the recorded digest remains old.",
+      "result": "verified by path semantics, metadata, and regression."
+    }
+  ],
+  "root_cause": {
+    "verified": true,
+    "claim": "record_checkpoint accepted auto-forward-latest.state directly instead of first preserving its bytes at an immutable content-addressed path.",
+    "evidence": [
+      "Checkpoint 31 path was auto-forward-latest.state.",
+      "The rolling checkpoint contract replaces that path after every certified write.",
+      "The same recorded digest remained valid when the bytes were copied to a digest-named file."
+    ],
+    "alternatives_falsified": [
+      "SHA-256 implementation error",
+      "live progression regression",
+      "furthest-checkpoint selection corruption"
+    ]
+  },
+  "solution": {
+    "kind": "interface_fix",
+    "files": [
+      ".agents/skills/track-runbun-goals-progress/scripts/progress.py",
+      "tests/test_progress_tracking.py",
+      "runtime/session/run_progress.json"
+    ],
+    "contract_change": "Rolling auto-forward checkpoints are atomically copied to progress-checkpoints/<sha256>.state before ledger insertion.",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [
+      {"name": "rolling checkpoint immutable snapshot", "passed": true},
+      {"name": "repaired run_progress validation", "passed": true}
+    ],
+    "regression_checks": [
+      {"name": "344 repository tests", "passed": true}
+    ],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "Replacing the rolling source cannot alter the recorded checkpoint bytes or digest.",
+      "actual": "The digest-named snapshot retained b'first' after the source changed to b'later'.",
+      "extra_state_deltas": []
+    },
+    "metrics": {
+      "manual_snapshot_steps_before": 2,
+      "manual_snapshot_steps_after": 0,
+      "ledger_hash_failures_in_regression_after": 0
+    }
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [
+      "tests.test_progress_tracking.ProgressCheckpointTests.test_rolling_checkpoint_is_snapshotted_before_recording"
+    ],
+    "tooling_contracts": [
+      "Progress ledgers store immutable checkpoint paths; rolling forward files are source inputs only."
+    ]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

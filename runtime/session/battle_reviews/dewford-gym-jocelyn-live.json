@@ -1,0 +1,227 @@
+{
+  "schema_version": 3,
+  "created_at": "2026-08-12T17:48:21.991985+00:00",
+  "review_id": "b0e0a28652b4adf71166",
+  "terminal": "win",
+  "source": "live",
+  "opening_state_hash": "b3e2cf234568c8ae",
+  "behavior_hash": null,
+  "policy_id": "generic-scorer-v33",
+  "trainer_key": "map:3:3/local:3",
+  "matched_strategy_ids": [],
+  "certified_actions": 31,
+  "status": "needs_improvement",
+  "classification": "tooling_mismatch",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 31,
+    "findings": [
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "Dragon Tail changed the active battler before PP audit, so an executed Metal Claw was falsely marked unverified.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The shared PP auditor now follows personality identity into party RAM; focused regression passes."
+        },
+        "observed_fact": "Dragon Tail changed the active battler before PP audit, so an executed Metal Claw was falsely marked unverified.",
+        "strategic_judgment": "Dragon Tail changed the active battler before PP audit, so an executed Metal Claw was falsely marked unverified.",
+        "confidence": "heuristic",
+        "fix_layer": "shared_observation_execution",
+        "turns": [
+          "754f13ae5243e44d"
+        ],
+        "next_test": "Force an active mon out after it attacks and require exact PP attribution without a discrepancy.",
+        "state_unavailable_reason": "The live rolling state advanced before review; immutable transaction and focused regression remain.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "Verified Dragon Tail identity changes did not mark the forced-in Pokemon as fresh, suppressing legal Fake Out value.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "874ed868c3c394ae",
+          "observed": "The same held RAM state changed to fresh-entry Fake Out and the live action flinched safely."
+        },
+        "observed_fact": "Verified Dragon Tail identity changes did not mark the forced-in Pokemon as fresh, suppressing legal Fake Out value.",
+        "strategic_judgment": "Verified Dragon Tail identity changes did not mark the forced-in Pokemon as fresh, suppressing legal Fake Out value.",
+        "confidence": "heuristic",
+        "fix_layer": "battle_history",
+        "turns": [
+          "b57d319fb6329458"
+        ],
+        "next_test": "Reconstruct fresh entry from any verified post-action identity change, not only explicit switch actions.",
+        "state_unavailable_reason": "The live rolling state advanced after the corrected action; transaction hashes and regression remain.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "The emergency fallback did not distinguish a productive survival pivot from a one-hit-only pivot that immediately forces another switch.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "33f29655cabe535d",
+          "observed": "The final rule requires a pivot to survive its next normal action window, finish next turn, or meet a verified Fake Out threshold; sacrificial-switch regressions pass."
+        },
+        "observed_fact": "The broad first fix selected Lildozer, which immediately had to switch to Croakatoa without making progress.",
+        "strategic_judgment": "Surviving only the entry hit delays a loss and recreates switch spam unless the entrant has a safe next action.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "1bbf2843e34fbce1"
+        ],
+        "next_test": "Reject one-hit-only pivots while still selecting ordinary-safe entries that can act, finish, or execute a verified Fake Out threshold.",
+        "state_unavailable_reason": "Counterfactual artifacts and live transaction remain, but the temporary decision state is outside the durable review directory.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "A slower Charm was selected even though Pignite could KO Lildozer before the debuff executed.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "Defensive status now requires acting first and an all-physical threat; focused tests pass."
+        },
+        "observed_fact": "A slower Charm was selected even though Pignite could KO Lildozer before the debuff executed.",
+        "strategic_judgment": "A slower Charm was selected even though Pignite could KO Lildozer before the debuff executed.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "33f29655cabe535d"
+        ],
+        "next_test": "Never call a defensive status move a survival line when a lethal opponent acts first.",
+        "state_unavailable_reason": "The exact live turn advanced; focused deterministic tests retain the counterexample.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "When Charm was insufficient, an early last-damage return bypassed safe switch evaluation.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "635d9d4ea58f90cc",
+          "observed": "Removing the premature return let the classifier select and verify a surviving pivot."
+        },
+        "observed_fact": "When Charm was insufficient, an early last-damage return bypassed safe switch evaluation.",
+        "strategic_judgment": "When Charm was insufficient, an early last-damage return bypassed safe switch evaluation.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "cab7cffc3f5087ae"
+        ],
+        "next_test": "Evaluate all survival pivots before any last-damage fallback.",
+        "state_unavailable_reason": "The exact live turn advanced; transaction evidence and scorer regression remain.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "Critical bounds doubled debuffed damage and falsely called Intimidate or Charm pivots critical-safe, but Gen III criticals ignore harmful Attack stages.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "efb4e81111d3ff3b",
+          "observed": "Shared critical bounds now neutralize negative attacker and positive defender stages; the held state was reclassified as ordinary-safe, and exact replay then verified the pivot."
+        },
+        "observed_fact": "Critical bounds doubled debuffed damage and falsely called Intimidate or Charm pivots critical-safe, but Gen III criticals ignore harmful Attack stages.",
+        "strategic_judgment": "Critical bounds doubled debuffed damage and falsely called Intimidate or Charm pivots critical-safe, but Gen III criticals ignore harmful Attack stages.",
+        "confidence": "heuristic",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "cab7cffc3f5087ae",
+          "fe77395b7afc5608"
+        ],
+        "next_test": "Keep the Charm cannot create critical safety regression and require critical certificates to ignore harmful stat stages.",
+        "state_unavailable_reason": "Temporary exact replays were consumed outside the durable review directory; transactions and unit regression retain the defect.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "medium",
+        "summary": "The first Pignite pivot chose Lildozer, then immediately pivoted again to Croakatoa without dealing damage, costing 16 Lildozer HP.",
+        "action_changing": true,
+        "resolved": false,
+        "observed_fact": "Turns 17 and 18 were consecutive voluntary switches and both absorbed attacks.",
+        "strategic_judgment": "Entry ranking needs post-entry action viability so an immediate second survival pivot is penalized.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "1bbf2843e34fbce1",
+          "33f29655cabe535d"
+        ],
+        "next_test": "Score the first pivot against its safe next action window and reject a pivot that deterministically requires another zero-progress switch.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "medium",
+        "summary": "Coppertop Stomp dealt 22 through Hakamo-o plus two Defense, above the modeled 6-8 normal and 16 critical ceiling.",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "Hakamo-o moved from 33 HP through Sitrus healing to 24 HP, proving 22 outgoing damage.",
+        "strategic_judgment": "The underestimate was conservative here but shows an unresolved ability or move-mechanics gap.",
+        "confidence": "heuristic",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "e12f929de6b35f30"
+        ],
+        "next_test": "Replay the exact Stomp interaction and identify the missing cartridge modifier before using it as a guaranteed bound.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Bushtank suffered two consecutive full paralyses and made no Razor Leaf progress while falling from 27 to 9 HP.",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "Both transactions report prevented_by_status with no Razor Leaf PP loss.",
+        "strategic_judgment": "The controller correctly reevaluated after each result and pivoted once staying became normally lethal.",
+        "confidence": "heuristic",
+        "fix_layer": "hard_fight_preparation",
+        "turns": [
+          "635d9d4ea58f90cc",
+          "db121f76ef0b9e9c"
+        ],
+        "next_test": "Enter future required fights status-free and keep reevaluating rather than assuming a queued move executed.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Croakatoa fainted and four survivors are damaged; continuing before healing would create avoidable run risk.",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "Terminal HP is Croakatoa 0, Lildozer 7, Ohmnomnom 41, Bushtank 9, Snackodile 50, Coppertop 54.",
+        "strategic_judgment": "Heal before any further trainer contact or Brawly preparation clone.",
+        "confidence": "heuristic",
+        "fix_layer": "hard_fight_preparation",
+        "turns": [
+          "terminal"
+        ],
+        "next_test": "Verify full HP, status, and PP at the Dewford Center before approaching Brawly.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "Repeated fresh-entry Fake Out cycles produced free chip and flinches after the history fix.",
+      "Bounded counterfactuals exposed both the Pignite sacrifice tradeoff and the false critical-safe Snackodile claim.",
+      "Charm reduced Golett before the critical-safe Bushtank bridge; the later Intimidate plus Bite line finished cleanly.",
+      "Every full paralysis and forced identity change was verified from RAM before the next decision."
+    ],
+    "next_test": "Update Jocelyn map identity and roster, heal fully, validate the review and full test suite, then reach Brawly precontact without engaging."
+  }
+}

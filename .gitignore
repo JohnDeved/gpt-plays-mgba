@@ -34,6 +34,15 @@ squashfs-root/
 *_ready.txt
 runtime/session/battle_transactions.jsonl
 runtime/session/*wram*.bin
+runtime/session/*-eval-*.json
+runtime/session/*-step*.json
+runtime/session/*-observe.json
+runtime/session/*-snapshot.json
+runtime/session/*-build-options.json
+runtime/session/*-generated-profile.json
+runtime/session/*-storage-*.json
+runtime/session/*-trainer-record.json
+runtime/session/policy_profiles/
 
 # Python
 __pycache__/

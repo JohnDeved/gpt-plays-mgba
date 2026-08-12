@@ -1,0 +1,207 @@
+{
+  "schema_version": 3,
+  "created_at": "2026-08-12T15:13:45.981176+00:00",
+  "review_id": "a3f8d9f419c4c637b4ed",
+  "terminal": "win",
+  "source": "live",
+  "opening_state_hash": "71104c7da734b3c5",
+  "behavior_hash": null,
+  "policy_id": "generic-scorer-v15",
+  "trainer_key": "map:3:3/local:8",
+  "matched_strategy_ids": [],
+  "certified_actions": 13,
+  "status": "needs_improvement",
+  "classification": "prediction_gap",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 13,
+    "findings": [
+      {
+        "kind": "prediction_gap",
+        "severity": "critical",
+        "summary": "Dual Wingbeat was scored as one 16-20 damage hit, causing the initial Bushtank switch and 36 avoidable damage.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "27145b769d5e6f64",
+          "observed": "Fixed-hit moves now multiply at the shared damage boundary; exact Dual Wingbeat regression returns 32-40 and all 218 tests pass."
+        },
+        "observed_fact": "Dual Wingbeat was scored as one 16-20 damage hit, causing the initial Bushtank switch and 36 avoidable damage.",
+        "strategic_judgment": "Dual Wingbeat was scored as one 16-20 damage hit, causing the initial Bushtank switch and 36 avoidable damage.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Exercise the same anti-churn, debuff-pivot, multi-hit, and fresh-entry rules on the next Dewford trainer without trainer-specific code.",
+        "state_unavailable_reason": "The live state advanced; exact pre/post hashes and action transaction remain in battle_transactions.jsonl.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "Pin Missile was scored as one 7-9 damage hit instead of a 2-5 hit 14-45 interval, understating Heracross switch risk.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "69f8859e3fa9c053",
+          "observed": "Variable multi-hit moves now expose conservative 2-5 hit bounds; the regression returns 14-45 and observed 2-hit and 3-hit outcomes fit the interval."
+        },
+        "observed_fact": "Pin Missile was scored as one 7-9 damage hit instead of a 2-5 hit 14-45 interval, understating Heracross switch risk.",
+        "strategic_judgment": "Pin Missile was scored as one 7-9 damage hit instead of a 2-5 hit 14-45 interval, understating Heracross switch risk.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Exercise the same anti-churn, debuff-pivot, multi-hit, and fresh-entry rules on the next Dewford trainer without trainer-specific code.",
+        "state_unavailable_reason": "The live state advanced; exact action transactions preserve the observed hit counts and HP changes.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "high",
+        "summary": "Switch selection considered only surviving the entry hit, which could create repeated pivots that take damage without earning an action.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "8692696e9be1cf34",
+          "observed": "The shared switch gate now requires a safe next action, immediate KO, or verified fresh-entry threshold; it rejected Ohmnomnom at foe HP 42 and allowed the threshold pivot at HP 27. All regressions pass."
+        },
+        "observed_fact": "Switch selection considered only surviving the entry hit, which could create repeated pivots that take damage without earning an action.",
+        "strategic_judgment": "Switch selection considered only surviving the entry hit, which could create repeated pivots that take damage without earning an action.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Exercise the same anti-churn, debuff-pivot, multi-hit, and fresh-entry rules on the next Dewford trainer without trainer-specific code.",
+        "state_unavailable_reason": "The live state advanced; both contrasting classifier certificates are durable.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "The scorer initially preferred damage over Charm even though lowering an all-physical threat enabled a critical-safe offensive pivot.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "266bd0ad4d4edf15",
+          "observed": "The generic scorer selected Charm live, verified the two-stage Attack drop, and enabled the planned Ohmnomnom pivot; regression passes."
+        },
+        "observed_fact": "The scorer initially preferred damage over Charm even though lowering an all-physical threat enabled a critical-safe offensive pivot.",
+        "strategic_judgment": "The scorer initially preferred damage over Charm even though lowering an all-physical threat enabled a critical-safe offensive pivot.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Exercise the same anti-churn, debuff-pivot, multi-hit, and fresh-entry rules on the next Dewford trainer without trainer-specific code.",
+        "state_unavailable_reason": "The corrected decision and result were verified live and retained in the transaction log.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "After one sufficient Charm the scorer wanted to repeat the debuff instead of cashing it in with the prepared offensive pivot.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "1d12878bf4503f32",
+          "observed": "The two-phase debuff rule selected Ohmnomnom after one Charm; it took only 2 damage and gained the intended matchup. Regression passes."
+        },
+        "observed_fact": "After one sufficient Charm the scorer wanted to repeat the debuff instead of cashing it in with the prepared offensive pivot.",
+        "strategic_judgment": "After one sufficient Charm the scorer wanted to repeat the debuff instead of cashing it in with the prepared offensive pivot.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Exercise the same anti-churn, debuff-pivot, multi-hit, and fresh-entry rules on the next Dewford trainer without trainer-specific code.",
+        "state_unavailable_reason": "The corrected pivot was executed live and retained in the transaction log.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "medium",
+        "summary": "Fresh-entry Fake Out was previously suggested only for an immediate two-action KO threshold, missing free flinchable chip and correctly needing immunity checks.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "a75709af1a3371c4",
+          "observed": "The reusable rule used Fake Out on flinchable Heracross, skipped Inner Focus Farfetchd, and preserved the stricter threshold rule for the later Ohmnomnom entry."
+        },
+        "observed_fact": "Fresh-entry Fake Out was previously suggested only for an immediate two-action KO threshold, missing free flinchable chip and correctly needing immunity checks.",
+        "strategic_judgment": "Fresh-entry Fake Out was previously suggested only for an immediate two-action KO threshold, missing free flinchable chip and correctly needing immunity checks.",
+        "confidence": "verified",
+        "fix_layer": "reusable_executable_strategy",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Exercise the same anti-churn, debuff-pivot, multi-hit, and fresh-entry rules on the next Dewford trainer without trainer-specific code.",
+        "knowledge_target": "strategy",
+        "candidate_strategy_id": "fresh-entry-fake-out-progress"
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "medium",
+        "summary": "ROM trainer identity labeled the encounter Lilith and double while authoritative live RAM identified Sailor Brenden and a single battle; roster data still matched.",
+        "action_changing": true,
+        "observed_fact": "ROM trainer identity labeled the encounter Lilith and double while authoritative live RAM identified Sailor Brenden and a single battle; roster data still matched.",
+        "strategic_judgment": "ROM trainer identity labeled the encounter Lilith and double while authoritative live RAM identified Sailor Brenden and a single battle; roster data still matched.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Exercise the same anti-churn, debuff-pivot, multi-hit, and fresh-entry rules on the next Dewford trainer without trainer-specific code.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "medium",
+        "summary": "The Farfetchd faint and Heracross entry transaction changed Ohmnomnom from 43 to 39 HP without attributing a move or residual source, so transition damage provenance is incomplete.",
+        "action_changing": true,
+        "observed_fact": "The Farfetchd faint and Heracross entry transaction changed Ohmnomnom from 43 to 39 HP without attributing a move or residual source, so transition damage provenance is incomplete.",
+        "strategic_judgment": "The Farfetchd faint and Heracross entry transaction changed Ohmnomnom from 43 to 39 HP without attributing a move or residual source, so transition damage provenance is incomplete.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Exercise the same anti-churn, debuff-pivot, multi-hit, and fresh-entry rules on the next Dewford trainer without trainer-specific code.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "Iron Barbs recoil and low-HP Swarm remain reported as unmodeled; neither changed the final guaranteed Spark action, but both can affect future pivot rankings.",
+        "action_changing": false,
+        "observed_fact": "Iron Barbs recoil and low-HP Swarm remain reported as unmodeled; neither changed the final guaranteed Spark action, but both can affect future pivot rankings.",
+        "strategic_judgment": "Iron Barbs recoil and low-HP Swarm remain reported as unmodeled; neither changed the final guaranteed Spark action, but both can affect future pivot rankings.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Exercise the same anti-churn, debuff-pivot, multi-hit, and fresh-entry rules on the next Dewford trainer without trainer-specific code.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "After the first bad pivot, Lildozer preserved Bushtank and Charm created a verified safe offensive pivot.",
+      "Fake Out was used only on fresh entries and correctly skipped Inner Focus Farfetchd.",
+      "Croakatoa stayed in at foe HP 42 instead of starting a doomed switch chain; Ohmnomnom pivoted only when Fake Out plus Spark reached a guaranteed threshold.",
+      "Spark finished both opponents before a reply once its minimum damage exceeded current HP."
+    ],
+    "next_test": "Exercise the same anti-churn, debuff-pivot, multi-hit, and fresh-entry rules on the next Dewford trainer without trainer-specific code."
+  }
+}

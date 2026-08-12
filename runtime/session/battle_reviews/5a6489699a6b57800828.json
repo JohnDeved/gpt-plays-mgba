@@ -1,0 +1,90 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-12T18:00:30.756013+00:00",
+  "review_id": "5a6489699a6b57800828",
+  "terminal": "step_mismatch",
+  "source": "cartridge_clone",
+  "opening_state_hash": "74b54ec61efdc2b6dfd3363dbd53d8dbcf7b046a43dfa31ec38071de6b101e10",
+  "behavior_hash": "21f79a7f07e114f1b064ca1227069455c9f480ae0c2584fea0ac4305a937fb63",
+  "policy_id": "generated-map-3-3-local-1",
+  "trainer_key": "map:3:3/local:1",
+  "matched_strategy_ids": [
+    "fresh-entry-fake-out-tempo"
+  ],
+  "influential_strategy_ids": [],
+  "certified_actions": 1,
+  "status": "needs_improvement",
+  "classification": "tooling_mismatch",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 1,
+    "findings": [
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "Runner omitted reconstructed fresh-entry state, so evaluation and execution produced different certificates before input.",
+        "state": "runtime/session/battle_reviews/states/brawly-clone-1/turn-001.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "a5e4bd76e5820016",
+          "observed": "Exact attached-state replay executed certificate 4395bc80b0e61956f68a with verified:true and no discrepancy."
+        },
+        "observed_fact": "Expected certificate 8a7ccf64a6122a1a82e0 changed to 4395bc80b0e61956f68a; no game action was sent.",
+        "strategic_judgment": "Safety stop was correct; certificate generation must share policy history with execution.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          1
+        ],
+        "next_test": "Replay turn 1 and require one verified action with no stale-certificate mismatch.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "preparation_failure",
+        "severity": "high",
+        "summary": "The map-linked Brawly record used ROM trainer 265, but authoritative battle RAM showed Kubfu and uniquely matched ROM trainer 266.",
+        "state": "runtime/session/battle_reviews/states/brawly-clone-1/turn-001.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "aa2c080477d7d63c",
+          "observed": "Trainer DB now uses exact ROM record 266 matched to live Kubfu; regenerated profile opens on species 891."
+        },
+        "observed_fact": "Live lead was Kubfu level 20 with item 528 and moves 280/5/428/389; every field matches ROM record 266 and none match record 265.",
+        "strategic_judgment": "The stale six-opponent profile could rank switches and reserves against the wrong fight.",
+        "confidence": "verified",
+        "fix_layer": "hard_fight_preparation",
+        "turns": [
+          1
+        ],
+        "next_test": "Regenerate the profile from corrected record 266 and verify the opening target is species 891.",
+        "knowledge_target": "preparation"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "medium",
+        "summary": "The mechanics report still marks Kubfu's known Iapapa Berry effect as unmodeled.",
+        "action_changing": true,
+        "observed_fact": "The certificate reported held-item effect 528 as material uncertainty; ROM decoding identifies item 528 as Iapapa Berry.",
+        "strategic_judgment": "Pinch healing can alter later KO thresholds, so qualification must either model it or show it cannot change selected actions.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          1
+        ],
+        "next_test": "Exercise a threshold state where item 528 activates and compare predicted and actual HP.",
+        "knowledge_target": "mechanics"
+      }
+    ],
+    "correct_choices": [
+      "The stale-certificate gate stopped before any input.",
+      "Correct the trainer record from live lead evidence before another qualification attempt."
+    ],
+    "next_test": "Replay the attached opening with shared fresh-entry history, then start a corrected-profile clone from the protected opening."
+  }
+}

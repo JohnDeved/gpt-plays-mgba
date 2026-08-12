@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "id": "20260812T125719Z-live-navigation-and-warp-capabilities-hang-witho",
+  "status": "verified",
+  "created_at": "2026-08-12T12:57:19.239719+00:00",
+  "summary": "Live navigation and warp capabilities hang without state delta",
+  "component": "tools/runbun_call.py / game_navigate_live / game_travel_warp",
+  "symptom": "Both write calls remained running about 49 seconds and emitted no JSON result; mGBA frame count advanced but map position and canonical state hash did not change.",
+  "classification": "actuator_input",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/slateport-museum-grunt20-defeated-forward-20260812.state",
+    "sha256": "e2089e9bdb97b3e8dbe9d0f68fe6883b0070ffd11001109fac59265f9e9aa7b3",
+    "canonical_state": {},
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "Each bounded capability returns structured success or a typed failure within its frame/replan bound, with RAM position or map postcondition.",
+    "actual": "No response, no map/position/party delta, orphaned runbun_call and runbun_mcp processes until they later exited.",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "A bounded navigator must either change the authoritative map position or return a typed no-progress failure after three unchanged input acknowledgements.",
+    "sources": [
+      "canonical RAM map position and state hash",
+      "Lua input action acknowledgements",
+      "hashed post-first-grunt savestate"
+    ]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "/Users/johann/gpt-plays-mgba/runtime/session/slateport-museum-grunt20-defeated-forward-20260812.state",
+    "fixture_sha256": "e2089e9bdb97b3e8dbe9d0f68fe6883b0070ffd11001109fac59265f9e9aa7b3",
+    "command": "python3 tools/runbun_call.py game_navigate_live --clone-state runtime/session/slateport-museum-grunt20-defeated-forward-20260812.state --args '{\"x\":6,\"y\":2,\"expected_map\":[9,8],\"max_replans\":32}'",
+    "steps": [
+      "Load the protected post-first-grunt fixture in a unique-port muted clone.",
+      "Request navigation from (12,6) to (6,2).",
+      "Verify three acknowledged inputs leave RAM position unchanged and a typed failure is returned."
+    ],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "Both runs returned TRANSIENT_FAILURE: adaptive route made no progress at (12,6) after 3 inputs; overworld control may be locked."
+  },
+  "hypotheses": [
+    {
+      "claim": "The post-battle script still owns overworld control even though the coarse mode decoder says overworld.",
+      "predicted_discriminator": "Different legal directions are acknowledged but none changes SaveBlock1 coordinates.",
+      "result": "supported"
+    },
+    {
+      "claim": "One blocked edge alone caused the stall.",
+      "predicted_discriminator": "Replanning through a different first edge would move the player.",
+      "result": "falsified; three distinct replanned inputs all preserved (12,6)"
+    }
+  ],
+  "root_cause": {
+    "verified": true,
+    "claim": "follow_live_path_adaptive counted stalls per directed edge, so a globally control-locked state could consume the full replan budget by cycling first edges instead of failing after repeated zero progress.",
+    "evidence": [
+      "Static source inspection showed stalled[first_edge] was the only no-progress counter.",
+      "The fixed clone replay tried three inputs with unchanged RAM coordinates and returned immediately."
+    ],
+    "alternatives_falsified": [
+      "RPC read failure: canonical reads and input acknowledgements continued.",
+      "Single dynamic blocker: alternate first edges also produced no coordinate delta."
+    ]
+  },
+  "solution": {
+    "kind": "interface_fix",
+    "files": [
+      "games/runbun.py",
+      "tests/test_runbun.py"
+    ],
+    "contract_change": "Adaptive navigation now aborts after three consecutive acknowledged inputs with no global position progress, regardless of which replanned first edge was selected.",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [
+      {
+        "name": "script-lock no-progress regression",
+        "command": "python3 -m unittest tests.test_runbun.RunBunTests.test_adaptive_path_stops_when_script_lock_blocks_every_direction",
+        "passed": true,
+        "evidence": "1 test passed"
+      }
+    ],
+    "regression_checks": [
+      {
+        "name": "RunBun adapter suite",
+        "command": "python3 -m unittest tests.test_runbun",
+        "passed": true,
+        "evidence": "78 tests passed"
+      },
+      {
+        "name": "capability and battle-policy suites",
+        "command": "python3 -m unittest tests.test_capabilities tests.test_battle_policy",
+        "passed": true,
+        "evidence": "125 tests passed"
+      }
+    ],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "Typed no-progress failure after three unchanged inputs without touching the protected live checkpoint.",
+      "actual": "Both unique-port clones returned the expected failure in 1.5-1.6 seconds; fixture hash remained unchanged.",
+      "extra_state_deltas": []
+    },
+    "metrics": {
+      "worst_case_no_progress_inputs_before": 32,
+      "worst_case_no_progress_inputs_after": 3,
+      "replay_latency_seconds": 1.6,
+      "live_restored_state_hash": "d641c92b26fca056"
+    }
+  },
+  "learning": {
+    "domain_knowledge": [
+      "A battle script can retain player control while the coarse UI decoder reports overworld and the field message box is closed."
+    ],
+    "regression_cases": [
+      "tests.test_runbun.RunBunTests.test_adaptive_path_stops_when_script_lock_blocks_every_direction"
+    ],
+    "tooling_contracts": [
+      "Adaptive navigation must bound global no-progress, not only repeated use of one edge."
+    ]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

@@ -1,0 +1,148 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T16:25:46.644138+00:00",
+  "review_id": "1c60244f4c68cc8eae54",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+  "behavior_hash": "36ae079ee85486288d1e49f728207ec8c093e05ba1a45f8b30100080f5324984",
+  "policy_id": "generated-map-0-25-local-23",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "fresh-entry-fake-out-tempo"
+  ],
+  "certified_actions": 27,
+  "status": "needs_improvement",
+  "classification": "tooling_mismatch",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 27,
+    "findings": [
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "Single-battle scoring treated stale battler slot 3 as the next opponent during the simultaneous-faint replacement.",
+        "state": "runtime/session/battle_reviews/states/1786465501708693000/turn-019.state",
+        "state_hash": "4cf84c8f90bfb9b5",
+        "action_id": "0478ebde8c95f1b66051",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "4933179a514fc0ee283d",
+          "observed": "Single format now ignores slot 3; the replay sees the defeated slot-1 opponent and chooses Birdlaw by remaining-roster coverage."
+        },
+        "observed_fact": "Single-battle scoring treated stale battler slot 3 as the next opponent during the simultaneous-faint replacement.",
+        "strategic_judgment": "Single-battle scoring treated stale battler slot 3 as the next opponent during the simultaneous-faint replacement.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          19
+        ],
+        "next_test": "Rerun from the identical opening with v33; require no stale-slot opponent, no forced-switch stall, no residual-status Rollout, and a reviewed win.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "A forced replacement was counted as voluntary switch spam, blocking the immediate corrective Birdlaw pivot.",
+        "state": "runtime/session/battle_reviews/states/1786465501708693000/turn-020.state",
+        "state_hash": "315eb526a202c42f",
+        "action_id": "d906020b5bb5180767fb",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "41821e56cf9e72d023d6",
+          "observed": "Forced replacements no longer increment voluntary-switch stall; the exact prefix now selects Birdlaw."
+        },
+        "observed_fact": "A forced replacement was counted as voluntary switch spam, blocking the immediate corrective Birdlaw pivot.",
+        "strategic_judgment": "A forced replacement was counted as voluntary switch spam, blocking the immediate corrective Birdlaw pivot.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          20
+        ],
+        "next_test": "Rerun from the identical opening with v33; require no stale-slot opponent, no forced-switch stall, no residual-status Rollout, and a reviewed win.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "safety_risk",
+        "severity": "high",
+        "summary": "Burned Bugatti started nonlethal Rollout despite an explicit unmodeled residual/multi-turn warning and fainted while locked.",
+        "state": "runtime/session/battle_reviews/states/1786465501708693000/turn-020.state",
+        "state_hash": "315eb526a202c42f",
+        "action_id": "d906020b5bb5180767fb",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "41821e56cf9e72d023d6",
+          "observed": "The exact prefix now vetoes nonlethal Rollout under residual status and selects the safe Birdlaw switch."
+        },
+        "observed_fact": "Burned Bugatti started nonlethal Rollout despite an explicit unmodeled residual/multi-turn warning and fainted while locked.",
+        "strategic_judgment": "Burned Bugatti started nonlethal Rollout despite an explicit unmodeled residual/multi-turn warning and fainted while locked.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          20
+        ],
+        "next_test": "Rerun from the identical opening with v33; require no stale-slot opponent, no forced-switch stall, no residual-status Rollout, and a reviewed win.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "The Ponyta line spent Lildozer and the Eelektrik line spent Ohmnomnom plus Bushtank; bounded candidates showed no critical-safe dominating alternative with this party.",
+        "action_changing": false,
+        "observed_fact": "The Ponyta line spent Lildozer and the Eelektrik line spent Ohmnomnom plus Bushtank; bounded candidates showed no critical-safe dominating alternative with this party.",
+        "strategic_judgment": "The Ponyta line spent Lildozer and the Eelektrik line spent Ohmnomnom plus Bushtank; bounded candidates showed no critical-safe dominating alternative with this party.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Rerun from the identical opening with v33; require no stale-slot opponent, no forced-switch stall, no residual-status Rollout, and a reviewed win.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "The Sunflora finish had no critical-safe continuation and GrassWhistle missed; repeat clones must demonstrate that the unchanged endgame remains reliable.",
+        "action_changing": false,
+        "observed_fact": "The Sunflora finish had no critical-safe continuation and GrassWhistle missed; repeat clones must demonstrate that the unchanged endgame remains reliable.",
+        "strategic_judgment": "The Sunflora finish had no critical-safe continuation and GrassWhistle missed; repeat clones must demonstrate that the unchanged endgame remains reliable.",
+        "confidence": "heuristic",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Rerun from the identical opening with v33; require no stale-slot opponent, no forced-switch stall, no residual-status Rollout, and a reviewed win.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "info",
+        "summary": "The battle took 27 actions and finished with only Birdlaw and Croakatoa at 28 HP, so this win is not sufficient qualification evidence.",
+        "action_changing": false,
+        "observed_fact": "The battle took 27 actions and finished with only Birdlaw and Croakatoa at 28 HP, so this win is not sufficient qualification evidence.",
+        "strategic_judgment": "The battle took 27 actions and finished with only Birdlaw and Croakatoa at 28 HP, so this win is not sufficient qualification evidence.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Rerun from the identical opening with v33; require no stale-slot opponent, no forced-switch stall, no residual-status Rollout, and a reviewed win.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "Turn 1 Razor Leaf made immediate safe progress instead of switching.",
+      "Fresh-entry Fake Out denied Eelektrik a turn and was the only influential reusable strategy.",
+      "Birdlaw Aerial Ace and Croakatoa Fake Out/Sludge closed the final two matchups."
+    ],
+    "next_test": "Rerun from the identical opening with v33; require no stale-slot opponent, no forced-switch stall, no residual-status Rollout, and a reviewed win."
+  }
+}

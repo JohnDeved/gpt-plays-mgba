@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260812T161802Z-certified-battle-step-prediction-mismatch",
+  "status": "observed",
+  "created_at": "2026-08-12T16:18:02.733083+00:00",
+  "summary": "Certified battle step prediction mismatch",
+  "component": "certified battle interface",
+  "symptom": "selected move PP delta was missing, expected exactly one",
+  "classification": "prediction_model",
+  "severity": "high",
+  "live_state": {
+    "required": false,
+    "preserved": false,
+    "artifact": null,
+    "sha256": null,
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "One legal action reaches a changed stable battle boundary: {'kind': 'move', 'slot': 0, 'move_id': 124, 'pp': 20}",
+    "actual": "{\"allied_action_outcome\": \"executed\", \"allied_pp_deltas\": [], \"enemy_move_id\": 263, \"enemy_move_ids\": [263], \"opponent_pp_deltas\": [{\"battler\": 1, \"delta\": 1, \"move_id\": 263, \"slot\": 1}], \"resolution\": {\"feedback\": \"Croakatoa\\nfainted!<PROMPT_CLEAR>\\nFoe Machoke's Leftovers\\nrestored its HP a little!\\nFoe Machoke is hurt\\nby poison!\\nChoose a Pok\\u00e9mon.\", \"frames\": 288, \"presses\": 7, \"state\": \"party_switch\"}}",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

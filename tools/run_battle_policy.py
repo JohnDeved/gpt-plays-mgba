@@ -88,6 +88,10 @@ def _stable(adapter: RunBunAdapter, gba: MGBA) -> tuple[dict, dict] | None:
     return None
 
 
+def _certificate_for_policy(adapter: RunBunAdapter, observation: dict, policy: BattlePolicy) -> dict:
+    return _battle_certificate(adapter, observation, fresh_entry=policy.history.fresh_entry)
+
+
 def _advance(adapter: RunBunAdapter, gba: MGBA) -> tuple[dict, dict] | None:
     adapter.advance_battle_until_menu(max_frames=1800, visual_fallback=False)
     return _stable(adapter, gba)
@@ -286,7 +290,12 @@ def main() -> int:
         history_battle_id = f"{history_battle_id}:attempt:{time.time_ns()}"
     history_source_id = args.history_battle_id or history_battle_id
     history = BattleHistory.from_jsonl(history_path, battle_id=history_source_id) if history_source_id else BattleHistory()
-    policy = BattlePolicy(profile, strategies=strategies, history=history)
+    activation_mode = (
+        "qualified_live" if args.live and profile.get("schema_version") == 2
+        else "clone_trial" if profile.get("schema_version") == 2
+        else "legacy"
+    )
+    policy = BattlePolicy(profile, strategies=strategies, history=history, activation_mode=activation_mode)
     if args.live:
         plan_data = json.loads(args.plan.read_text(encoding="utf-8"))
         evidence = plan_data.get("evidence", {})
@@ -355,8 +364,8 @@ def main() -> int:
                     battle_id=args.battle_id,
                     before_state_hash=_compact_state_for_preflight(observation),
                 )
-                policy = BattlePolicy(profile, strategies=strategies, history=history)
-            certificate = _battle_certificate(adapter, observation)
+                policy = BattlePolicy(profile, strategies=strategies, history=history, activation_mode=activation_mode)
+            certificate = _certificate_for_policy(adapter, observation, policy)
             _emit_progress({"certificate": certificate["certificate_id"], "decision": policy.decide(certificate)})
             return 0
         if args.live:
@@ -382,7 +391,7 @@ def main() -> int:
                     battle_id=history_source_id,
                     before_state_hash=compact["state_hash"],
                 )
-                policy = BattlePolicy(profile, strategies=strategies, history=history)
+                policy = BattlePolicy(profile, strategies=strategies, history=history, activation_mode=activation_mode)
             if opening_state_hash is None:
                 opening_state_hash = (
                     hashlib.sha256(args.state.read_bytes()).hexdigest()
@@ -413,7 +422,7 @@ def main() -> int:
                 terminal = _branch_terminal(observation)
                 if terminal:
                     break
-            certificate = _battle_certificate(adapter, observation)
+            certificate = _certificate_for_policy(adapter, observation, policy)
             try:
                 decision = policy.decide(certificate)
             except PolicyError as error:
@@ -496,7 +505,14 @@ def main() -> int:
             behavior_hash=policy.behavior_hash,
             policy_id=profile["id"],
             trainer_key=profile.get("trainer_key"),
-            profile_strategy_ids=profile.get("strategy_ids", []),
+            profile_strategy_ids=[
+                *profile.get("strategy_ids", []),
+                *[
+                    sid
+                    for key in ("clone_trial", "blind_live_soft", "full_live")
+                    for sid in (profile.get("strategy_manifest") or {}).get(key, [])
+                ],
+            ],
         )
         if not args.live:
             probe_results = [_run_probe(gba, adapter, task) for task in review.get("counterfactuals", [])]

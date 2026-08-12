@@ -1,0 +1,98 @@
+{
+  "schema_version": 3,
+  "created_at": "2026-08-12T13:15:49.558726+00:00",
+  "review_id": "94184bfec2b2909a9efc",
+  "terminal": "win",
+  "source": "live",
+  "opening_state_hash": "8d12df6a8de5ae92",
+  "behavior_hash": null,
+  "policy_id": "generic-scorer-v11",
+  "trainer_key": "map:9:8/trainer:21",
+  "matched_strategy_ids": [],
+  "certified_actions": 9,
+  "status": "needs_improvement",
+  "classification": "tactical_error",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 9,
+    "findings": [
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "At 3 HP, the scorer preferred slower Rock Throw over Ice Shard even though both guaranteed the KO, exposing Lildozer to a needless reply.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "356e23093f0d13df",
+          "observed": "Scorer v11 selected Ice Shard from the same live RAM state; it acted first and KOed Whirlipede."
+        },
+        "observed_fact": "Canonical state dce374911b14528b verified Rock Throw at 10-12 damage acting second and Ice Shard at 4-5 damage acting first against 3 HP.",
+        "strategic_judgment": "Guaranteed KOs before a reply must outrank higher-damage guaranteed KOs that act second.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "Whirlipede at 3 HP"
+        ],
+        "next_test": "Keep the priority-finisher regression green; add exact Rocky Helmet and chained Rollout mechanics before a future narrow-margin recommendation depends on them.",
+        "state_unavailable_reason": "The live state advanced after the corrected action; the exact pre-state and both certificates remain in battle_transactions.jsonl and the focused regression reproduces it.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "medium",
+        "summary": "The ranking exposed Rocky Helmet recoil and multi-turn Rollout escalation only as unmodeled gaps, so total survival cost was incomplete.",
+        "action_changing": false,
+        "observed_fact": "Aerial Ace caused Rocky Helmet recoil and Whirlipede then used Rollout; Birdlaw fell from 25 to 10 HP.",
+        "strategic_judgment": "Add exact contact recoil and chained-move state before relying on narrow survival margins in future recommendations.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "Birdlaw versus Whirlipede"
+        ],
+        "next_test": "Keep the priority-finisher regression green; add exact Rocky Helmet and chained Rollout mechanics before a future narrow-margin recommendation depends on them.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "medium",
+        "summary": "Two Whirlipede replies were incompletely recorded: the missed Rollout had no PP delta and a later 3 HP hit had no enemy move ID.",
+        "action_changing": false,
+        "observed_fact": "Verified RAM HP changed while the corresponding transaction omitted an enemy move identity or PP delta.",
+        "strategic_judgment": "History reconstruction should retain chosen moves even on misses and identify damage replies before those records drive chained-move policy.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          "switch to Lildozer",
+          "second Rock Throw"
+        ],
+        "next_test": "Keep the priority-finisher regression green; add exact Rocky Helmet and chained Rollout mechanics before a future narrow-margin recommendation depends on them.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "low",
+        "summary": "Razor Leaf critically KOed Frillish from 46 HP; the normal modeled range was only 32-42, so this win must not teach a guaranteed one-hit line.",
+        "action_changing": false,
+        "observed_fact": "Battle text verified a critical hit and immediate Frillish faint.",
+        "strategic_judgment": "Retain the normal damage bounds and treat the one-turn KO as favorable variance.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "Bushtank versus Frillish"
+        ],
+        "next_test": "Keep the priority-finisher regression green; add exact Rocky Helmet and chained Rollout mechanics before a future narrow-margin recommendation depends on them.",
+        "knowledge_target": "mechanics"
+      }
+    ],
+    "correct_choices": [
+      "Fresh-entry Fake Out was correctly rejected against Mareanie because Baneful Bunker had higher priority; Spark adapted after Soak and finished safely.",
+      "Bushtank survived Hex and removed Frillish without a faint; the critical KO was correctly classified as variance, not guaranteed strategy.",
+      "Birdlaw supplied Intimidate and 20 damage, then the scorer preserved it by pivoting to full-health Lildozer as Speed Boost and Rollout became dangerous.",
+      "The live 3 HP finisher defect was fixed in the shared scorer and verified immediately: Ice Shard KOed before any reply."
+    ],
+    "next_test": "Keep the priority-finisher regression green; add exact Rocky Helmet and chained Rollout mechanics before a future narrow-margin recommendation depends on them."
+  }
+}

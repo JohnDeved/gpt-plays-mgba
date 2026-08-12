@@ -87,9 +87,21 @@ def validate_database(database: Any) -> list[str]:
             if not isinstance(position, int) or position < 1 or position in positions:
                 errors.append(f"{mon_prefix}.send_out_position must be unique and positive")
             positions.add(position)
-            for field in ("species_id", "level", "ability_id", "held_item_id"):
+            for field in ("species_id", "level", "held_item_id"):
                 if not isinstance(mon.get(field), int) or mon[field] < 0:
                     errors.append(f"{mon_prefix}.{field} must be a nonnegative integer")
+            types = mon.get("types")
+            if not isinstance(types, list) or not 1 <= len(types) <= 2 or not all(
+                isinstance(value, int) and value >= 0 for value in types
+            ):
+                errors.append(f"{mon_prefix}.types must contain one or two type IDs")
+            ability_id = mon.get("ability_id")
+            possible_abilities = mon.get("possible_ability_ids")
+            if not isinstance(ability_id, int) or ability_id < 0:
+                if ability_id is not None or not isinstance(possible_abilities, list) or not possible_abilities or not all(
+                    isinstance(value, int) and value >= 0 for value in possible_abilities
+                ):
+                    errors.append(f"{mon_prefix}.ability_id must be nonnegative or null with possible_ability_ids")
             moves = mon.get("moves")
             names = mon.get("move_names")
             if not isinstance(moves, list) or not 1 <= len(moves) <= 4 or not all(
@@ -166,6 +178,10 @@ def main() -> int:
     decode.add_argument("--map-number", required=True, type=int)
     decode.add_argument("--local-id", required=True, type=int)
     decode.add_argument("--graphics-id", type=int)
+    scan = subparsers.add_parser("find-rom-name")
+    scan.add_argument("rom", type=Path)
+    scan.add_argument("name")
+    scan.add_argument("--max-trainer-id", type=int, default=1024)
     args = parser.parse_args()
 
     try:
@@ -210,6 +226,21 @@ def main() -> int:
             return 1
         print(json.dumps(profile, indent=2, ensure_ascii=False))
         return 0
+    if args.command == "find-rom-name":
+        sys.path.insert(0, str(REPO_ROOT))
+        from games.run_and_bun.state import decode_gen3
+        from games.run_and_bun.trainer_database import (
+            RomImage, TRAINER_RECORD_STRIDE, TRAINER_TABLE_ADDRESS, decode_rom_trainer,
+        )
+
+        rom = RomImage.from_path(args.rom)
+        matches = []
+        for trainer_id in range(args.max_trainer_id + 1):
+            raw = rom.read_range(TRAINER_TABLE_ADDRESS + trainer_id * TRAINER_RECORD_STRIDE, TRAINER_RECORD_STRIDE)
+            if decode_gen3(raw[0x10:0x20]).strip(" ?").casefold() == args.name.casefold():
+                matches.append(decode_rom_trainer(rom, trainer_id))
+        print(json.dumps({"name": args.name, "matches": matches}, indent=2, ensure_ascii=False))
+        return 0 if matches else 1
 
     record = json.loads(args.record.read_text(encoding="utf-8"))
     overworld = record.get("overworld", {})

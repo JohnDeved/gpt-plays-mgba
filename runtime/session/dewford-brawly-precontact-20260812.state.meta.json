@@ -1,0 +1,57 @@
+{
+  "path": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-brawly-precontact-20260812.state",
+  "sha256": "74b54ec61efdc2b6dfd3363dbd53d8dbcf7b046a43dfa31ec38071de6b101e10",
+  "state_hash": "e24e32a0c8750538",
+  "frame": 20927590,
+  "map": {
+    "group": 3,
+    "number": 3,
+    "x": 4,
+    "y": 4,
+    "warp_id": 0
+  },
+  "party": [
+    {
+      "slot": 0,
+      "species": 453,
+      "personality": 506087644,
+      "ot_id": 3307282159,
+      "level": 21
+    },
+    {
+      "slot": 1,
+      "species": 231,
+      "personality": 1744238455,
+      "ot_id": 3307282159,
+      "level": 21
+    },
+    {
+      "slot": 2,
+      "species": 777,
+      "personality": 3325952935,
+      "ot_id": 3307282159,
+      "level": 21
+    },
+    {
+      "slot": 3,
+      "species": 388,
+      "personality": 1476487022,
+      "ot_id": 3307282159,
+      "level": 21
+    },
+    {
+      "slot": 4,
+      "species": 551,
+      "personality": 4136568345,
+      "ot_id": 3307282159,
+      "level": 21
+    },
+    {
+      "slot": 5,
+      "species": 878,
+      "personality": 4082287436,
+      "ot_id": 3307282159,
+      "level": 21
+    }
+  ]
+}

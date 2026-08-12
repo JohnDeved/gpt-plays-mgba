@@ -1,0 +1,75 @@
+{
+  "schema_version": 3,
+  "created_at": "2026-08-12T12:52:25.206695+00:00",
+  "review_id": "cb6e79e52871b8f983cf",
+  "terminal": "win",
+  "source": "live",
+  "opening_state_hash": "abbb77af8aa169f0",
+  "behavior_hash": null,
+  "policy_id": "generic-scorer-v10",
+  "trainer_key": "map:9:8/trainer:20",
+  "matched_strategy_ids": [],
+  "certified_actions": 11,
+  "status": "needs_improvement",
+  "classification": "prediction_gap",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 11,
+    "findings": [
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "Solid Rock and Rindo Berry were omitted, so Spark was predicted at 24-30 but dealt 19 and first Razor Leaf was predicted at 40-52 but dealt 15.",
+        "action_changing": true,
+        "observed_fact": "RAM verified ability 116 and held item 553; battle text verified Rindo consumption.",
+        "strategic_judgment": "The shared damage model could change KO timing and therefore recommendations; scorer v10 now applies Solid Rock to super-effective hits and Rindo to super-effective Grass hits.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "Tirtouga actions 3-5"
+        ],
+        "next_test": "Require the Tirtouga regressions and full battle suites to stay green.",
+        "state_unavailable_reason": "No per-turn savestate was captured; the terminal state cannot replay Tirtouga. Exact RAM states remain in the transaction log and focused formula regressions reproduce both observed bounds.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "medium",
+        "summary": "I overrode the scorer with a Croakatoa switch based on type intuition, then spent fresh Fake Out into Protect and absorbed Acid plus Water Pulse before returning to the scorer line.",
+        "action_changing": false,
+        "observed_fact": "Croakatoa fell from 46 to 12 HP; the later certified Ohmnomnom pivot survived and finished Skrelp.",
+        "strategic_judgment": "This is not a proven dominated branch without a replay, so it must not become a classifier rule; future overrides need deterministic evidence stronger than type intuition.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "Skrelp actions 7-10"
+        ],
+        "next_test": "Use the history-aware classifier without manual override in the next comparable fresh-entry matchup.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "low",
+        "summary": "One fresh-entry Fake Out PP was consumed into known Protect priority without producing damage or flinch.",
+        "action_changing": false,
+        "observed_fact": "Protect acted before Fake Out and PP dropped from 5 to 4.",
+        "strategic_judgment": "The generic Fake Out threshold rule now rejects targets with a known equal-or-higher-priority blocking move.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "Skrelp action 8"
+        ],
+        "next_test": "Keep the Protect rejection regression green.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "Fresh-entry Fake Out into Murkrow dealt 11, denied its turn, and made Spark a guaranteed modeled follow-up KO.",
+      "The scorer correctly switched damaged Ohmnomnom to Bushtank against Tirtouga and later selected the razor-thin Ohmnomnom pivot that survived Skrelp and finished first.",
+      "No Pokémon fainted and the terminal win was verified from RAM."
+    ],
+    "next_test": "Run the next battle with battle_id history enabled; accept classifier suggestions unless new authoritative evidence proves an override safer."
+  }
+}

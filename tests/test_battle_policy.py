@@ -4,6 +4,7 @@ import copy
 import json
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
 
 from games.run_and_bun.battle_policy import (
@@ -13,6 +14,8 @@ from games.run_and_bun.battle_policy import (
     _battle_state,
     _critical_damage_bound,
     _survival_margin_after_hits,
+    _switch_projection,
+    generate_battle_profile,
     load_profile,
     load_strategies,
     policy_bundle_hash,
@@ -83,6 +86,25 @@ class BattlePolicyTests(unittest.TestCase):
             ],
         }
 
+    def generated_profile(self):
+        return {
+            "schema_version": 2,
+            "id": "generated-fixture",
+            "trainer_key": "map:1:2/local:3",
+            "party_bindings": {"member_0": {"species": 1}, "member_1": {"species": 3}},
+            "matchup_assignments": [{
+                "target": {"roster_position": 1, "species": 2},
+                "primary": "member_0",
+                "backups": ["member_1"],
+            }],
+            "strategy_manifest": {
+                "clone_trial": [],
+                "blind_live_soft": [],
+                "full_live": [],
+            },
+            "exceptions": [],
+        }
+
     def test_declarative_preference_is_audited_and_legal(self):
         policy = BattlePolicy(self.profile())
         decision = policy.decide(certificate())
@@ -91,6 +113,26 @@ class BattlePolicyTests(unittest.TestCase):
         self.assertEqual(decision["action"]["kind"], "move")
         self.assertEqual(decision["behavior_hash"], policy.behavior_hash)
         self.assertTrue(all(item["action"] in certificate()["legal_actions"] for item in decision["candidates"]))
+
+    def test_switch_projection_uses_certificate_rom_move_data(self):
+        cert = certificate()
+        cert["compact_state"]["battle"]["mons"][1].update({
+            "level": 17, "attack": 37, "speed": 37, "types": [1],
+            "moves": [37], "pp": [10],
+        })
+        cert["compact_state"]["party"][1].update({
+            "level": 21, "defense": 36, "speed": 52, "types": [13, 8],
+            "moves": [209], "pp": [20], "attack": 42,
+        })
+        cert["move_data"] = {
+            "37": {"power": 120, "type_id": 0, "category": "physical", "priority": 0, "accuracy": 100, "raw_flags": [1]},
+            "209": {"power": 65, "type_id": 13, "category": "physical", "priority": 0, "accuracy": 100, "raw_flags": [1]},
+        }
+        projection = _switch_projection(
+            cert, cert["legal_actions"][-1], cert["compact_state"]["battle"]["mons"][1],
+            forced_switch=False,
+        )
+        self.assertLess(projection["survival_margin"], 25)
 
     def test_reusable_strategy_matches_verified_tactical_context(self):
         strategy = {
@@ -163,6 +205,19 @@ class BattlePolicyTests(unittest.TestCase):
         self.assertEqual(policy.history.snapshot()["verified_actions"], 1)
         self.assertFalse(policy.history.fresh_entry)
 
+    def test_enemy_forced_identity_change_is_a_fresh_entry(self):
+        history = BattleHistory()
+        cert = certificate()
+        history.record(cert, {
+            "action": {"kind": "move", "slot": 0, "move_id": 10},
+            "actual": {"enemy_move_id": 525},
+            "observation": {"battle": {"mons": [
+                {"slot": 0, "species": 4, "personality": 44, "hp": 20},
+                {"slot": 1, "species": 2, "personality": 22, "hp": 20},
+            ]}},
+        })
+        self.assertTrue(history.fresh_entry)
+
     def test_double_history_tracks_fresh_entry_and_switches_per_allied_battler(self):
         history = BattleHistory()
         cert = certificate()
@@ -187,6 +242,23 @@ class BattlePolicyTests(unittest.TestCase):
         self.assertEqual(history.snapshot()["verified_actions"], 1)
         self.assertFalse(history.fresh_entry)
         self.assertTrue(history.switch_forbidden)
+
+    def test_history_constrains_only_the_forced_second_thrash_turn(self):
+        history = BattleHistory()
+        cert = certificate(opponent_species=56)
+        history.record(cert, {"action": {"kind": "switch", "slot": 1, "species": 3}, "actual": {"enemy_move_id": 37}})
+        self.assertEqual(history.enemy_move_constraint(56), {37})
+        history.record(cert, {"action": {"kind": "move", "slot": 0, "move_id": 10}, "actual": {"enemy_move_id": 37}})
+        self.assertIsNone(history.enemy_move_constraint(56))
+
+    def test_history_removes_fake_out_after_the_opponents_entry_turn(self):
+        history = BattleHistory()
+        cert = certificate(opponent_species=296)
+        opponent = cert["compact_state"]["battle"]["mons"][1]
+        opponent["moves"] = [252, 418]
+        self.assertIsNone(history.enemy_move_constraint(296, opponent=opponent))
+        history.record(cert, {"action": {"kind": "move", "slot": 0, "move_id": 10}})
+        self.assertEqual(history.enemy_move_constraint(296, opponent=opponent), {418})
 
     def test_history_replay_stops_before_target_state(self):
         cert = certificate()
@@ -234,6 +306,15 @@ class BattlePolicyTests(unittest.TestCase):
         switch = next(item for item in decision["candidates"] if item["action"]["kind"] == "switch")
         self.assertIn("history:switch_stall_after_one", switch["forbidden_by"])
         self.assertEqual(decision["action"]["kind"], "move")
+
+    def test_forced_replacement_does_not_count_as_voluntary_switch_stall(self):
+        policy = BattlePolicy(self.profile())
+        forced = certificate(player_species=1)
+        forced["boundary"]["party_switch_required"] = True
+        policy.record_verified(forced, {"kind": "switch", "slot": 1, "species": 3})
+        decision = policy.decide(certificate(player_species=3))
+        switch = next(item for item in decision["candidates"] if item["action"]["kind"] == "switch")
+        self.assertNotIn("history:switch_stall_after_one", switch["forbidden_by"])
 
     def test_safe_return_switch_can_escape_when_every_attack_is_unsafe(self):
         policy = BattlePolicy(self.profile())
@@ -309,6 +390,53 @@ class BattlePolicyTests(unittest.TestCase):
         action = {"kind": "switch", "slot": 1, "species": 3, "hp": 25}
         self.assertEqual(policy._reserve_score(action, certificate(opponent_species=9)), 1)
 
+    def test_generated_matchup_preserves_answer_without_rewarding_switch_spam(self):
+        policy = BattlePolicy(self.generated_profile())
+        action = {"kind": "switch", "slot": 0, "species": 1, "hp": 25}
+        self.assertEqual(policy._reserve_score(action, certificate(opponent_species=2)), 0)
+
+    def test_generated_forced_replacement_maximizes_unknown_roster_coverage(self):
+        policy = BattlePolicy(self.generated_profile())
+        cert = certificate(player_species=1, opponent_species=2)
+        cert["boundary"]["party_switch_required"] = True
+        cert["compact_state"]["battle"]["mons"][1]["hp"] = 0
+        first = {"kind": "switch", "slot": 0, "species": 1, "hp": 25}
+        backup = {"kind": "switch", "slot": 1, "species": 3, "hp": 25}
+        self.assertGreater(policy._reserve_score(first, cert), policy._reserve_score(backup, cert))
+
+    def test_generated_forced_replacement_uses_ranked_known_matchup_backup(self):
+        policy = BattlePolicy(self.generated_profile())
+        cert = certificate(player_species=9, opponent_species=2)
+        cert["boundary"]["party_switch_required"] = True
+        cert["compact_state"]["party"][0]["species"] = 1
+        primary = {"kind": "switch", "slot": 0, "species": 1, "hp": 25}
+        backup = {"kind": "switch", "slot": 1, "species": 3, "hp": 25}
+        self.assertGreater(policy._reserve_score(primary, cert), policy._reserve_score(backup, cert))
+
+    def test_candidate_one_control_move_runs_once_after_entry_tempo(self):
+        strategy = {
+            "id": "one-control", "status": "candidate",
+            "executable": {"rules": [{
+                "id": "once", "when": {
+                    "fresh_entry": False, "active_move_ids_all": [252, 609],
+                    "survives_critical": True,
+                    "action_count": {"move_id": 609, "equals": 0},
+                },
+                "directives": [{"kind": "prefer", "action": {"kind": "move", "move_id": 609}, "priority": 2}],
+            }]},
+        }
+        profile = self.generated_profile()
+        profile["strategy_manifest"]["clone_trial"] = ["one-control"]
+        cert = certificate(move_ids=(609, 209))
+        cert["compact_state"]["battle"]["mons"][0]["moves"] = [252, 609, 209]
+        cert["compact_state"]["battle"]["mons"][0]["pp"] = [5, 20, 20]
+        policy = BattlePolicy(profile, strategies=[strategy], activation_mode="clone_trial")
+        policy.history._fresh_by_identity["species:1"] = False
+        first = policy.decide(cert)
+        self.assertEqual(first["action"]["move_id"], 609)
+        policy.record_verified(cert, first["action"])
+        self.assertNotIn("strategy:one-control/rule:once", policy.decide(cert)["applied_strategy_ids"])
+
     def test_auto_matched_strategy_rules_have_unique_audit_ids(self):
         strategy = {
             "id": "fresh-tempo",
@@ -339,6 +467,142 @@ class BattlePolicyTests(unittest.TestCase):
         decision = BattlePolicy(self.profile(), strategies=[strategy]).decide(certificate())
         self.assertFalse(any(item.startswith("strategy:unproven") for item in decision["applied_strategy_ids"]))
 
+    def test_candidate_strategy_activates_only_in_clone_trial_manifest(self):
+        strategy = {
+            "id": "trial", "status": "candidate",
+            "executable": {"rules": [{
+                "id": "prefer-second", "when": {},
+                "directives": [{"kind": "prefer", "action": {"kind": "move", "move_id": 11}}],
+            }]},
+        }
+        profile = self.generated_profile()
+        profile["strategy_manifest"]["clone_trial"] = ["trial"]
+        clone = BattlePolicy(profile, strategies=[strategy], activation_mode="clone_trial").decide(certificate())
+        live = BattlePolicy(profile, strategies=[strategy], activation_mode="blind_live").decide(certificate())
+        self.assertEqual(clone["action"]["move_id"], 11)
+        self.assertFalse(any(item.startswith("strategy:trial") for item in live["applied_strategy_ids"]))
+
+    def test_strategy_is_not_reported_applied_when_no_action_matches(self):
+        strategy = {
+            "id": "bench-only", "status": "candidate",
+            "executable": {"when": {}, "directives": [
+                {"kind": "prefer", "action": {"kind": "move", "move_id": 252}},
+            ]},
+        }
+        profile = self.generated_profile()
+        profile["strategy_manifest"]["clone_trial"] = ["bench-only"]
+        decision = BattlePolicy(profile, strategies=[strategy], activation_mode="clone_trial").decide(certificate())
+        self.assertFalse(decision["applied_strategy_ids"])
+
+    def test_reusable_tested_is_soft_only_in_blind_live_mode(self):
+        profile = self.generated_profile()
+        profile["strategy_manifest"]["blind_live_soft"] = ["soft"]
+        strategy = {
+            "id": "soft", "status": "reusable_tested",
+            "executable": {"rules": [{
+                "id": "preference", "when": {},
+                "directives": [
+                    {"kind": "prefer", "action": {"kind": "move", "move_id": 11}},
+                    {"kind": "forbid", "action": {"kind": "move", "move_id": 10}},
+                ],
+            }]},
+        }
+        decision = BattlePolicy(profile, strategies=[strategy], activation_mode="blind_live").decide(certificate())
+        self.assertEqual(decision["action"]["move_id"], 11)
+        self.assertEqual(decision["vetoes"], {})
+        self.assertEqual(decision["influential_strategy_ids"], ["soft"])
+
+    def test_profile_veto_cannot_remove_lexicographically_safer_action(self):
+        profile = self.generated_profile()
+        profile["exceptions"] = [{
+            "id": "bad-veto", "when": {},
+            "directives": [{"kind": "forbid", "action": {"kind": "move", "move_id": 10}}],
+        }]
+        cert = certificate(opponent_hp=5)
+        decision = BattlePolicy(profile).decide(cert)
+        self.assertEqual(decision["action"]["move_id"], 10)
+        chosen = next(item for item in decision["candidates"] if item["action"]["move_id"] == 10)
+        self.assertIn("bad-veto", chosen["relaxed_vetoes"])
+
+    def test_semantic_selector_matches_guaranteed_ko_without_species_rule(self):
+        profile = self.profile()
+        profile["strategy_ids"] = ["secure-ko"]
+        strategy = {
+            "id": "secure-ko", "status": "tested",
+            "executable": {"rules": [{
+                "id": "finish", "when": {},
+                "directives": [{"kind": "prefer", "action": {"kind": "move", "guaranteed_ko": True}}],
+            }]},
+        }
+        cert = certificate(opponent_hp=4)
+        decision = BattlePolicy(profile, strategies=[strategy]).decide(cert)
+        self.assertEqual(decision["action"]["move_id"], 10)
+        self.assertIn("strategy:secure-ko/rule:finish", decision["applied_strategy_ids"])
+
+    def test_generated_profile_selects_candidates_without_handwritten_constraints(self):
+        party = [
+            {"slot": 0, "species": 1, "personality": 10, "ot_id": 1, "types": [10], "moves": [101]},
+            {"slot": 1, "species": 3, "personality": 30, "ot_id": 1, "types": [11], "moves": [252]},
+        ]
+        trainer = {
+            "key": "map:1:2/local:3", "battle": {"format": "single", "roster_complete": True},
+            "roster": [{"send_out_position": 1, "species_id": 9, "types": [12], "moves": [201]}],
+            "uncertainties": [],
+        }
+        strategy = {
+            "id": "trial", "status": "candidate", "preconditions": {"party_move_ids_any": [252]},
+            "executable": {"when": {"fresh_entry": True}, "directives": [{"kind": "prefer", "action": {"kind": "move", "move_id": 252}}]},
+        }
+        profile = generate_battle_profile(party, trainer, [strategy], state_hash="state")
+        self.assertEqual(profile["schema_version"], 2)
+        self.assertEqual(profile["exceptions"], [])
+        self.assertEqual(profile["strategy_manifest"]["clone_trial"], ["trial"])
+        self.assertEqual(profile["generation"]["party_state_hash"], "state")
+        self.assertFalse(validate_profile(profile))
+
+    def test_generated_profile_respects_fixed_ability_immunity(self):
+        class Rom:
+            @staticmethod
+            def type_chart():
+                return {4: {5: 2.0, 14: 1.0}, 17: {5: 1.0, 14: 2.0}}
+
+            @staticmethod
+            def move(move_id):
+                return SimpleNamespace(type_id={1: 4, 2: 17}[move_id], power={1: 100, 2: 60}[move_id], category="physical")
+
+        party = [
+            {"species": 1, "personality": 10, "ot_id": 1, "moves": [1]},
+            {"species": 2, "personality": 20, "ot_id": 1, "moves": [2]},
+        ]
+        trainer = {
+            "key": "map:1:2/local:3", "battle": {"format": "single", "roster_complete": True},
+            "roster": [{"send_out_position": 1, "species_id": 337, "types": [5, 14], "ability_id": 26}],
+        }
+        profile = generate_battle_profile(party, trainer, state_hash="state", rom=Rom())
+        self.assertEqual(profile["matchup_assignments"][0]["primary"], "member_1")
+
+    def test_generated_profile_knows_thousand_arrows_hits_flying(self):
+        class Rom:
+            @staticmethod
+            def type_chart():
+                return {4: {0: 1.0, 2: 0.0, 4: 1.0}, 2: {16: 1.0, 4: 1.0}, 15: {16: 2.0, 4: 2.0}}
+
+            @staticmethod
+            def move(move_id):
+                move_type, power = {10: (2, 60), 11: (15, 40), 614: (4, 90)}[move_id]
+                return SimpleNamespace(type_id=move_type, power=power, category="physical")
+
+        party = [
+            {"species": 1, "personality": 10, "ot_id": 1, "types": [0, 2], "moves": [10]},
+            {"species": 2, "personality": 20, "ot_id": 1, "types": [4], "moves": [11]},
+        ]
+        trainer = {
+            "key": "map:1:2/local:3", "battle": {"format": "single", "roster_complete": True},
+            "roster": [{"send_out_position": 1, "species_id": 1164, "types": [16, 4], "moves": [614]}],
+        }
+        profile = generate_battle_profile(party, trainer, state_hash="state", rom=Rom())
+        self.assertEqual(profile["matchup_assignments"][0]["primary"], "member_1")
+
     def test_reserve_directive_penalizes_protected_role(self):
         profile = self.profile()
         profile["strategy_ids"] = ["keep-reserve"]
@@ -355,14 +619,27 @@ class BattlePolicyTests(unittest.TestCase):
         self.assertEqual(next(iter(decision["reservations"].values())), 3)
         self.assertLess(switch["score"][5], 0)
 
-    def test_burned_reserve_is_not_safe_switch_target(self):
+    def test_burned_reserve_can_pivot_when_it_survives_hit_and_residual(self):
         cert = certificate()
         cert["compact_state"]["party"][1]["status"] = 16
         cert["legal_actions"][-1]["status"] = 16
         decision = BattlePolicy(self.profile()).decide(cert)
         switch = next(item for item in decision["candidates"] if item["action"]["kind"] == "switch")
-        self.assertFalse(switch["safe"])
-        self.assertIn("status:major_status_voluntary_switch", switch["forbidden_by"])
+        self.assertTrue(switch["safe"])
+        self.assertNotIn("status:major_status_voluntary_switch", switch["forbidden_by"])
+        self.assertLess(switch["score"][5], 0)
+
+    def test_unmodeled_status_move_requires_explicit_strategy(self):
+        cert = certificate()
+        cert["alternatives"][1].update({
+            "damage_range": [0, 0], "damage_est": 0,
+            "uncertainties": ["status_move_effect_unmodeled"],
+        })
+        profile = self.profile()
+        profile["constraints"] = []
+        decision = BattlePolicy(profile).decide(cert)
+        status = next(item for item in decision["candidates"] if item["action"].get("move_id") == 11)
+        self.assertIn("mechanics:unmodeled_status_move_requires_strategy", status["forbidden_by"])
 
     def test_unsafe_fallback_prefers_higher_survival_margin(self):
         cert = certificate()
@@ -453,6 +730,13 @@ class BattlePolicyTests(unittest.TestCase):
         self.assertIn("bugatti-rollout-before-birdlaw-dustox", switch["forbidden_by"])
         self.assertEqual(decision["action"]["kind"], "move")
         self.assertEqual(decision["action"]["move_id"], 205)
+
+    def test_unmodeled_rollout_lock_requires_explicit_strategy(self):
+        cert = certificate(player_species=543, opponent_species=269, move_ids=(205, 450), opponent_hp=52)
+        cert["alternatives"][0].update({"move_id": 205, "damage_range": [4, 5], "damage_est": 4.5})
+        decision = BattlePolicy(self.profile()).decide(cert)
+        rollout = next(item for item in decision["candidates"] if item["action"].get("move_id") == 205)
+        self.assertIn("mechanics:unmodeled_locked_move_requires_strategy", rollout["forbidden_by"])
 
     def test_gavi_low_bibarel_finish_does_not_spend_birdlaw(self):
         cert = certificate(player_species=777, opponent_species=400, move_ids=(252, 609), opponent_hp=11)
@@ -688,6 +972,19 @@ class BattlePolicyTests(unittest.TestCase):
         profile["reserve_objectives"] = []
         self.assertEqual(BattlePolicy(profile).decide(cert)["action"]["kind"], "switch")
 
+    def test_future_switch_speed_does_not_beat_stronger_immediate_safe_damage(self):
+        cert = certificate()
+        cert["alternatives"][0].update({"damage_range": [32, 35], "damage_est": 33.5})
+        cert["compact_state"]["party"][1].update({
+            "speed": 99, "attack": 20, "special_attack": 20, "moves": [98], "pp": [30],
+        })
+        profile = self.profile()
+        profile["constraints"] = []
+        profile["reserve_objectives"] = []
+        decision = BattlePolicy(profile).decide(cert)
+        self.assertEqual(decision["action"]["kind"], "move")
+        self.assertEqual(decision["action"]["move_id"], 10)
+
     def test_unsupported_predicate_is_rejected(self):
         profile = self.profile()
         profile["constraints"][0]["when"]["arbitrary_expression"] = "true"
@@ -873,7 +1170,12 @@ class BattleReviewTests(unittest.TestCase):
         self.assertFalse(any(item["kind"] in {"tactical_error", "suboptimal_action"} for item in review["findings"]))
 
     def test_persist_review_writes_one_compact_artifact(self):
-        review = review_episode([self.transition()], terminal="win", source="cartridge_clone", opening_state_hash="open", behavior_hash="b" * 64, policy_id="fixture")
+        transition = self.transition()
+        transition["policy_decision"].update({
+            "applied_strategy_ids": ["strategy:fixture"],
+            "influential_strategy_ids": ["fixture"],
+        })
+        review = review_episode([transition], terminal="win", source="cartridge_clone", opening_state_hash="open", behavior_hash="b" * 64, policy_id="fixture")
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             artifact = persist_review(review, root / "reviews")
@@ -884,6 +1186,7 @@ class BattleReviewTests(unittest.TestCase):
             self.assertNotIn("postmortem", stored)
             self.assertNotIn("counterfactuals", stored)
             self.assertNotIn("observations", stored)
+            self.assertEqual(stored["influential_strategy_ids"], ["fixture"])
 
     def test_create_battle_review_builds_compact_agent_checklist(self):
         review = build_review(

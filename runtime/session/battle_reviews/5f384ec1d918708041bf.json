@@ -1,0 +1,107 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T16:45:07.251180+00:00",
+  "review_id": "5f384ec1d918708041bf",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+  "behavior_hash": "360b6184de3a08f763800872143cf576780b6abedd1ab70c88d06589f79c5400",
+  "policy_id": "generated-map-0-25-local-23",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "fresh-entry-fake-out-tempo",
+    "fresh-tempo-one-control"
+  ],
+  "certified_actions": 25,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 25,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer fainted in the Ponyta line; every inspected alternative was unsafe under the verified critical bound, so this is preparation pressure rather than a dominated action.",
+        "action_changing": false,
+        "observed_fact": "Lildozer fainted in the Ponyta line; every inspected alternative was unsafe under the verified critical bound, so this is preparation pressure rather than a dominated action.",
+        "strategic_judgment": "Lildozer fainted in the Ponyta line; every inspected alternative was unsafe under the verified critical bound, so this is preparation pressure rather than a dominated action.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run qualification clone 2 from the identical opening with the unchanged behavior hash; review it before clone 3.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Croakatoa acquired Flame Body burn while using fresh-entry Fake Out on Ponyta; Fake Out was the only critical-safe legal action, so the risk is monitored but not action-changing.",
+        "action_changing": false,
+        "observed_fact": "Croakatoa acquired Flame Body burn while using fresh-entry Fake Out on Ponyta; Fake Out was the only critical-safe legal action, so the risk is monitored but not action-changing.",
+        "strategic_judgment": "Croakatoa acquired Flame Body burn while using fresh-entry Fake Out on Ponyta; Fake Out was the only critical-safe legal action, so the risk is monitored but not action-changing.",
+        "confidence": "heuristic",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run qualification clone 2 from the identical opening with the unchanged behavior hash; review it before clone 3.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "The Eelektrik line consumed Ohmnomnom and left Bushtank at 1 HP; one-control Nuzzle improved the line, but no inspected candidate lexicographically dominated the selected actions.",
+        "action_changing": false,
+        "observed_fact": "The Eelektrik line consumed Ohmnomnom and left Bushtank at 1 HP; one-control Nuzzle improved the line, but no inspected candidate lexicographically dominated the selected actions.",
+        "strategic_judgment": "The Eelektrik line consumed Ohmnomnom and left Bushtank at 1 HP; one-control Nuzzle improved the line, but no inspected candidate lexicographically dominated the selected actions.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run qualification clone 2 from the identical opening with the unchanged behavior hash; review it before clone 3.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bugatti finished the Sunflora line at 2 HP; Bug Bite was the verified guaranteed knockout and every non-KO alternative remained critical-unsafe.",
+        "action_changing": false,
+        "observed_fact": "Bugatti finished the Sunflora line at 2 HP; Bug Bite was the verified guaranteed knockout and every non-KO alternative remained critical-unsafe.",
+        "strategic_judgment": "Bugatti finished the Sunflora line at 2 HP; Bug Bite was the verified guaranteed knockout and every non-KO alternative remained critical-unsafe.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run qualification clone 2 from the identical opening with the unchanged behavior hash; review it before clone 3.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "info",
+        "summary": "The win took 25 certified actions with no zero-progress switch loop, Protect stall, or residual-status Rollout lock.",
+        "action_changing": false,
+        "observed_fact": "The win took 25 certified actions with no zero-progress switch loop, Protect stall, or residual-status Rollout lock.",
+        "strategic_judgment": "The win took 25 certified actions with no zero-progress switch loop, Protect stall, or residual-status Rollout lock.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run qualification clone 2 from the identical opening with the unchanged behavior hash; review it before clone 3.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "The forced Ponyta replacement selected ranked backup Croakatoa instead of exposing contact attacker Bugatti.",
+      "Fresh-entry Fake Out and exactly one Nuzzle controlled Eelektrik without repeating the one-use setup.",
+      "Bugatti used guaranteed-KO Bug Bite on Sunflora and Birdlaw remained available for Dustox."
+    ],
+    "next_test": "Run qualification clone 2 from the identical opening with the unchanged behavior hash; review it before clone 3."
+  }
+}

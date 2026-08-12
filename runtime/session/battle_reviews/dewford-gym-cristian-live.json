@@ -1,0 +1,166 @@
+{
+  "schema_version": 3,
+  "created_at": "2026-08-12T16:30:24Z",
+  "review_id": "cristian32review0812",
+  "terminal": "win",
+  "source": "live",
+  "opening_state_hash": "b79f50c2d730e094",
+  "behavior_hash": null,
+  "policy_id": "generic-scorer-v32",
+  "trainer_key": "map:3:3/local:6",
+  "matched_strategy_ids": [],
+  "certified_actions": 37,
+  "status": "needs_improvement",
+  "classification": "prediction_gap",
+  "agent_review": {
+    "schema_version": 1,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 37,
+    "findings": [
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "Pure Power and Coba Berry were initially omitted from Meditite damage bounds.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "Shared damage mechanics and exact regressions now model both modifiers."}
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "A faster Fake Out flinch was first labeled as a missing-PP execution failure, and spent enemy Fake Out remained legal after history verification failed.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "Flinch prevention and direct enemy Fake Out PP legality regressions pass."}
+      },
+      {
+        "kind": "safety_risk",
+        "severity": "high",
+        "summary": "Switch ranking allowed a teammate that survived only the entry hit, causing switch-spam pressure without a safe action window.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "Entry plus next-action survival/finish gates reject sacrificial matchup pivots."}
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "Harmless Detect and Protect priority suppressed useful fresh-entry Fake Out and safe finishing moves.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "Priority comparisons now separate damaging replies from harmless status actions."}
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "Vital Throw ROM priority decoded as +255 instead of signed -1.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "ROM priority uses a signed byte and the exact decode regression passes."}
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "Charm missed critical-safety transitions, used a linear stage estimate, and tried to continue at the Attack floor.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "Exact stage ratios, critical race checks, and floor legality produced the verified three-Charm line."}
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "critical",
+        "summary": "Spark could paralyze an unstatused Guts attacker before its reply, turning a modeled safe hit into Ohmnomnom's avoidable faint.",
+        "state": "runtime/session/cristian-pre-spark-guts-regression.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "The exact state changed from Spark to Metal Claw; replay preserved Ohmnomnom and all regressions pass."}
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "Step verification did not flag allied HP loss above the predicted critical ceiling.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "Battle steps now compare authoritative allied HP loss with the certificate critical bound."}
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "critical",
+        "summary": "Statused Facade power doubling was absent, and poison residual damage falsely looked like evidence that Sludge executed before Croakatoa fainted.",
+        "state": "runtime/session/cristian-pre-sludge-facade-regression.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "The exact state changed to priority Vacuum Wave, KOed Machoke, and the verifier reported later pre-execution faints correctly."}
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "Forced replacement menus scored the fainted active Pokémon and returned an illegal move instead of a legal party slot.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "Forced menus now return a legal ranked switch; this completed the live fight without manual selection."}
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "Two-turn and finishing claims ignored higher-priority damaging replies such as Mach Punch.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "Both claims now reuse the damaging-priority comparator and dedicated regressions pass."}
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "Forced-entry ranking preferred bulk before a guaranteed same-priority KO, exposing Coppertop to avoidable critical variance.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "Guaranteed KO before damaging reply is now the first forced-entry rank component; Black Belt is also modeled."}
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Coppertop was KOed by a Mach Punch critical while the model's pre-item critical range allowed that outcome.",
+        "action_changing": false,
+        "resolved": true
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "medium",
+        "summary": "Poison Touch, Leftovers, and several held-item effects were observed before their exact transitions were modeled.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "medium",
+        "summary": "Three successful consecutive Protects consumed attacks and let Leftovers erase progress; Protect-chain probability remains outside tactical ranking.",
+        "action_changing": false,
+        "resolved": false
+      },
+      {
+        "kind": "reserve_misuse",
+        "severity": "high",
+        "summary": "The accumulated classifier gaps and late forced-entry ranking caused five allied faints; this win was far less reliable than acceptable.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "Every identified action-changing cause is now in the shared v32 scorer/tooling with 343 passing tests; future hard fights remain gated behind clones."}
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "low",
+        "summary": "Routine CLI step output repeated full movesets, PP arrays, and long feedback tails.",
+        "action_changing": false,
+        "resolved": true,
+        "resolution": {"verified": true, "observed": "Brief mode now keeps HP/status and 320 feedback characters; full output remains opt-in."}
+      }
+    ],
+    "correct_choices": [
+      "Three exact Charm uses reduced Machoke to the Attack floor before pivoting.",
+      "Fresh-entry Fake Out was repeatedly used for verified free tempo.",
+      "Metal Claw avoided activating Guts and preserved Ohmnomnom on replay.",
+      "Vacuum Wave corrected the Facade tie and delivered both priority finishes.",
+      "Lildozer's final Ice Shard was a verified minimax-visible KO before Mach Punch."
+    ],
+    "next_test": "Require v32 forced-entry KO ranking, legal forced-switch decisions, and compact output on the next trainer; Brawly remains blocked behind hard-fight preparation and three clean reviewed clones."
+  }
+}

@@ -608,79 +608,96 @@
         }
       ],
       "experience": {
-      "outcomes": [
-      "loss_2026-08-09_after_sequential_single_execution",
-      "loss_2026-08-09_after_sunflora_dustox_endgame",
-      "loss_2026-08-09_accidental_engagement_before_counter_ready",
-        "loss_2026-08-09_eelektrik_attrition_after_revision3",
-        "loss_2026-08-09_eelektrik_attrition_after_revision4",
-        "revision5_rejected_by_verified_mega_drain_counterexample",
-        "clone_2026-08-09_croakatoa_policy_terminal_win_1",
-        "clone_2026-08-09_croakatoa_policy_terminal_win_2",
-        "clone_2026-08-09_rampage_policy_terminal_win_30_actions",
-        "clone_2026-08-09_rampage_policy_terminal_win_29_actions",
-        "qualified_2026-08-11_bugatti_hybrid_clean_win_26_actions",
-        "qualified_2026-08-11_bugatti_hybrid_clean_win_23_actions_a",
-        "qualified_2026-08-11_bugatti_hybrid_clean_win_23_actions_b",
-        "live_2026-08-11_bugatti_hybrid_verified_win_28_actions"
+        "outcomes": [
+          "loss_2026-08-09_after_sequential_single_execution",
+          "loss_2026-08-09_after_sunflora_dustox_endgame",
+          "loss_2026-08-09_accidental_engagement_before_counter_ready",
+          "loss_2026-08-09_eelektrik_attrition_after_revision3",
+          "loss_2026-08-09_eelektrik_attrition_after_revision4",
+          "revision5_rejected_by_verified_mega_drain_counterexample",
+          "clone_2026-08-09_croakatoa_policy_terminal_win_1",
+          "clone_2026-08-09_croakatoa_policy_terminal_win_2",
+          "clone_2026-08-09_rampage_policy_terminal_win_30_actions",
+          "clone_2026-08-09_rampage_policy_terminal_win_29_actions",
+          "qualified_2026-08-11_bugatti_hybrid_clean_win_26_actions",
+          "qualified_2026-08-11_bugatti_hybrid_clean_win_23_actions_a",
+          "qualified_2026-08-11_bugatti_hybrid_clean_win_23_actions_b",
+          "live_2026-08-11_bugatti_hybrid_verified_win_28_actions"
         ],
         "failure_causes": [
           "current six-member team lacked a safe high-confidence Levitate Eelektrik answer",
           "controller accepted one move too late while Ponyta acted",
           "Onix was exposed to Mega Drain despite Electric immunity",
-      "the revised line still entered Sunflora with Staravia at 9 HP and no safe second Aerial Ace turn",
-      "Onix was exposed to Sunflora Energy Ball and Cufant entered the endgame at 3 HP",
-      "Phanpy was the sole survivor against Dustox and Infestation residual KO'd it after priority Ice Shard",
-      "the accidental live engagement entered Sunflora with no full-health answer after Venipede, Onix, and Staravia were expended; Sunflora Energy Ball KO'd 15-HP Grotle and Phanpy was then KO'd",
-      "the live Potion attempt was rejected by the ROM (`Items can't be used now.<CTRL_08>`), so battle-item sustain is unavailable through the current interface",
-      "revision 3 entered Eelektrik with no reliable full-health answer: Cufant fell from 56 to 3 after Rock Smash, Super Fang, and Shock Wave; Staravia's Aerial Ace chip was followed by a Shock Wave KO; Venipede, Phanpy, Grotle, Onix, and Cufant then failed sequentially to Mega Drain/Shock Wave pressure",
-      "Eelektrik's Sitrus threshold converted Poison Tail damage from 28 to 19 into a heal back to 32, so the Venipede line could not finish before the next Shock Wave",
-      "the static evaluator did not model this custom Levitate Eelektrik matchup tightly enough: observed Rock Smash damage was 8 or 14 on a critical, Shock Wave was 22, and Mega Drain could KO Onix; existing generic suggestions were not safe guarantees",
-      "the move interface can report a stale move menu or a queued turn before the intended action is acknowledged; Grotle's final Razor Leaf had unchanged PP and the active battler fainted before execution",
-      "revision 4 still entered Eelektrik with no dedicated Levitate-bypass move: Sandile's Snarl lowered special pressure but Mega Drain attrition consumed Sandile, Phanpy, Cufant, and Staravia before the Sunflora/Dustox endgame",
-      "revision 5 is structurally invalid: verified ROM damage is 76-92 for Eelektrik Mega Drain into full 59-HP Rhyhorn, so Rhyhorn cannot safely establish Smack Down"
+          "the revised line still entered Sunflora with Staravia at 9 HP and no safe second Aerial Ace turn",
+          "Onix was exposed to Sunflora Energy Ball and Cufant entered the endgame at 3 HP",
+          "Phanpy was the sole survivor against Dustox and Infestation residual KO'd it after priority Ice Shard",
+          "the accidental live engagement entered Sunflora with no full-health answer after Venipede, Onix, and Staravia were expended; Sunflora Energy Ball KO'd 15-HP Grotle and Phanpy was then KO'd",
+          "the live Potion attempt was rejected by the ROM (`Items can't be used now.<CTRL_08>`), so battle-item sustain is unavailable through the current interface",
+          "revision 3 entered Eelektrik with no reliable full-health answer: Cufant fell from 56 to 3 after Rock Smash, Super Fang, and Shock Wave; Staravia's Aerial Ace chip was followed by a Shock Wave KO; Venipede, Phanpy, Grotle, Onix, and Cufant then failed sequentially to Mega Drain/Shock Wave pressure",
+          "Eelektrik's Sitrus threshold converted Poison Tail damage from 28 to 19 into a heal back to 32, so the Venipede line could not finish before the next Shock Wave",
+          "the static evaluator did not model this custom Levitate Eelektrik matchup tightly enough: observed Rock Smash damage was 8 or 14 on a critical, Shock Wave was 22, and Mega Drain could KO Onix; existing generic suggestions were not safe guarantees",
+          "the move interface can report a stale move menu or a queued turn before the intended action is acknowledged; Grotle's final Razor Leaf had unchanged PP and the active battler fainted before execution",
+          "revision 4 still entered Eelektrik with no dedicated Levitate-bypass move: Sandile's Snarl lowered special pressure but Mega Drain attrition consumed Sandile, Phanpy, Cufant, and Staravia before the Sunflora/Dustox endgame",
+          "revision 5 is structurally invalid: verified ROM damage is 76-92 for Eelektrik Mega Drain into full 59-HP Rhyhorn, so Rhyhorn cannot safely establish Smack Down"
         ],
         "preparation_requirements": [
           "heal HP, status, and PP at a Pokémon Center before re-engagement",
           "add a verified Granite Cave counter or establish a fresh minimax line against Levitate Eelektrik",
           "verify move-command acknowledgement before battle resolution",
-      "obtain and level a dedicated, full-health answer for Sunflora and Dustox before re-engaging",
-      "preserve a full-health Flying/Rock answer through the Eelektrik phase; do not rely on a 9-HP Staravia or 3-HP Cufant",
-      "avoid trainer sight lines while backtracking for the counter; map navigation must detect and route around local 23 before approaching grass",
-      "acquire a dedicated full-health, reliable Levitate-Eelektrik counter from ROM catchable lookup; do not re-enter with the current six alone",
-      "preserve that counter through Bibarel and Ponyta and guarantee its Eelektrik phase entry; one-time Cufant/Staravia chip is insufficient",
-      "do not rely on Ground moves against Eelektrik until Levitate is removed or bypassed; require a strong neutral or super-effective move with enough bulk",
-      "keep the move acknowledgement/verifier regression blocked until command-menu, HP, PP, species, and drained battle-text stability are all verified",
-        "never use Rhyhorn as an Eelektrik or Sunflora counter; preserve it exclusively for Dustox Smack Down",
-        "use the exact Bushtank, Lildozer, Ohmnomnom, Birdlaw, Croakatoa, Rampage order at full HP and PP",
-        "resolve switch targets by personality from each fresh battle certificate"
+          "obtain and level a dedicated, full-health answer for Sunflora and Dustox before re-engaging",
+          "preserve a full-health Flying/Rock answer through the Eelektrik phase; do not rely on a 9-HP Staravia or 3-HP Cufant",
+          "avoid trainer sight lines while backtracking for the counter; map navigation must detect and route around local 23 before approaching grass",
+          "acquire a dedicated full-health, reliable Levitate-Eelektrik counter from ROM catchable lookup; do not re-enter with the current six alone",
+          "preserve that counter through Bibarel and Ponyta and guarantee its Eelektrik phase entry; one-time Cufant/Staravia chip is insufficient",
+          "do not rely on Ground moves against Eelektrik until Levitate is removed or bypassed; require a strong neutral or super-effective move with enough bulk",
+          "keep the move acknowledgement/verifier regression blocked until command-menu, HP, PP, species, and drained battle-text stability are all verified",
+          "never use Rhyhorn as an Eelektrik or Sunflora counter; preserve it exclusively for Dustox Smack Down",
+          "use the exact Bushtank, Lildozer, Ohmnomnom, Birdlaw, Croakatoa, Rampage order at full HP and PP",
+          "resolve switch targets by personality from each fresh battle certificate"
+        ],
+        "same_plan_failures": 0
+      },
+      "strategy": {
+        "status": "completed",
+        "reason": "three clean reviewed clones qualified the declarative Bugatti hybrid policy; live review 7e1f73af1a81f4069e64 verified Gavi defeated in 28 actions with zero no-action switch cycles",
+        "plan_path": "runtime/session/gavi-bugatti-live-plan-20260811.json",
+        "plan_sha256": "82ea23b532100c0ab658a81ca0b8d3d698052a9506d50e53632bd3b666031039"
+      },
+      "evidence": {
+        "npc_checkpoint_sha256": "bc6d61df9112bac3e598bfaae96b5d7e4053136d8a56dd234e1a63b4e97f6cd0",
+        "preparation_checkpoint_sha256": "49b0c1d2b7fda2469304d5c1c2f99ccda83bb798204ae5173177191963c07f45",
+        "opening_checkpoint_sha256": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
+        "opening_state_hash": "f811bc3e3dce3d7e",
+        "prepared_counter": "Bushtank converts Eelektrik; Ohmnomnom supplies verified fresh-entry Fake Out relays; Bugatti and Birdlaw cover Sunflora and Dustox with deterministic status escapes",
+        "isolated_replays": [
+          {
+            "terminal_win": true,
+            "certified_actions": 30,
+            "controller": "games/run_and_bun/gavi_policy.py:GaviPolicy",
+            "survivor_hp": {
+              "Bushtank": 18,
+              "Rampage": 59
+            }
+          },
+          {
+            "terminal_win": true,
+            "certified_actions": 29,
+            "controller": "games/run_and_bun/gavi_policy.py:GaviPolicy",
+            "survivor_hp": {
+              "Bushtank": 11,
+              "Ohmnomnom": 3,
+              "Rampage": 56
+            }
+          }
+        ],
+        "battle_text": "Camper Gavi sent out Eelektrik; live battle RAM resolved Levitate and the listed held items/moves",
+        "script_trainerbattle": "0x082249c7: trainerbattle type 0, trainer_id 334"
+      },
+      "uncertainties": [
+        "Sunflora and Dustox ability IDs were not exposed before the loss; 0 means unresolved, not no ability.",
+        "Trainer AI send-out order is action-dependent; ROM party order is recorded but live send-outs must remain authoritative.",
+        "The policy is tested rather than exact-proven: damage, accuracy, critical-hit, and custom-AI branches were not exhaustively enumerated."
       ],
-      "same_plan_failures": 0
-    },
-    "strategy": {
-      "status": "completed",
-      "reason": "three clean reviewed clones qualified the declarative Bugatti hybrid policy; live review 7e1f73af1a81f4069e64 verified Gavi defeated in 28 actions with zero no-action switch cycles",
-      "plan_path": "runtime/session/gavi-bugatti-live-plan-20260811.json",
-      "plan_sha256": "82ea23b532100c0ab658a81ca0b8d3d698052a9506d50e53632bd3b666031039"
-    },
-    "evidence": {
-      "npc_checkpoint_sha256": "bc6d61df9112bac3e598bfaae96b5d7e4053136d8a56dd234e1a63b4e97f6cd0",
-      "preparation_checkpoint_sha256": "49b0c1d2b7fda2469304d5c1c2f99ccda83bb798204ae5173177191963c07f45",
-      "opening_checkpoint_sha256": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
-      "opening_state_hash": "f811bc3e3dce3d7e",
-      "prepared_counter": "Bushtank converts Eelektrik; Ohmnomnom supplies verified fresh-entry Fake Out relays; Bugatti and Birdlaw cover Sunflora and Dustox with deterministic status escapes",
-      "isolated_replays": [
-        {"terminal_win": true, "certified_actions": 30, "controller": "games/run_and_bun/gavi_policy.py:GaviPolicy", "survivor_hp": {"Bushtank": 18, "Rampage": 59}},
-        {"terminal_win": true, "certified_actions": 29, "controller": "games/run_and_bun/gavi_policy.py:GaviPolicy", "survivor_hp": {"Bushtank": 11, "Ohmnomnom": 3, "Rampage": 56}}
-      ],
-      "battle_text": "Camper Gavi sent out Eelektrik; live battle RAM resolved Levitate and the listed held items/moves",
-      "script_trainerbattle": "0x082249c7: trainerbattle type 0, trainer_id 334"
-    },
-    "uncertainties": [
-      "Sunflora and Dustox ability IDs were not exposed before the loss; 0 means unresolved, not no ability.",
-      "Trainer AI send-out order is action-dependent; ROM party order is recorded but live send-outs must remain authoritative.",
-      "The policy is tested rather than exact-proven: damage, accuracy, critical-hit, and custom-AI branches were not exhaustively enumerated."
-    ],
       "key": "map:0:25/local:23"
     },
     "map:0:21/local:4": {
@@ -692,7 +709,10 @@
         "local_id": 4,
         "graphics_id": 55,
         "event_template_slot": 3,
-        "initial_position": [51, 16],
+        "initial_position": [
+          51,
+          16
+        ],
         "trainer_type": 1,
         "sight_radius": 4,
         "script_address": "0x082238bb",
@@ -715,52 +735,97 @@
           "species_id": 557,
           "species_name": "Dwebble",
           "level": 13,
-          "types": [6, 5],
+          "types": [
+            6,
+            5
+          ],
           "ability_id": 0,
           "ability_name": null,
           "held_item_id": 53,
           "held_item_name": "Berry Juice",
-          "moves": [450, 350, 282, 564],
-          "move_names": ["Bug Bite", "Rock Blast", "Knock Off", "Sticky Web"]
+          "moves": [
+            450,
+            350,
+            282,
+            564
+          ],
+          "move_names": [
+            "Bug Bite",
+            "Rock Blast",
+            "Knock Off",
+            "Sticky Web"
+          ]
         },
         {
           "send_out_position": 2,
           "species_id": 769,
           "species_name": "Sandygast",
           "level": 14,
-          "types": [7, 4],
+          "types": [
+            7,
+            4
+          ],
           "ability_id": 0,
           "ability_name": null,
           "held_item_id": 522,
           "held_item_name": "Lum Berry",
-          "moves": [523, 310, 72, 95],
-          "move_names": ["Bulldoze", "Astonish", "Mega Drain", "Hypnosis"]
+          "moves": [
+            523,
+            310,
+            72,
+            95
+          ],
+          "move_names": [
+            "Bulldoze",
+            "Astonish",
+            "Mega Drain",
+            "Hypnosis"
+          ]
         },
         {
           "send_out_position": 3,
           "species_id": 303,
           "species_name": "Mawile",
           "level": 13,
-          "types": [8, 18],
+          "types": [
+            8,
+            18
+          ],
           "ability_id": 0,
           "ability_name": null,
           "held_item_id": 472,
           "held_item_name": "Leftovers",
-          "moves": [343, 232, 424],
-          "move_names": ["Covet", "Metal Claw", "Fire Fang"]
+          "moves": [
+            343,
+            232,
+            424
+          ],
+          "move_names": [
+            "Covet",
+            "Metal Claw",
+            "Fire Fang"
+          ]
         },
         {
           "send_out_position": 4,
           "species_id": 446,
           "species_name": "Munchlax",
           "level": 13,
-          "types": [0],
+          "types": [
+            0
+          ],
           "ability_id": 0,
           "ability_name": null,
           "held_item_id": 569,
           "held_item_name": "Salac Berry",
-          "moves": [29, 187],
-          "move_names": ["Headbutt", "Belly Drum"]
+          "moves": [
+            29,
+            187
+          ],
+          "move_names": [
+            "Headbutt",
+            "Belly Drum"
+          ]
         }
       ],
       "experience": {
@@ -785,6 +850,570 @@
         "Dwebble, Sandygast, Mawile, and Munchlax ability IDs are unresolved until battle RAM confirms them",
         "trainer-specific abilities are not encoded in these compact ROM records and remain unresolved until battle RAM confirms them"
       ]
+    },
+    "map:3:3/local:1": {
+      "name": "Brawly",
+      "overworld": {
+        "map_group": 3,
+        "map_number": 3,
+        "local_id": 1,
+        "graphics_id": 126,
+        "initial_position": [
+          4,
+          3
+        ],
+        "script_address": "0x0823216e",
+        "trainer_id": 266
+      },
+      "battle": {
+        "format": "single",
+        "required": true,
+        "hard_fight": true,
+        "roster_complete": true,
+        "ability_complete": false,
+        "roster_count": 6,
+        "identity_source": "map-linked gym-leader NPC and authoritative live battle",
+        "roster_source": "ROM trainer record 266 uniquely matched authoritative live Kubfu lead signature"
+      },
+      "preparation": {
+        "level_cap": 21,
+        "level_cap_source": "verified Endless Candy no-effect at level 21 before Brawly"
+      },
+      "roster": [
+        {
+          "send_out_position": 1,
+          "species_id": 891,
+          "species_name": "Kubfu",
+          "level": 20,
+          "types": [
+            1
+          ],
+          "ability_id": 39,
+          "ability_name": null,
+          "possible_ability_ids": [
+            39
+          ],
+          "held_item_id": 528,
+          "held_item_name": "Iapapa Berry",
+          "moves": [
+            280,
+            5,
+            428,
+            389
+          ],
+          "move_names": [
+            "Brick Break",
+            "Mega Punch",
+            "Zen Headbutt",
+            "Sucker Punch"
+          ],
+          "rom_record_address": "0x0837c7d0"
+        },
+        {
+          "send_out_position": 2,
+          "species_id": 428,
+          "species_name": "Lopunny",
+          "level": 19,
+          "types": [
+            0
+          ],
+          "ability_id": null,
+          "ability_name": null,
+          "possible_ability_ids": [
+            56,
+            7
+          ],
+          "held_item_id": 501,
+          "held_item_name": "Eject Button",
+          "moves": [
+            514,
+            29,
+            409
+          ],
+          "move_names": [
+            "Retaliate",
+            "Headbutt",
+            "Drain Punch"
+          ],
+          "rom_record_address": "0x0837c7fc"
+        },
+        {
+          "send_out_position": 3,
+          "species_id": 256,
+          "species_name": "Combusken",
+          "level": 20,
+          "types": [
+            10,
+            1
+          ],
+          "ability_id": null,
+          "ability_name": null,
+          "possible_ability_ids": [
+            66,
+            3
+          ],
+          "held_item_id": 522,
+          "held_item_name": "Lum Berry",
+          "moves": [
+            24,
+            510,
+            9,
+            526
+          ],
+          "move_names": [
+            "Double Kick",
+            "Incinerate",
+            "ThunderPunch",
+            "Work Up"
+          ],
+          "rom_record_address": "0x0837c828"
+        },
+        {
+          "send_out_position": 4,
+          "species_id": 237,
+          "species_name": "Hitmontop",
+          "level": 20,
+          "types": [
+            1
+          ],
+          "ability_id": null,
+          "ability_name": null,
+          "possible_ability_ids": [
+            22,
+            101,
+            80
+          ],
+          "held_item_id": 507,
+          "held_item_name": "ProtectivePad",
+          "moves": [
+            183,
+            157,
+            252,
+            228
+          ],
+          "move_names": [
+            "Mach Punch",
+            "Rock Slide",
+            "Fake Out",
+            "Pursuit"
+          ],
+          "rom_record_address": "0x0837c854"
+        },
+        {
+          "send_out_position": 5,
+          "species_id": 61,
+          "species_name": "Poliwhirl",
+          "level": 19,
+          "types": [
+            11
+          ],
+          "ability_id": null,
+          "ability_name": null,
+          "possible_ability_ids": [
+            11,
+            6,
+            33
+          ],
+          "held_item_id": 477,
+          "held_item_name": "Expert Belt",
+          "moves": [
+            61,
+            58,
+            237,
+            276
+          ],
+          "move_names": [
+            "Bubble Beam",
+            "Ice Beam",
+            "Hidden Power",
+            "Superpower"
+          ],
+          "rom_record_address": "0x0837c880"
+        },
+        {
+          "send_out_position": 6,
+          "species_id": 559,
+          "species_name": "Scraggy",
+          "level": 21,
+          "types": [
+            17,
+            1
+          ],
+          "ability_id": null,
+          "ability_name": null,
+          "possible_ability_ids": [
+            61,
+            153,
+            22
+          ],
+          "held_item_id": 494,
+          "held_item_name": "Eviolite",
+          "moves": [
+            185,
+            612,
+            317,
+            156
+          ],
+          "move_names": [
+            "Feint Attack",
+            "PowerUpPunch",
+            "Rock Tomb",
+            "Rest"
+          ],
+          "rom_record_address": "0x0837c8ac"
+        }
+      ],
+      "strategy": {
+        "status": "preparing",
+        "requirements": [
+          "resolve ambiguous reserve abilities from controlled clone RAM",
+          "qualify one unchanged policy with three clean reviewed clone wins"
+        ]
+      },
+      "uncertainties": [
+        "Lopunny ability unresolved",
+        "Combusken ability unresolved",
+        "Hitmontop ability unresolved",
+        "Poliwhirl ability unresolved",
+        "Scraggy ability unresolved"
+      ],
+      "rom_evidence": {
+        "trainer_id": 266,
+        "encoded_trainer_name": "Wattson",
+        "identity_mismatch": "ROM record label is Wattson; live map/NPC identity is Brawly",
+        "trainer_record_address": "0x0839b22c",
+        "party_pointer": "0x0837c7d0"
+      },
+      "key": "map:3:3/local:1"
+    },
+    "map:3:3/local:2": {
+      "name": "Black Belt Takao",
+      "overworld": {
+        "map_group": 3,
+        "map_number": 3,
+        "local_id": 2,
+        "graphics_id": 44,
+        "initial_position": [
+          9,
+          10
+        ],
+        "trainer_type": 2,
+        "sight_radius": 5,
+        "script_address": "0x08232280",
+        "trainer_id": 179
+      },
+      "battle": {
+        "format": "single",
+        "required": true,
+        "hard_fight": false,
+        "roster_complete": true,
+        "ability_complete": true,
+        "roster_count": 3,
+        "identity_source": "authoritative live battle intro plus map-local ROM script",
+        "roster_source": "authoritative live battle RAM"
+      },
+      "roster": [
+        {
+          "send_out_position": 1,
+          "species_id": 286,
+          "species_name": "Breloom",
+          "level": 19,
+          "types": [
+            12,
+            1
+          ],
+          "ability_id": 90,
+          "ability_name": "Poison Heal",
+          "held_item_id": 446,
+          "held_item_name": "Toxic Orb",
+          "moves": [
+            358,
+            331,
+            183,
+            147
+          ],
+          "move_names": [
+            "Wake-Up Slap",
+            "Bullet Seed",
+            "Mach Punch",
+            "Spore"
+          ],
+          "stats": {
+            "hp": 57,
+            "attack": 60,
+            "defense": 41,
+            "speed": 40,
+            "special_attack": 29,
+            "special_defense": 33
+          }
+        },
+        {
+          "send_out_position": 2,
+          "species_id": 427,
+          "species_name": "Buneary",
+          "level": 19,
+          "types": [
+            0
+          ],
+          "ability_id": 56,
+          "ability_name": "Cute Charm",
+          "held_item_id": 474,
+          "held_item_name": "Wide Lens",
+          "moves": [
+            252,
+            26,
+            741
+          ],
+          "move_names": [
+            "Fake Out",
+            "Jump Kick",
+            "Triple Axel"
+          ],
+          "stats": {
+            "hp": 55,
+            "attack": 35,
+            "defense": 27,
+            "speed": 47,
+            "special_attack": 24,
+            "special_defense": 32
+          }
+        },
+        {
+          "send_out_position": 3,
+          "species_id": 619,
+          "species_name": "Mienfoo",
+          "level": 18,
+          "types": [
+            1
+          ],
+          "ability_id": 39,
+          "ability_name": "Inner Focus",
+          "held_item_id": 431,
+          "held_item_name": "Black Belt",
+          "moves": [
+            409,
+            157,
+            252,
+            197
+          ],
+          "move_names": [
+            "Drain Punch",
+            "Rock Slide",
+            "Fake Out",
+            "Detect"
+          ],
+          "stats": {
+            "hp": 49,
+            "attack": 41,
+            "defense": 28,
+            "speed": 36,
+            "special_attack": 27,
+            "special_defense": 28
+          }
+        }
+      ],
+      "experience": {
+        "outcomes": [
+          "live_2026-08-12_verified_win"
+        ],
+        "review": "runtime/session/battle_reviews/dewford-gym-takao-live.json"
+      },
+      "strategy": {
+        "status": "reviewed_live_win",
+        "lessons": [
+          "use fresh-entry Fake Out for free chip",
+          "debuff Mienfoo before pivoting",
+          "model all Triple Axel hits"
+        ]
+      },
+      "uncertainties": [],
+      "key": "map:3:3/local:2"
+    },
+    "map:3:3/local:3": {
+      "key": "map:3:3/local:3",
+      "name": "Battle Girl Jocelyn",
+      "overworld": {
+        "map_group": 3,
+        "map_number": 3,
+        "local_id": 3,
+        "graphics_id": 14,
+        "script_address": "0x082322a2",
+        "trainer_id": 425,
+        "initial_position": [
+          10,
+          3
+        ],
+        "trainer_type": 2
+      },
+      "battle": {
+        "format": "single",
+        "required": true,
+        "hard_fight": false,
+        "roster_complete": true,
+        "roster_count": 4,
+        "identity_source": "authoritative live battle intro plus map-local ROM script",
+        "roster_source": "authoritative live battle RAM",
+        "ability_complete": true
+      },
+      "roster": [
+        {
+          "send_out_position": 1,
+          "species_id": 352,
+          "species_name": "Kecleon",
+          "level": 17,
+          "types": [
+            0
+          ],
+          "ability_id": 168,
+          "ability_name": "Protean",
+          "held_item_id": 522,
+          "held_item_name": "Lum Berry",
+          "moves": [
+            409,
+            146,
+            325,
+            86
+          ],
+          "move_names": [
+            "Drain Punch",
+            "Dizzy Punch",
+            "Shadow Punch",
+            "Thunder Wave"
+          ],
+          "rom_record_address": "0x0837c720",
+          "stats": {
+            "hp": 52,
+            "attack": 40,
+            "defense": 37,
+            "speed": 23,
+            "special_attack": 27,
+            "special_defense": 51
+          }
+        },
+        {
+          "send_out_position": 2,
+          "species_id": 622,
+          "species_name": "Golett",
+          "level": 19,
+          "types": [
+            4,
+            7
+          ],
+          "ability_id": 89,
+          "ability_name": "Iron Fist",
+          "held_item_id": 494,
+          "held_item_name": "Eviolite",
+          "moves": [
+            325,
+            5,
+            409
+          ],
+          "move_names": [
+            "Shadow Punch",
+            "Mega Punch",
+            "Drain Punch"
+          ],
+          "rom_record_address": "0x0837c74c",
+          "stats": {
+            "hp": 57,
+            "attack": 42,
+            "defense": 29,
+            "speed": 24,
+            "special_attack": 21,
+            "special_defense": 29
+          }
+        },
+        {
+          "send_out_position": 3,
+          "species_id": 499,
+          "species_name": "Pignite",
+          "level": 18,
+          "types": [
+            10,
+            1
+          ],
+          "ability_id": 66,
+          "ability_name": "Blaze",
+          "held_item_id": 522,
+          "held_item_name": "Lum Berry",
+          "moves": [
+            510,
+            488,
+            292,
+            36
+          ],
+          "move_names": [
+            "Incinerate",
+            "Flame Charge",
+            "Arm Thrust",
+            "Take Down"
+          ],
+          "rom_record_address": "0x0837c778",
+          "stats": {
+            "hp": 65,
+            "attack": 44,
+            "defense": 30,
+            "speed": 27,
+            "special_attack": 38,
+            "special_defense": 30
+          }
+        },
+        {
+          "send_out_position": 4,
+          "species_id": 783,
+          "species_name": "Hakamo-o",
+          "level": 18,
+          "types": [
+            16,
+            1
+          ],
+          "ability_id": 142,
+          "ability_name": "Overcoat",
+          "held_item_id": 523,
+          "held_item_name": "Sitrus Berry",
+          "moves": [
+            225,
+            525,
+            334,
+            182
+          ],
+          "move_names": [
+            "DragonBreath",
+            "Dragon Tail",
+            "Iron Defense",
+            "Protect"
+          ],
+          "rom_record_address": "0x0837c7a4",
+          "stats": {
+            "hp": 53,
+            "attack": 37,
+            "defense": 42,
+            "speed": 29,
+            "special_attack": 33,
+            "special_defense": 38
+          }
+        }
+      ],
+      "uncertainties": [],
+      "rom_evidence": {
+        "trainer_record_address": "0x0839cb04",
+        "party_pointer": "0x0837c720",
+        "trainerbattle_type": 2
+      },
+      "experience": {
+        "outcomes": [
+          "live_2026-08-12_verified_win"
+        ],
+        "review": "runtime/session/battle_reviews/dewford-gym-jocelyn-live.json"
+      },
+      "strategy": {
+        "status": "reviewed_live_win",
+        "lessons": [
+          "forced Dragon Tail entries restore Fake Out eligibility",
+          "Charm plus a critical-safe bridge can enable an Intimidate Bite finisher",
+          "do not treat debuffed normal damage as a critical bound"
+        ]
+      }
     }
   }
 }

@@ -1,0 +1,131 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T16:48:05.165239+00:00",
+  "review_id": "304e33f43d65f7c166d7",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+  "behavior_hash": "360b6184de3a08f763800872143cf576780b6abedd1ab70c88d06589f79c5400",
+  "policy_id": "generated-map-0-25-local-23",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "fresh-entry-fake-out-tempo",
+    "fresh-tempo-one-control"
+  ],
+  "certified_actions": 30,
+  "status": "needs_improvement",
+  "classification": "resource_loss",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 30,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Five party members fainted and only burned Croakatoa survived at 8 HP; this materially weakens reliability even though no other inspected action outside the Rollout defect was dominated.",
+        "action_changing": false,
+        "observed_fact": "Five party members fainted and only burned Croakatoa survived at 8 HP; this materially weakens reliability even though no other inspected action outside the Rollout defect was dominated.",
+        "strategic_judgment": "Five party members fainted and only burned Croakatoa survived at 8 HP; this materially weakens reliability even though no other inspected action outside the Rollout defect was dominated.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Rerun qualification clone 1 from the identical opening under v36; require Rollout to remain vetoed unless an executable strategy explicitly authorizes its full lock.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Flame Body burned Croakatoa after fresh-entry Fake Out, but Fake Out was the only critical-safe action at that boundary.",
+        "action_changing": false,
+        "observed_fact": "Flame Body burned Croakatoa after fresh-entry Fake Out, but Fake Out was the only critical-safe action at that boundary.",
+        "strategic_judgment": "Flame Body burned Croakatoa after fresh-entry Fake Out, but Fake Out was the only critical-safe action at that boundary.",
+        "confidence": "heuristic",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Rerun qualification clone 1 from the identical opening under v36; require Rollout to remain vetoed unless an executable strategy explicitly authorizes its full lock.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "The Eelektrik line consumed Ohmnomnom and Bushtank; one Nuzzle was correctly used, but the observed move sequence still created severe reserve pressure.",
+        "action_changing": false,
+        "observed_fact": "The Eelektrik line consumed Ohmnomnom and Bushtank; one Nuzzle was correctly used, but the observed move sequence still created severe reserve pressure.",
+        "strategic_judgment": "The Eelektrik line consumed Ohmnomnom and Bushtank; one Nuzzle was correctly used, but the observed move sequence still created severe reserve pressure.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Rerun qualification clone 1 from the identical opening under v36; require Rollout to remain vetoed unless an executable strategy explicitly authorizes its full lock.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Dustox applied Toxic and Infestation while Sunflora used sleep and residual effects; the policy won this branch but relied on Croakatoa surviving the final residual tick.",
+        "action_changing": false,
+        "observed_fact": "Dustox applied Toxic and Infestation while Sunflora used sleep and residual effects; the policy won this branch but relied on Croakatoa surviving the final residual tick.",
+        "strategic_judgment": "Dustox applied Toxic and Infestation while Sunflora used sleep and residual effects; the policy won this branch but relied on Croakatoa surviving the final residual tick.",
+        "confidence": "heuristic",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Rerun qualification clone 1 from the identical opening under v36; require Rollout to remain vetoed unless an executable strategy explicitly authorizes its full lock.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "info",
+        "summary": "The fight required 30 certified actions and ended with one survivor; no immediate switch reversal or Protect stall occurred.",
+        "action_changing": false,
+        "observed_fact": "The fight required 30 certified actions and ended with one survivor; no immediate switch reversal or Protect stall occurred.",
+        "strategic_judgment": "The fight required 30 certified actions and ended with one survivor; no immediate switch reversal or Protect stall occurred.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Rerun qualification clone 1 from the identical opening under v36; require Rollout to remain vetoed unless an executable strategy explicitly authorizes its full lock.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "safety_risk",
+        "severity": "high",
+        "summary": "Turn 26 initiated unmodeled Rollout; one input then locked Bugatti across Dustox into Sunflora for multiple autonomous turns, accumulating Infestation, Leech Seed, Sludge Bomb damage, and sleep before fainting.",
+        "state": "runtime/session/battle_reviews/states/1786466829602829000/turn-026.state",
+        "state_hash": "f41a249993fede45",
+        "action_id": "ee42362cd46de9d0e97f",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "97aa7d72fb6dd5a7",
+          "observed": "Exact turn-26 replay under v36 vetoed Rollout and executed Bug Bite, returning to a verified command boundary after one turn without entering the autonomous multi-turn lock."
+        },
+        "observed_fact": "Turn 26 initiated unmodeled Rollout; one input then locked Bugatti across Dustox into Sunflora for multiple autonomous turns, accumulating Infestation, Leech Seed, Sludge Bomb damage, and sleep before fainting.",
+        "strategic_judgment": "Turn 26 initiated unmodeled Rollout; one input then locked Bugatti across Dustox into Sunflora for multiple autonomous turns, accumulating Infestation, Leech Seed, Sludge Bomb damage, and sleep before fainting.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          26
+        ],
+        "next_test": "Rerun qualification clone 1 from the identical opening under v36; require Rollout to remain vetoed unless an executable strategy explicitly authorizes its full lock.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "Fresh-entry Fake Out followed by exactly one Nuzzle controlled Eelektrik without repeating setup.",
+      "Birdlaw was preserved for Dustox and used two Aerial Aces before the forced replacement.",
+      "Croakatoa closed Sunflora with fresh Fake Out and Sludge after Bugatti fainted."
+    ],
+    "next_test": "Rerun qualification clone 1 from the identical opening under v36; require Rollout to remain vetoed unless an executable strategy explicitly authorizes its full lock."
+  }
+}

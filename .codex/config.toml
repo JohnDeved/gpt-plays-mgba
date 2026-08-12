@@ -1,0 +1,290 @@
+# Keep this game project's skill context focused. Re-enable a skill here only
+# when this repository actually needs it. Changes apply after Codex restarts.
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/.system/imagegen/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/.system/skill-installer/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/agents-sdk/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/cavecrew/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/caveman/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/caveman-commit/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/caveman-compress/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/caveman-help/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/caveman-review/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/caveman-stats/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/cloudflare/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/cloudflare-email-service/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/cloudflare-one/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/cloudflare-one-migrations/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/durable-objects/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/sandbox-sdk/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/turnstile-spin/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/web-perf/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/workers-best-practices/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/skills/wrangler/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/debug/tunnel-mcp/local/skills/tunnel-mcp/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-bundled/browser/26.803.41515/skills/control-in-app-browser/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-bundled/chrome/26.803.41515/skills/control-chrome/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-bundled/sites/0.1.34/skills/sites-building/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-bundled/sites/0.1.34/skills/sites-hosting/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-bundled/visualize/1.0.20/skills/visualize/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/cloudflare/0.1.2/skills/agents-sdk/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/cloudflare/0.1.2/skills/building-ai-agent-on-cloudflare/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/cloudflare/0.1.2/skills/building-mcp-server-on-cloudflare/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/cloudflare/0.1.2/skills/cloudflare/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/cloudflare/0.1.2/skills/durable-objects/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/cloudflare/0.1.2/skills/sandbox-sdk/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/cloudflare/0.1.2/skills/web-perf/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/cloudflare/0.1.2/skills/workers-best-practices/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/cloudflare/0.1.2/skills/wrangler/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/expo/1.0.2/skills/building-native-ui/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/expo/1.0.2/skills/codex-expo-run-actions/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/expo/1.0.2/skills/expo-api-routes/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/expo/1.0.2/skills/expo-cicd-workflows/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/expo/1.0.2/skills/expo-deployment/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/expo/1.0.2/skills/expo-dev-client/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/expo/1.0.2/skills/expo-module/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/expo/1.0.2/skills/expo-tailwind-setup/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/expo/1.0.2/skills/expo-ui-jetpack-compose/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/expo/1.0.2/skills/expo-ui-swift-ui/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/expo/1.0.2/skills/native-data-fetching/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/expo/1.0.2/skills/upgrading-expo/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/expo/1.0.2/skills/use-dom/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/github/0.1.8-2841cf9749ae/skills/gh-address-comments/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/github/0.1.8-2841cf9749ae/skills/gh-fix-ci/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/gmail/0.1.8/skills/gmail/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/google-drive/0.1.11/skills/google-docs/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/google-drive/0.1.11/skills/google-drive/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/google-drive/0.1.11/skills/google-drive-comments/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/google-drive/0.1.11/skills/google-sheets/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/google-drive/0.1.11/skills/google-slides/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/openai-developers/1.2.3/skills/agents-sdk/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/openai-developers/1.2.3/skills/build-chatgpt-app/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/openai-developers/1.2.3/skills/chatgpt-app-submission/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/openai-developers/1.2.3/skills/openai-api-troubleshooting/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-curated-remote/openai-developers/1.2.3/skills/openai-platform-api-key/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-primary-runtime/documents/26.805.11740/skills/documents/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-primary-runtime/pdf/26.805.11740/skills/pdf/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-primary-runtime/presentations/26.805.11740/skills/presentations/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-primary-runtime/spreadsheets/26.805.11740/skills/excel-live-control/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-primary-runtime/spreadsheets/26.805.11740/skills/spreadsheets/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/openai-primary-runtime/template-creator/26.805.11740/skills/template-creator/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/ponytail/ponytail/4.9.0/skills/ponytail-audit/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/ponytail/ponytail/4.9.0/skills/ponytail-debt/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/ponytail/ponytail/4.9.0/skills/ponytail-gain/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/ponytail/ponytail/4.9.0/skills/ponytail-help/SKILL.md"
+enabled = false
+
+[[skills.config]]
+path = "/Users/johann/.codex/plugins/cache/ponytail/ponytail/4.9.0/skills/ponytail-review/SKILL.md"
+enabled = false

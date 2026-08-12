@@ -1,0 +1,213 @@
+{
+  "schema_version": 3,
+  "created_at": "2026-08-12T14:46:54.753964+00:00",
+  "review_id": "6eabc970ee750c68cfd2",
+  "terminal": "win",
+  "source": "live",
+  "opening_state_hash": "ab1c87e4a284997a",
+  "behavior_hash": null,
+  "policy_id": "generic-scorer-v12",
+  "trainer_key": "map:3:3/local:4",
+  "matched_strategy_ids": [],
+  "certified_actions": 15,
+  "status": "needs_improvement",
+  "classification": "tempo_cost",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 15,
+    "findings": [
+      {
+        "kind": "tempo_cost",
+        "severity": "high",
+        "summary": "The scorer replaced healthy Croakatoa solely for higher bench damage, spent a free hit, caused paralysis, then proposed another switch without progress.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "dab52161fa413f2e",
+          "observed": "Scorer v12 selects Razor Leaf from the unchanged Bushtank/Riolu certificate; no-offense-switch and forced-survival regressions pass."
+        },
+        "observed_fact": "The scorer replaced healthy Croakatoa solely for higher bench damage, spent a free hit, caused paralysis, then proposed another switch without progress.",
+        "strategic_judgment": "The scorer replaced healthy Croakatoa solely for higher bench damage, spent a free hit, caused paralysis, then proposed another switch without progress.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Model Sitrus activation and locked Thrash/Outrage before trusting narrow multi-turn KO horizons.",
+        "state_unavailable_reason": "The live state advanced; exact before/after certificates remain in battle_transactions.jsonl.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "safety_risk",
+        "severity": "high",
+        "summary": "The first critical-risk patch checked only the highest-offense switch, allowing a fragile target to hide a critical-safe bench option.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "b218f3eb75d8ed33",
+          "observed": "Scorer v12 selects full-health Lildozer from the exact Stufful state; critical-safe subset regression passes."
+        },
+        "observed_fact": "The first critical-risk patch checked only the highest-offense switch, allowing a fragile target to hide a critical-safe bench option.",
+        "strategic_judgment": "The first critical-risk patch checked only the highest-offense switch, allowing a fragile target to hide a critical-safe bench option.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Model Sitrus activation and locked Thrash/Outrage before trusting narrow multi-turn KO horizons.",
+        "state_unavailable_reason": "The live state advanced; exact Stufful certificate is retained.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "At 30 HP the scorer preferred another Bulldoze even though Charm changed the all-physical expected damage race from losing to surviving.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "f79c0d64aa01cba7",
+          "observed": "Charm was selected live, reduced Stufful Attack by two stages, and maximum normal Body Slam fell from 21 to 10."
+        },
+        "observed_fact": "At 30 HP the scorer preferred another Bulldoze even though Charm changed the all-physical expected damage race from losing to surviving.",
+        "strategic_judgment": "At 30 HP the scorer preferred another Bulldoze even though Charm changed the all-physical expected damage race from losing to surviving.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Model Sitrus activation and locked Thrash/Outrage before trusting narrow multi-turn KO horizons.",
+        "state_unavailable_reason": "The correction was executed live and the prior certificate is retained.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "Ability 218 Fluffy halved Fake Out from the predicted 10-12 to 6, invalidating the claimed Fake Out plus Vacuum Wave threshold.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "983d45f329b12c7c",
+          "observed": "Exact Fluffy regression now bounds contact Fake Out at 5-6 and leaves non-contact Vacuum Wave at 26-32."
+        },
+        "observed_fact": "Ability 218 Fluffy halved Fake Out from the predicted 10-12 to 6, invalidating the claimed Fake Out plus Vacuum Wave threshold.",
+        "strategic_judgment": "Ability 218 Fluffy halved Fake Out from the predicted 10-12 to 6, invalidating the claimed Fake Out plus Vacuum Wave threshold.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Model Sitrus activation and locked Thrash/Outrage before trusting narrow multi-turn KO horizons.",
+        "state_unavailable_reason": "The live state advanced; the exact observed damage transaction is durable.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "The reusable policy switch projection lacked ROM metadata for custom moves and falsely left every switch target at full survival margin.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "983d45f329b12c7c",
+          "observed": "Certificate ROM move metadata now reaches switch projection; custom Thrash regression subtracts entry damage and all 211 battle tests pass."
+        },
+        "observed_fact": "The reusable policy switch projection lacked ROM metadata for custom moves and falsely left every switch target at full survival margin.",
+        "strategic_judgment": "The reusable policy switch projection lacked ROM metadata for custom moves and falsely left every switch target at full survival margin.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Model Sitrus activation and locked Thrash/Outrage before trusting narrow multi-turn KO horizons.",
+        "state_unavailable_reason": "The live state advanced; the faulty policy certificate remains durable.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "medium",
+      "summary": "Held item 523 restored Stufful after Bulldoze, invalidating the projected KO horizon because Sitrus activation is not modeled.",
+      "action_changing": true,
+      "resolved": true,
+      "resolution": {
+        "verified": true,
+        "post_state_hash": "983d45f329b12c7c",
+        "observed": "Scorer v12 adds the verified quarter-HP Sitrus heal to multi-hit KO horizons while preserving direct one-hit KOs; regression passes."
+      },
+        "observed_fact": "Held item 523 restored Stufful after Bulldoze, invalidating the projected KO horizon because Sitrus activation is not modeled.",
+        "strategic_judgment": "Held item 523 restored Stufful after Bulldoze, invalidating the projected KO horizon because Sitrus activation is not modeled.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Model Sitrus activation and locked Thrash/Outrage before trusting narrow multi-turn KO horizons.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "medium",
+      "summary": "The evaluator listed every Mankey move after verified Thrash instead of representing the temporary Thrash lock; the controller applied that fact manually.",
+      "action_changing": true,
+      "resolved": true,
+      "resolution": {
+        "verified": true,
+        "post_state_hash": "983d45f329b12c7c",
+        "observed": "Verified battle history now constrains the forced second Thrash/Outrage turn and preserves original ROM move slots; after two uses duration is correctly treated as uncertain."
+      },
+        "observed_fact": "The evaluator listed every Mankey move after verified Thrash instead of representing the temporary Thrash lock; the controller applied that fact manually.",
+        "strategic_judgment": "The evaluator listed every Mankey move after verified Thrash instead of representing the temporary Thrash lock; the controller applied that fact manually.",
+        "confidence": "verified",
+        "fix_layer": "reusable_executable_strategy",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Model Sitrus activation and locked Thrash/Outrage before trusting narrow multi-turn KO horizons.",
+        "knowledge_target": "strategy",
+        "candidate_strategy_id": "locked-move-exploitation"
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "medium",
+        "summary": "ROM tooling labeled the trainer Cyndy and format double, while authoritative live state was Battle Girl Laura in a single battle.",
+        "action_changing": true,
+        "observed_fact": "ROM tooling labeled the trainer Cyndy and format double, while authoritative live state was Battle Girl Laura in a single battle.",
+        "strategic_judgment": "ROM tooling labeled the trainer Cyndy and format double, while authoritative live state was Battle Girl Laura in a single battle.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Model Sitrus activation and locked Thrash/Outrage before trusting narrow multi-turn KO horizons.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "medium",
+        "summary": "When a foe fainted and the next foe entered in one transaction, enemy PP and damage attribution disappeared because species changed.",
+        "action_changing": true,
+        "observed_fact": "When a foe fainted and the next foe entered in one transaction, enemy PP and damage attribution disappeared because species changed.",
+        "strategic_judgment": "When a foe fainted and the next foe entered in one transaction, enemy PP and damage attribution disappeared because species changed.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Model Sitrus activation and locked Thrash/Outrage before trusting narrow multi-turn KO horizons.",
+        "knowledge_target": "tooling"
+      }
+    ],
+    "correct_choices": [
+      "Lildozer was selected as the critical-safe Stufful pivot; Cute Charm immediately added useful infatuation.",
+      "Charm reduced Stufful by two Attack stages and live RAM verified the expected damage reduction.",
+      "Fresh-entry Fake Out was used only against non-immune Stufful and Mankey; both flinched, enabling safe priority finishers.",
+      "Mankey Thrash was absorbed by Ohmnomnom, Iron Barbs added damage, and Fake Out plus Spark finished without a faint."
+    ],
+    "next_test": "Model Sitrus activation and locked Thrash/Outrage before trusting narrow multi-turn KO horizons."
+  }
+}

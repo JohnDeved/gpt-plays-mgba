@@ -5,70 +5,14 @@
       "schema_version": 1,
       "streak": 3,
       "ready": true,
-      "behavior_hash": "291ffc53ce922b208e0bfdebb38bb873bc5132600107c7d648d425677bbd682c",
-      "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
-      "last_review_id": "f12eb28cd330b96eac49",
-      "last_agent_review_id": "f12eb28cd330b96eac49",
+      "behavior_hash": "eb293f6568ed9d0201e52c6da4cda745e06166c7d8d91019ac423acf6813ff7f",
+      "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+      "last_review_id": "c97e8ec85fbaa2f63dce",
+      "last_agent_review_id": "c97e8ec85fbaa2f63dce",
       "last_terminal": "win",
       "last_status": "clean",
       "reset_reason": null,
       "attempts": [
-        {
-          "review_id": "7d100612b05553a06ca0",
-          "terminal": "win",
-          "status": "clean",
-          "behavior_hash": "ee589577d15b855a6438e58060b2e7d566655dc54cfdfaf4431e65b64d3f6164",
-          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
-          "streak": 3
-        },
-        {
-          "review_id": "42585e1f359581e5209f",
-          "terminal": "win",
-          "status": "clean",
-          "behavior_hash": "bf66a5205e467c5a59ac43485167cb30b6ad1830e6d132b4b51a40da97c9f842",
-          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
-          "streak": 1
-        },
-        {
-          "review_id": "d6450b8a7f0942fe911d",
-          "terminal": "loss",
-          "status": "needs_improvement",
-          "behavior_hash": "bf66a5205e467c5a59ac43485167cb30b6ad1830e6d132b4b51a40da97c9f842",
-          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
-          "streak": 0
-        },
-        {
-          "review_id": "fb44edd4687309f993f6",
-          "terminal": "win",
-          "status": "clean",
-          "behavior_hash": "f61cecb076f8df0be0bbd40c45eb31a5b3f765a6a461cd841887a6adb7c2089c",
-          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
-          "streak": 1
-        },
-        {
-          "review_id": "28ab0431a117f787db70",
-          "terminal": "loss",
-          "status": "needs_improvement",
-          "behavior_hash": "f61cecb076f8df0be0bbd40c45eb31a5b3f765a6a461cd841887a6adb7c2089c",
-          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
-          "streak": 0
-        },
-        {
-          "review_id": "1824534028cee3cec91d",
-          "terminal": "win",
-          "status": "needs_improvement",
-          "behavior_hash": "8a706fed508d455b427c4ec33224ee513bd061b75c07a5274527f971e7a4cd75",
-          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
-          "streak": 0
-        },
-        {
-          "review_id": "8c53a94788af27ddb9fd",
-          "terminal": "loss",
-          "status": "needs_improvement",
-          "behavior_hash": "3d5f58136f7e6c416de7c306edd4bec82ef43f2d57f5ba70b4aad27a41717827",
-          "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
-          "streak": 0
-        },
         {
           "review_id": "bc140d7fb6c7dcf12390",
           "terminal": "win",
@@ -92,6 +36,84 @@
           "behavior_hash": "291ffc53ce922b208e0bfdebb38bb873bc5132600107c7d648d425677bbd682c",
           "opening_state_hash": "45a2b916602ff9bf432045e04487e11df982df78aeec51654146004e9aa43238",
           "streak": 3
+        },
+        {
+          "review_id": "1c60244f4c68cc8eae54",
+          "terminal": "win",
+          "status": "needs_improvement",
+          "behavior_hash": "36ae079ee85486288d1e49f728207ec8c093e05ba1a45f8b30100080f5324984",
+          "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+          "streak": 0
+        },
+        {
+          "review_id": "0cf0271811ca96d8af8a",
+          "terminal": "loss",
+          "status": "needs_improvement",
+          "behavior_hash": "2cc5eb70bda9616cee85116128fc4da49eefaeee06327ae2cf75b6208c8b2532",
+          "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+          "streak": 0
+        },
+        {
+          "review_id": "5f384ec1d918708041bf",
+          "terminal": "win",
+          "status": "clean",
+          "behavior_hash": "360b6184de3a08f763800872143cf576780b6abedd1ab70c88d06589f79c5400",
+          "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+          "streak": 1
+        },
+        {
+          "review_id": "304e33f43d65f7c166d7",
+          "terminal": "win",
+          "status": "needs_improvement",
+          "behavior_hash": "360b6184de3a08f763800872143cf576780b6abedd1ab70c88d06589f79c5400",
+          "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+          "streak": 0
+        },
+        {
+          "review_id": "6046abbfeb5d1cdd1bc1",
+          "terminal": "win",
+          "status": "clean",
+          "behavior_hash": "eb293f6568ed9d0201e52c6da4cda745e06166c7d8d91019ac423acf6813ff7f",
+          "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+          "streak": 1
+        },
+        {
+          "review_id": "2f8cfe3e2ff5fdb0d68c",
+          "terminal": "win",
+          "status": "clean",
+          "behavior_hash": "eb293f6568ed9d0201e52c6da4cda745e06166c7d8d91019ac423acf6813ff7f",
+          "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+          "streak": 2
+        },
+        {
+          "review_id": "c97e8ec85fbaa2f63dce",
+          "terminal": "win",
+          "status": "clean",
+          "behavior_hash": "eb293f6568ed9d0201e52c6da4cda745e06166c7d8d91019ac423acf6813ff7f",
+          "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+          "streak": 3
+        }
+      ]
+    },
+    "map:3:3/local:1": {
+      "schema_version": 1,
+      "streak": 0,
+      "ready": false,
+      "behavior_hash": "21f79a7f07e114f1b064ca1227069455c9f480ae0c2584fea0ac4305a937fb63",
+      "opening_state_hash": "74b54ec61efdc2b6dfd3363dbd53d8dbcf7b046a43dfa31ec38071de6b101e10",
+      "last_review_id": "5a6489699a6b57800828",
+      "last_agent_review_id": "5a6489699a6b57800828",
+      "last_terminal": "step_mismatch",
+      "last_status": "needs_improvement",
+      "reset_reason": "tooling_mismatch",
+      "attempts": [
+        {
+          "review_id": "5a6489699a6b57800828",
+          "terminal": "step_mismatch",
+          "status": "needs_improvement",
+          "behavior_hash": "21f79a7f07e114f1b064ca1227069455c9f480ae0c2584fea0ac4305a937fb63",
+          "opening_state_hash": "74b54ec61efdc2b6dfd3363dbd53d8dbcf7b046a43dfa31ec38071de6b101e10",
+          "streak": 0
         }
       ]
     }

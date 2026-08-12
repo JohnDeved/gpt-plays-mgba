@@ -59,6 +59,19 @@ class RomDataTests(unittest.TestCase):
         self.assertEqual(move.category, "physical")
         self.assertEqual(move.priority, 0)
 
+    def test_decodes_negative_priority_from_signed_byte(self):
+        class NegativePriorityROM(FakeROM):
+            def read_range(self, address, length):
+                if address == 0x083A4493 + 13:
+                    return bytes((0xD0, 0xDD, 0xE8, 0xD5, 0xE0, 0xFF)) + b"\0" * 7
+                if address == 0x083B0C5E + 40:
+                    raw = bytearray(super().read_range(0x083B0C5E + 20, 20))
+                    raw[8] = 0xFF
+                    return bytes(raw)
+                return super().read_range(address, length)
+
+        self.assertEqual(BattleRomData(NegativePriorityROM()).move(2).priority, -1)
+
     def test_decodes_expanded_species_record(self):
         species = BattleRomData(FakeROM()).species(406)
         self.assertEqual(species.base_stats, (40, 30, 35, 55, 50, 70))

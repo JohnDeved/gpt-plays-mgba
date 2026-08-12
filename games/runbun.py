@@ -27,7 +27,7 @@ ROM_CODE = "BPEE"
 # Bump when the tactical ranking or its evidence semantics change.  The
 # reusable policy qualification hash includes this version, while excluding
 # reporting-only changes from the clone streak.
-BATTLE_SCORER_VERSION = "runbun-tactical-v9"
+BATTLE_SCORER_VERSION = "runbun-tactical-v34"
 
 SAVE_BLOCK1_PTR = 0x03005D9C
 SAVE_BLOCK2_PTR = 0x03005DA0
@@ -189,14 +189,63 @@ STATUS_MOVE_IDS = frozenset({28, 43, 73, 86, 92, 103, 109, 117, 150, 182, 270, 2
 # denominator of the defender's current-HP fraction; Run & Bun's Super Fang
 # follows the verified cartridge behavior of floor(current HP / 2).
 MOVE_FIXED_DAMAGE_FRACTIONS = {162: 2}
-PHYSICAL_THREAT_DEBUFF_IDS = frozenset({589})  # Play Nice lowers Attack.
+REVERSAL_MOVE_ID = 179
+# Same-power fixed-hit moves currently present in the verified ROM data.
+# Multiplying at the shared formula boundary keeps attack and switch scoring
+# from treating only the first hit as the whole move.
+FIXED_MULTI_HIT_COUNTS = {24: 2, 41: 2, 155: 2, 458: 2, 530: 2, 544: 2, 742: 2, 751: 2, 818: 3}
+VARIABLE_MULTI_HIT_RANGES = {
+    3: (2, 5), 4: (2, 5), 31: (2, 5), 42: (2, 5), 140: (2, 5),
+    154: (2, 5), 198: (2, 5), 292: (2, 5), 331: (2, 5),
+    333: (2, 5), 350: (2, 5), 541: (2, 5), 594: (2, 5), 799: (2, 5),
+}
+PHYSICAL_THREAT_DEBUFF_STAGES = {204: 2, 589: 1}  # Charm, Play Nice.
+PHYSICAL_THREAT_DEBUFF_IDS = frozenset(PHYSICAL_THREAT_DEBUFF_STAGES)
 ABILITY_FLASH_FIRE = 18
 ABILITY_LEVITATE = 26
+ABILITY_HUGE_POWER = 37
 ABILITY_GUTS = 62
-MECHANICS_MODELED_ABILITIES = frozenset({0, ABILITY_FLASH_FIRE, ABILITY_LEVITATE, ABILITY_GUTS, 19})  # Shield Dust is enforced by policy.
+ABILITY_PURE_POWER = 74
+ABILITY_IRON_FIST = 89
+ABILITY_SOLID_ROCK = 116
+ABILITY_FLUFFY = 218
+ABILITY_INTIMIDATE = 22
+FAKE_OUT_MOVE_ID = 252
+FLINCH_IMMUNE_ABILITIES = frozenset({19, 39})  # Shield Dust, Inner Focus
+RINDO_BERRY = 553
+COBA_BERRY = 558
+SITRUS_BERRY = 523
+IAPAPA_BERRY = 528
+MUSCLE_BAND = 475
+BLACK_BELT = 431
+FOCUS_SASH = 481
+IRON_FIST_MOVE_IDS = frozenset({7, 8, 9, 183, 223, 264, 309, 325, 327, 359, 409, 418, 612})
+MECHANICS_MODELED_ABILITIES = frozenset({
+    0, ABILITY_FLASH_FIRE, ABILITY_LEVITATE, ABILITY_HUGE_POWER, ABILITY_GUTS, ABILITY_PURE_POWER,
+    ABILITY_IRON_FIST, ABILITY_SOLID_ROCK,
+    ABILITY_FLUFFY, *FLINCH_IMMUNE_ABILITIES,
+})
+MECHANICS_MODELED_HELD_ITEMS = frozenset({0, BLACK_BELT, MUSCLE_BAND, FOCUS_SASH, RINDO_BERRY, COBA_BERRY, SITRUS_BERRY, IAPAPA_BERRY})
+HEALING_BERRIES = {SITRUS_BERRY: (2, 4), IAPAPA_BERRY: (4, 2)}  # trigger denominator, heal denominator
 RESIDUAL_OR_MULTI_TURN_MOVE_IDS = frozenset({20, 73, 205, 267, 340, 611})
 BURN_STATUS = 0x10
 PARALYSIS_STATUS = 0x40
+
+
+def _berry_heal(state: dict[str, Any]) -> int:
+    fractions = HEALING_BERRIES.get(int(state.get("held_item", 0) or 0))
+    return max(1, int(state.get("max_hp", 0) or 0) // fractions[1]) if fractions else 0
+
+
+def _berry_triggers_after(state: dict[str, Any], damage: float) -> bool:
+    fractions = HEALING_BERRIES.get(int(state.get("held_item", 0) or 0))
+    hp = int(state.get("current_hp", 0) or 0)
+    return bool(fractions and 0 < hp - damage <= int(state.get("max_hp", hp) or hp) // fractions[0])
+
+
+# Damaging moves whose secondary effect can activate Guts before the foe's
+# immediate reply. Prefer a safe damaging move unless this move ends the turn.
+GUTS_ACTIVATING_MOVE_IDS = frozenset({124, 209, 609})  # Sludge, Spark, Nuzzle.
 
 # These moves can be nonlethal on the immediate roll but create an avoidable
 # later KO (residual poison/bind or Rollout lock-in).  A capture planner must
@@ -217,7 +266,7 @@ SPECIES_TYPE_IDS = {
     16: (0, 2), 98: (11,), 193: (6, 2), 273: (12,),
     390: (10,), 761: (12,), 987: (17, 0),
     95: (5, 4), 111: (5, 4), 231: (4,), 388: (12,), 397: (0, 2),
-    453: (3, 1), 543: (6, 3), 777: (13, 8), 878: (8,), 404: (13,),
+    453: (3, 1), 543: (6, 3), 551: (4, 17), 777: (13, 8), 878: (8,), 404: (13,),
 }
 
 # Only the interactions needed by the currently observed party/moves are
@@ -734,7 +783,7 @@ class RunBunAdapter:
 
     def _close_pc_storage(self) -> dict[str, Any]:
         """Exit the storage script and prove field movement owns input again."""
-        for _ in range(2):
+        for _ in range(3):
             self._pc_tap("B", hold_frames=12)
         state = self.observe()
         map_state = state.get("map") or {}
@@ -767,9 +816,9 @@ class RunBunAdapter:
         )
         self._pc_tap(direction, wait_frames=12)
         self._pc_tap("A")
-        text = ((self.observe().get("text") or {}).get("current") or {}).get("text", "")
-        if "booted up the PC" not in text:
-            raise RuntimeError(f"pc_terminal_identity_not_verified: {text!r}")
+        opened = self.observe()
+        if opened.get("mode") != "dialogue" or not opened.get("ui", {}).get("field_message_box_mode"):
+            raise RuntimeError("pc_terminal_did_not_open")
         # Which PC -> Someone's PC -> accessed -> storage opened -> operation menu.
         for _ in range(4):
             self._pc_tap("A")
@@ -957,7 +1006,7 @@ class RunBunAdapter:
         self._pc_tap("START", wait_frames=60)
         if not self._field_start_menu_open() or self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 2:
             raise RuntimeError("party_reorder_start_menu_not_ready")
-        self._move_field_cursor(FIELD_MENU_CURSOR, 1, max_steps=8)
+        self._move_start_menu_cursor(1)
         self._pc_tap("A")
         if self.gba.read8(FIELD_MESSAGE_BOX_MODE) != 11:
             raise RuntimeError("party_reorder_selector_not_ready")
@@ -1177,9 +1226,9 @@ class RunBunAdapter:
         )
         self._pc_tap("UP", wait_frames=12)
         self._pc_tap("A")
-        greeting = ((self.observe().get("text") or {}).get("current") or {}).get("text", "")
-        if "How can I help you today" not in greeting:
-            raise RuntimeError(f"utility_npc_greeting_not_verified: {greeting!r}")
+        greeting = self.observe()
+        if greeting.get("mode") != "dialogue" or not greeting.get("ui", {}).get("field_message_box_mode"):
+            raise RuntimeError("utility_npc_did_not_open")
         self._pc_tap("A")  # Open the six-entry service menu.
         for _ in range(5):
             self._pc_tap("DOWN")
@@ -1268,9 +1317,9 @@ class RunBunAdapter:
 
         tap("UP", 12)
         tap("A")
-        greeting = ((self.observe().get("text") or {}).get("current") or {}).get("text", "")
-        if "How can I help you today" not in greeting:
-            raise RuntimeError(f"utility_npc_greeting_not_verified: {greeting!r}")
+        greeting = self.observe()
+        if greeting.get("mode") != "dialogue" or not greeting.get("ui", {}).get("field_message_box_mode"):
+            raise RuntimeError("utility_npc_did_not_open")
         tap("A")
         for _ in range(4):
             tap("DOWN")
@@ -1647,6 +1696,13 @@ class RunBunAdapter:
         if move_type is None:
             return (0.0, 0.0)
         power = metadata.power if metadata is not None else MOVE_POWER.get(move_id, 40)
+        if move_id == 263 and int(attacker_state.get("status", 0) or 0):  # Facade
+            power *= 2
+        if move_id == REVERSAL_MOVE_ID:
+            hp = int(attacker_state.get("current_hp", 0) or 0)
+            max_hp = max(1, int(attacker_state.get("max_hp", hp) or hp or 1))
+            ratio = hp / max_hp
+            power = 200 if ratio <= 1 / 24 else 150 if ratio <= 1 / 8 else 100 if ratio <= 1 / 4 else 80 if ratio <= 1 / 3 else 40 if ratio <= 11 / 16 else 20
         if move_id == 49:  # Sonic Boom is fixed 20 damage in this battle.
             return (20.0, 20.0)
         special = metadata.category == "special" if metadata is not None else move_id in MOVE_SPECIAL_IDS
@@ -1662,7 +1718,12 @@ class RunBunAdapter:
         if defender_state.get("ability") == ABILITY_LEVITATE and move_type == 4:
             return (0.0, 0.0)
         attack = max(1, math.floor(attack * cls._stage_multiplier(attacker_state, attack_key)))
-        if not special and int(attacker_state.get("status", 0) or 0) & BURN_STATUS and attacker_state.get("ability") != ABILITY_GUTS:
+        if not special and attacker_state.get("ability") in {ABILITY_HUGE_POWER, ABILITY_PURE_POWER}:
+            attack *= 2
+        status = int(attacker_state.get("status", 0) or 0)
+        if not special and status and attacker_state.get("ability") == ABILITY_GUTS:
+            attack = max(1, attack * 3 // 2)
+        elif not special and status & BURN_STATUS:
             attack = max(1, attack // 2)
         defense = max(1, math.floor(defense * cls._stage_multiplier(defender_state, defense_key)))
         defender_types = cls._mon_types(defender)
@@ -1678,9 +1739,8 @@ class RunBunAdapter:
         stab = 1.5 if move_type in cls._mon_types(attacker) else 1.0
         if attacker_state.get("ability") == ABILITY_FLASH_FIRE and move_type == 10:
             return (0.0, 0.0)
-        base = (((2 * int(level) // 5 + 2) * int(power) * attack) // defense) // 50 + 2
-
-        def cartridge_roll(roll: int) -> int:
+        def cartridge_roll(roll: int, move_power: int = int(power)) -> int:
+            base = (((2 * int(level) // 5 + 2) * move_power * attack) // defense) // 50 + 2
             damage = base * roll // 100
             if stab > 1:
                 damage = damage * 15 // 10
@@ -1694,10 +1754,61 @@ class RunBunAdapter:
             )
             for multiplier in multipliers:
                 damage = damage * int(round(multiplier * 0x1000)) // 0x1000
-            return max(1, damage)
+            if attacker_state.get("ability") == ABILITY_IRON_FIST and move_id in IRON_FIST_MOVE_IDS:
+                damage = damage * 6 // 5
+            if attacker_state.get("held_item") == MUSCLE_BAND and not special:
+                damage = damage * 11 // 10
+            if attacker_state.get("held_item") == BLACK_BELT and move_type == 1:
+                damage = damage * 11 // 10
+            if effectiveness > 1 and defender_state.get("ability") == ABILITY_SOLID_ROCK:
+                damage = damage * 3 // 4
+            if effectiveness > 1 and move_type == 12 and defender_state.get("held_item") == RINDO_BERRY:
+                damage //= 2
+            if effectiveness > 1 and move_type == 2 and defender_state.get("held_item") == COBA_BERRY:
+                damage //= 2
+            if defender_state.get("ability") == ABILITY_FLUFFY:
+                raw_flags = getattr(metadata, "raw_flags", ()) if metadata is not None else ()
+                makes_contact = bool(raw_flags and raw_flags[0] & 1) or move_id in {
+                    7, 10, 23, 24, 33, 34, 37, 44, 98, 172, 183, 200, 209,
+                    232, 249, 252, 342, 365, 371, 395, 450, 458, 512, 609,
+                }
+                if makes_contact:
+                    damage //= 2
+                if move_type == 10:
+                    damage *= 2
+            return max(1, damage) * FIXED_MULTI_HIT_COUNTS.get(move_id, 1)
 
         values = [cartridge_roll(roll) for roll in range(85, 101)]
+        if move_id == 741:  # Triple Axel: 20/40/60 power, each hit checks accuracy.
+            all_hits = [sum(cartridge_roll(roll, int(power) * multiplier) for multiplier in (1, 2, 3)) for roll in range(85, 101)]
+            return (float(min(values)), float(max(all_hits)))
+        if move_id in VARIABLE_MULTI_HIT_RANGES:
+            minimum_hits, maximum_hits = VARIABLE_MULTI_HIT_RANGES[move_id]
+            return (float(min(values) * minimum_hits), float(max(values) * maximum_hits))
         return (float(min(values)), float(max(values)))
+
+    @classmethod
+    def _critical_damage_bounds(
+        cls, move_id: int, attacker: dict[str, Any], defender: dict[str, Any], **kwargs: Any,
+    ) -> tuple[float, float]:
+        """Conservative Gen III crit bounds, ignoring harmful stat stages."""
+        if move_id in MOVE_FIXED_DAMAGE_FRACTIONS:
+            return cls._damage_bounds(move_id, attacker, defender, **kwargs)
+        metadata = (kwargs.get("move_data") or {}).get(move_id)
+        special = metadata.category == "special" if metadata is not None else move_id in MOVE_SPECIAL_IDS
+        attack_index, defense_index = (4, 5) if special else (1, 2)
+        attacker_state = dict(attacker.get("state", attacker))
+        defender_state = dict(defender.get("state", defender))
+        attacker_stages = list(attacker_state.get("stat_stages") or (6,) * 8)
+        defender_stages = list(defender_state.get("stat_stages") or (6,) * 8)
+        attacker_stages[attack_index] = max(6, attacker_stages[attack_index])
+        defender_stages[defense_index] = min(6, defender_stages[defense_index])
+        attacker_state["stat_stages"] = attacker_stages
+        defender_state["stat_stages"] = defender_stages
+        critical_attacker = {**attacker, "state": attacker_state} if "state" in attacker else attacker_state
+        critical_defender = {**defender, "state": defender_state} if "state" in defender else defender_state
+        low, high = cls._damage_bounds(move_id, critical_attacker, critical_defender, **kwargs)
+        return low * 2, high * 2
 
     @classmethod
     def _estimated_damage(
@@ -1736,6 +1847,7 @@ class RunBunAdapter:
         move_data: dict[int, RomMove] | None,
         low_hp_fraction: float,
         allow_switch: bool,
+        fresh_entry: bool,
     ) -> dict[str, Any] | None:
         """Plan one turn using KO timing and the next incoming hit.
 
@@ -1750,12 +1862,14 @@ class RunBunAdapter:
         if not all(opponent_state.get(key) is not None for key in required):
             return None
 
-        def move_options(attacker: dict[str, Any], defender: dict[str, Any]) -> list[dict[str, Any]]:
+        def move_options(attacker: dict[str, Any], defender: dict[str, Any], *, fresh: bool = False) -> list[dict[str, Any]]:
             state = attacker.get("state", attacker)
             result = []
             for slot, move_id in enumerate(state.get("moves", ())):
                 pp = state.get("pp", (0, 0, 0, 0))[slot]
                 if not move_id or not pp:
+                    continue
+                if move_id == FAKE_OUT_MOVE_ID and not fresh:
                     continue
                 damage_min, damage_max = cls._damage_bounds(
                     move_id,
@@ -1775,24 +1889,45 @@ class RunBunAdapter:
                 })
             return result
 
-        active_moves = move_options(player, opponent)
+        active_moves = move_options(player, opponent, fresh=fresh_entry)
         if not active_moves:
             return None
-        best_move = max(
-            active_moves,
-            key=lambda item: (
-                item["damage"],
-                (move_data or {}).get(item["move_id"], None) is not None
-                and (move_data or {})[item["move_id"]].category != "status"
-                or item["move_id"] not in STATUS_MOVE_IDS,
-                -item["slot"],
-            ),
-        )
         opponent_hp = opponent_state.get("current_hp", 0)
+        opponent_effective_hp = opponent_hp
+        if max((item["damage_min"] for item in active_moves), default=0) < opponent_hp:
+            opponent_effective_hp += _berry_heal(opponent_state)
+        sash_active = bool(
+            opponent_state.get("held_item") == FOCUS_SASH
+            and opponent_hp == int(opponent_state.get("max_hp", opponent_hp))
+        )
+        if sash_active:
+            opponent_effective_hp += 1
         player_hp = player_state.get("current_hp", 0)
         active_fraction = player_hp / max(player_state.get("max_hp", 1), 1)
         incoming = max(
             (cls._damage_bounds(move_id, opponent, player, type_chart=type_chart, damage_memory=damage_memory, move_data=move_data)[1] for move_id in opponent_state.get("moves", ()) if move_id),
+            default=0.0,
+        )
+        incoming_expected = max(
+            (
+                (low + high) / 2
+                for move_id in opponent_state.get("moves", ()) if move_id
+                for low, high in (cls._damage_bounds(
+                    move_id, opponent, player, type_chart=type_chart,
+                    damage_memory=damage_memory, move_data=move_data,
+                ),)
+            ),
+            default=0.0,
+        )
+        incoming_critical = max(
+            (
+                high
+                for move_id in opponent_state.get("moves", ()) if move_id
+                for _low, high in (cls._critical_damage_bounds(
+                    move_id, opponent, player, type_chart=type_chart,
+                    damage_memory=damage_memory, move_data=move_data,
+                ),)
+            ),
             default=0.0,
         )
         player_speed = cls._effective_speed(player_state)
@@ -1803,6 +1938,171 @@ class RunBunAdapter:
             else "tie"
         )
         acts_first = speed_order == "first"
+        opponent_priority = max(
+            (
+                int((move_data or {})[move_id].priority)
+                if move_id in (move_data or {}) else int(move_id in MOVE_PRIORITY_IDS)
+                for move_id in opponent_state.get("moves", ()) if move_id
+            ),
+            default=0,
+        )
+        damaging_opponent_priority = max(
+            (
+                int((move_data or {})[move_id].priority)
+                if move_id in (move_data or {}) else int(move_id in MOVE_PRIORITY_IDS)
+                for move_id in opponent_state.get("moves", ()) if move_id
+                if (move_data or {}).get(move_id) is None
+                or ((move_data or {})[move_id].power > 0 and (move_data or {})[move_id].category != "status")
+            ),
+            default=0,
+        )
+
+        def finishes_before_reply(item: dict[str, Any]) -> bool:
+            metadata = (move_data or {}).get(item["move_id"])
+            priority = int(metadata.priority) if metadata is not None else int(item["move_id"] in MOVE_PRIORITY_IDS)
+            return bool(
+                item["damage_min"] >= opponent_hp > 0 and not sash_active
+                and (priority > opponent_priority or priority == opponent_priority and acts_first)
+            )
+
+        def finishes_before_damaging_reply(item: dict[str, Any]) -> bool:
+            metadata = (move_data or {}).get(item["move_id"])
+            priority = int(metadata.priority) if metadata is not None else int(item["move_id"] in MOVE_PRIORITY_IDS)
+            return bool(
+                item["damage_min"] >= opponent_hp > 0 and not sash_active
+                and (priority > damaging_opponent_priority or priority == damaging_opponent_priority and acts_first)
+            )
+
+        raw_best_move = max(
+            active_moves,
+            key=lambda item: (
+                finishes_before_reply(item),
+                item["damage"],
+                (move_data or {}).get(item["move_id"], None) is not None
+                and (move_data or {})[item["move_id"]].category != "status"
+                or item["move_id"] not in STATUS_MOVE_IDS,
+                -item["slot"],
+            ),
+        )
+        guts_safe_moves = [
+            item for item in active_moves
+            if item["move_id"] not in GUTS_ACTIVATING_MOVE_IDS or finishes_before_damaging_reply(item)
+        ]
+        ranked_moves = (
+            guts_safe_moves
+            if opponent_state.get("ability") == ABILITY_GUTS
+            and not opponent_state.get("status")
+            and any(item["damage_max"] > 0 for item in guts_safe_moves)
+            else active_moves
+        )
+        best_move = max(
+            ranked_moves,
+            key=lambda item: (
+                finishes_before_reply(item),
+                item["damage"],
+                (move_data or {}).get(item["move_id"], None) is not None
+                and (move_data or {})[item["move_id"]].category != "status"
+                or item["move_id"] not in STATUS_MOVE_IDS,
+                -item["slot"],
+            ),
+        )
+        guts_activation_avoided = best_move["move_id"] != raw_best_move["move_id"]
+        fake_out = next((item for item in active_moves if item["move_id"] == FAKE_OUT_MOVE_ID), None)
+        follow_up = max(
+            (item for item in active_moves if item["move_id"] != FAKE_OUT_MOVE_ID),
+            key=lambda item: item["damage_min"],
+            default=None,
+        )
+        if fake_out and follow_up and opponent_state.get("ability") not in FLINCH_IMMUNE_ABILITIES:
+            fake_meta = (move_data or {}).get(FAKE_OUT_MOVE_ID)
+            follow_meta = (move_data or {}).get(follow_up["move_id"])
+            fake_priority = int(fake_meta.priority) if fake_meta is not None else 1
+            opponent_priority = max(
+                (
+                    int((move_data or {})[move_id].priority)
+                    if move_id in (move_data or {}) else int(move_id in MOVE_PRIORITY_IDS)
+                    for move_id in opponent_state.get("moves", ()) if move_id
+                ),
+                default=0,
+            )
+            def guaranteed_hit(metadata: RomMove | None, attacker: dict[str, Any], defender: dict[str, Any]) -> bool:
+                return bool(
+                    metadata is not None
+                    and (
+                        int(metadata.accuracy) == 0
+                        or int(metadata.accuracy) / 100
+                        * cls._accuracy_stage_multiplier(attacker)
+                        / cls._evasion_stage_multiplier(defender) >= 1
+                    )
+                )
+
+            wins_priority = fake_priority > opponent_priority or (
+                fake_priority == opponent_priority and acts_first
+            )
+            wins_damaging_priority = fake_priority > damaging_opponent_priority or (
+                fake_priority == damaging_opponent_priority and acts_first
+            )
+            if (
+                wins_priority
+                and fake_out["damage_min"] > 0
+                and fake_out["damage_min"] + follow_up["damage_min"] >= opponent_effective_hp > 0
+                and guaranteed_hit(fake_meta, player_state, opponent_state)
+                and guaranteed_hit(follow_meta, player_state, opponent_state)
+            ):
+                return {
+                    "action": "move",
+                    "slot": fake_out["slot"],
+                    "move_id": FAKE_OUT_MOVE_ID,
+                    "reason": "fresh_entry_fake_out_threshold",
+                }
+            if (
+                wins_damaging_priority
+                and incoming >= player_hp
+                and fake_out["damage_min"] > 0
+                and guaranteed_hit(fake_meta, player_state, opponent_state)
+            ):
+                return {
+                    "action": "move",
+                    "slot": fake_out["slot"],
+                    "move_id": FAKE_OUT_MOVE_ID,
+                    "reason": "fresh_entry_fake_out_survival",
+                }
+            healing_berry_would_trigger = _berry_triggers_after(opponent_state, fake_out["damage_max"])
+            if (
+                wins_damaging_priority
+                and fake_out["damage_min"] > 0
+                and guaranteed_hit(fake_meta, player_state, opponent_state)
+                and not healing_berry_would_trigger
+            ):
+                return {
+                    "action": "move",
+                    "slot": fake_out["slot"],
+                    "move_id": FAKE_OUT_MOVE_ID,
+                    "reason": "fresh_entry_fake_out_progress",
+                }
+        reversal_adjusted = False
+        if REVERSAL_MOVE_ID in opponent_state.get("moves", ()):
+            reversal_safe = []
+            for item in active_moves:
+                if item["damage_min"] >= opponent_hp and not sash_active:
+                    reversal_safe.append(item)
+                    continue
+                projected = dict(opponent_state)
+                projected["current_hp"] = max(
+                    1, opponent_hp - min(int(item["damage_max"]), max(0, opponent_hp - 1)),
+                )
+                _low, reversal_max = cls._damage_bounds(
+                    REVERSAL_MOVE_ID, {"state": projected}, player,
+                    type_chart=type_chart, damage_memory=damage_memory, move_data=move_data,
+                )
+                if reversal_max < player_hp:
+                    reversal_safe.append(item)
+            safest_progress = max(reversal_safe, key=lambda item: item["damage"], default=None)
+            if safest_progress is not None and safest_progress["move_id"] != best_move["move_id"]:
+                # Keep the safer damage threshold, but still run the ordinary
+                # survival/switch comparison before committing to the move.
+                best_move = safest_progress
+                reversal_adjusted = True
         # If every healthy bench option is also KO'd by the known incoming
         # hit, switching is not a survival action.  In this build Play Nice
         # is the one live move that lowers Attack; use it while the opponent
@@ -1812,7 +2112,14 @@ class RunBunAdapter:
             (item for item in active_moves if item["move_id"] in PHYSICAL_THREAT_DEBUFF_IDS),
             None,
         )
-        if defensive_debuff and incoming >= max(player_hp, 1) and speed_order != "first":
+        physical_threat_only = bool(move_data) and all(
+            (move_data or {}).get(move_id) is not None
+            and ((move_data or {})[move_id].power <= 0 or (move_data or {})[move_id].category == "physical")
+            for move_id in opponent_state.get("moves", ()) if move_id
+        )
+        opponent_attack_stage = int((opponent_state.get("stat_stages") or (6,) * 8)[1])
+        debuff_effective = defensive_debuff is not None and opponent_attack_stage > 0
+        if debuff_effective and physical_threat_only and incoming >= max(player_hp, 1) and acts_first:
             # One Attack stage is a 2/3 multiplier. If that still cannot
             # keep the active mon alive, status is no longer a survival line;
             # spend the turn on the highest observed/estimated damage instead.
@@ -1823,26 +2130,54 @@ class RunBunAdapter:
                     "move_id": defensive_debuff["move_id"],
                     "reason": "defensive_status_vs_physical_threat",
                 }
-            if best_move["damage_max"] > 0:
+        can_finish = best_move["damage_min"] >= opponent_hp > 0 and not sash_active
+        can_finish_before_hit = finishes_before_damaging_reply(best_move)
+        ko_hp = opponent_hp if best_move["damage_min"] >= opponent_hp else opponent_effective_hp
+        turns_to_ko = int((ko_hp + max(best_move["damage_min"], 1) - 1) // max(best_move["damage_min"], 1))
+        if debuff_effective and acts_first and physical_threat_only and turns_to_ko >= 3:
+            lowered_state = dict(opponent_state)
+            lowered_stages = list(lowered_state.get("stat_stages") or (6,) * 8)
+            lowered_stages[1] = max(
+                0, opponent_attack_stage - PHYSICAL_THREAT_DEBUFF_STAGES[defensive_debuff["move_id"]],
+            )
+            lowered_state["stat_stages"] = lowered_stages
+            stage_factor = (
+                cls._stage_multiplier(lowered_state, "attack")
+                / cls._stage_multiplier(opponent_state, "attack")
+            )
+            if incoming_critical >= player_hp > incoming_critical * stage_factor:
                 return {
                     "action": "move",
-                    "slot": best_move["slot"],
-                    "move_id": best_move["move_id"],
-                    "reason": "last_damage_line",
+                    "slot": defensive_debuff["slot"],
+                    "move_id": defensive_debuff["move_id"],
+                    "reason": "physical_debuff_prevents_critical_ko",
                 }
-        can_finish = best_move["damage_min"] >= opponent_hp > 0
-        can_finish_before_hit = can_finish and (acts_first or best_move["move_id"] in MOVE_PRIORITY_IDS)
-        turns_to_ko = int((opponent_hp + max(best_move["damage_min"], 1) - 1) // max(best_move["damage_min"], 1))
+            attacking_cost = incoming_expected * (turns_to_ko - 1)
+            debuff_cost = incoming_expected * stage_factor * turns_to_ko
+            if attacking_cost >= player_hp > debuff_cost:
+                return {
+                    "action": "move",
+                    "slot": defensive_debuff["slot"],
+                    "move_id": defensive_debuff["move_id"],
+                    "reason": "physical_debuff_changes_damage_race",
+                }
         # A live, repeatable two-hit line is often better than a speculative
         # switch: keep the active mon if it can absorb the one intervening hit.
         # Priority means the final hit lands before the opponent's next move.
+        best_metadata = (move_data or {}).get(best_move["move_id"])
+        best_priority = int(best_metadata.priority) if best_metadata is not None else int(best_move["move_id"] in MOVE_PRIORITY_IDS)
+        wins_damaging_priority = best_priority > damaging_opponent_priority or (
+            best_priority == damaging_opponent_priority and acts_first
+        )
         safe_two_turn_finish = (
             1 < turns_to_ko <= 2
             and player_hp > incoming * (turns_to_ko - 1)
-            and (acts_first or best_move["move_id"] in MOVE_PRIORITY_IDS)
+            and wins_damaging_priority
         )
-
-        switch_options: list[tuple[float, dict[str, Any], dict[str, Any]]] = []
+        entry_switch_options: list[tuple[float, dict[str, Any], dict[str, Any], bool]] = []
+        ordinary_entry_options: list[tuple[float, dict[str, Any], dict[str, Any], bool]] = []
+        emergency_finish_options: list[tuple[float, dict[str, Any], dict[str, Any], bool]] = []
+        switch_options: list[tuple[float, dict[str, Any], dict[str, Any], bool]] = []
         if allow_switch:
             for mon in party:
                 state = mon.get("state", {})
@@ -1850,33 +2185,123 @@ class RunBunAdapter:
                     continue
                 if state.get("species") == player_state.get("species"):
                     continue
-                options = move_options(mon, opponent)
+                options = move_options(mon, opponent, fresh=True)
                 if not options:
                     continue
                 best = max(options, key=lambda item: item["damage"])
+                entry_opponent = opponent
+                if state.get("ability") == ABILITY_INTIMIDATE:
+                    entry_state = dict(opponent_state)
+                    entry_stages = list(entry_state.get("stat_stages") or (6,) * 8)
+                    entry_stages[1] = max(0, entry_stages[1] - 1)
+                    entry_state["stat_stages"] = entry_stages
+                    entry_opponent = {**opponent, "state": entry_state}
                 threat = max(
-                    (cls._damage_bounds(move_id, opponent, mon, type_chart=type_chart, damage_memory=damage_memory, move_data=move_data)[1] for move_id in opponent_state.get("moves", ()) if move_id),
+                    (cls._damage_bounds(move_id, entry_opponent, mon, type_chart=type_chart, damage_memory=damage_memory, move_data=move_data)[1] for move_id in opponent_state.get("moves", ()) if move_id),
+                    default=0.0,
+                )
+                threat_critical = max(
+                    (
+                        high
+                        for move_id in opponent_state.get("moves", ()) if move_id
+                        for _low, high in (cls._critical_damage_bounds(
+                            move_id, entry_opponent, mon, type_chart=type_chart,
+                            damage_memory=damage_memory, move_data=move_data,
+                        ),)
+                    ),
                     default=0.0,
                 )
                 if threat >= max(state.get("current_hp", 0), 1):
                     continue
+                post_entry_hp = state.get("current_hp", 0) - threat
+                fresh_fake_out = next((item for item in options if item["move_id"] == FAKE_OUT_MOVE_ID), None)
+                best_follow_up = max(
+                    (item for item in options if item["move_id"] != FAKE_OUT_MOVE_ID),
+                    key=lambda item: item["damage_min"],
+                    default=None,
+                )
+                fake_out_threshold = bool(
+                    fresh_fake_out
+                    and best_follow_up
+                    and opponent_state.get("ability") not in FLINCH_IMMUNE_ABILITIES
+                    and fresh_fake_out["damage_min"] + best_follow_up["damage_min"] >= opponent_effective_hp
+                )
+                best_metadata = (move_data or {}).get(best["move_id"])
+                best_priority = int(best_metadata.priority) if best_metadata is not None else int(best["move_id"] in MOVE_PRIORITY_IDS)
+                wins_next_turn = best_priority > opponent_priority or (
+                    best_priority == opponent_priority and cls._effective_speed(state) > opponent_speed
+                )
+                finishes_next_turn = best["damage_min"] >= opponent_hp and wins_next_turn
                 hp_fraction = state.get("current_hp", 0) / max(state.get("max_hp", 1), 1)
                 score = best["damage"] + (100.0 if best["damage_min"] >= opponent_hp else 0.0)
                 score += hp_fraction * 12.0 + (4.0 if cls._effective_speed(state) > opponent_speed else 0.0)
                 score -= threat * 0.75
-                switch_options.append((score, mon, best))
+                candidate = (score, mon, best, threat_critical < state.get("current_hp", 0))
+                entry_switch_options.append(candidate)
+                if post_entry_hp > threat or finishes_next_turn or fake_out_threshold:
+                    ordinary_entry_options.append(candidate)
+                if post_entry_hp > threat and best["damage_min"] >= opponent_hp:
+                    emergency_finish_options.append(candidate)
+                if post_entry_hp <= threat_critical and not finishes_next_turn and not fake_out_threshold:
+                    continue
+                switch_options.append(candidate)
 
         best_switch = max(switch_options, key=lambda item: item[0], default=None)
+        critical_safe_switch = max(
+            (item for item in switch_options if item[3]),
+            key=lambda item: item[0],
+            default=None,
+        )
+        critical_entry_switch = max(
+            (item for item in entry_switch_options if item[3]),
+            key=lambda item: item[0],
+            default=None,
+        )
+        ordinary_entry_switch = max(ordinary_entry_options, key=lambda item: item[0], default=None)
+        emergency_finish_switch = max(emergency_finish_options, key=lambda item: item[0], default=None)
+        def preempting_critical_for(item: dict[str, Any]) -> float:
+            metadata = (move_data or {}).get(item["move_id"])
+            priority = int(metadata.priority) if metadata is not None else int(item["move_id"] in MOVE_PRIORITY_IDS)
+            return max(
+                (
+                    high
+                    for move_id in opponent_state.get("moves", ()) if move_id
+                    if (
+                        int((move_data or {})[move_id].priority) if move_id in (move_data or {}) else int(move_id in MOVE_PRIORITY_IDS)
+                    ) > priority or (
+                        (int((move_data or {})[move_id].priority) if move_id in (move_data or {}) else int(move_id in MOVE_PRIORITY_IDS)) == priority
+                        and opponent_speed >= player_speed
+                    )
+                    for _low, high in (cls._critical_damage_bounds(
+                        move_id, opponent, player, type_chart=type_chart,
+                        damage_memory=damage_memory, move_data=move_data,
+                    ),)
+                ),
+                default=0.0,
+            )
+
+        preempting_critical = preempting_critical_for(best_move)
+        probabilistic_priority_finish = max(
+            (
+                item for item in active_moves
+                if item["damage_max"] >= opponent_hp > 0
+                and item["damage"] >= opponent_hp
+                and not sash_active
+                and int(getattr((move_data or {}).get(item["move_id"]), "priority", 0)) > 0
+                and player_hp > preempting_critical_for(item)
+                and player_hp > incoming_expected
+            ),
+            key=lambda item: (item["damage_min"], item["damage"], -item["slot"]),
+            default=None,
+        )
         # A guaranteed KO wins over a switch.  If the active mon is slower and
         # cannot survive the incoming hit, a safer teammate gets the turn.
-        if can_finish_before_hit or (
-            can_finish and best_switch is None
-        ):
+        if can_finish_before_hit or (can_finish and player_hp > preempting_critical):
             return {
                 "action": "move",
                 "slot": best_move["slot"],
                 "move_id": best_move["move_id"],
-                "reason": "finish_before_switch",
+                "reason": "survive_priority_and_finish" if preempting_critical else "finish_before_switch",
             }
         if safe_two_turn_finish:
             return {
@@ -1885,24 +2310,120 @@ class RunBunAdapter:
                 "move_id": best_move["move_id"],
                 "reason": "safe_two_turn_finish",
             }
-        if best_switch is not None and (
+        if probabilistic_priority_finish is not None:
+            return {
+                "action": "move",
+                "slot": probabilistic_priority_finish["slot"],
+                "move_id": probabilistic_priority_finish["move_id"],
+                "reason": "expected_priority_finish_over_free_switch",
+            }
+        if (
+            physical_threat_only
+            and opponent_attack_stage < 6
+            and critical_safe_switch is not None
+            and critical_safe_switch[2]["damage"] > best_move["damage"]
+        ):
+            mon = critical_safe_switch[1]
+            return {
+                "action": "switch",
+                "slot": mon["slot"],
+                "species": mon["state"].get("species"),
+                "reason": "debuffed_offensive_pivot",
+            }
+        if debuff_effective and physical_threat_only and incoming < player_hp:
+            lowered_state = dict(opponent_state)
+            lowered_stages = list(lowered_state.get("stat_stages") or (6,) * 8)
+            lowered_stages[1] = max(
+                0,
+                lowered_stages[1] - PHYSICAL_THREAT_DEBUFF_STAGES[defensive_debuff["move_id"]],
+            )
+            lowered_state["stat_stages"] = lowered_stages
+            for _score, mon, pivot_move, already_crit_safe in entry_switch_options:
+                if already_crit_safe or pivot_move["damage"] <= best_move["damage"]:
+                    continue
+                pivot_hp = mon["state"].get("current_hp", 0)
+                lowered_critical = max(
+                    (
+                        high
+                        for move_id in lowered_state.get("moves", ()) if move_id
+                        for _low, high in (cls._critical_damage_bounds(
+                            move_id, {"state": lowered_state}, mon,
+                            type_chart=type_chart, damage_memory=damage_memory, move_data=move_data,
+                        ),)
+                    ),
+                    default=0.0,
+                )
+                if lowered_critical < pivot_hp:
+                    return {
+                        "action": "move",
+                        "slot": defensive_debuff["slot"],
+                        "move_id": defensive_debuff["move_id"],
+                        "reason": "physical_debuff_enables_safe_pivot",
+                    }
+        # A voluntary switch spends a turn taking the same incoming attack
+        # without making progress.  Generic matchup damage alone cannot
+        # justify that cost; reusable policies may still request a verified
+        # pivot, while this fallback switches only to avoid an imminent loss.
+        selected_switch = (
+            critical_entry_switch
+            if incoming >= max(player_hp, 1) and critical_entry_switch is not None
+            else emergency_finish_switch
+            if incoming >= max(player_hp, 1) and emergency_finish_switch is not None
+            else ordinary_entry_switch
+            if incoming >= max(player_hp, 1) and ordinary_entry_switch is not None
+            else
+            critical_safe_switch
+            if incoming_critical >= max(player_hp, 1) and critical_safe_switch is not None
+            else best_switch
+        )
+        if selected_switch is not None and (
             active_fraction <= low_hp_fraction
             or incoming >= max(player_hp, 1) * 0.9
-            or (not acts_first and best_switch[2]["damage"] > best_move["damage"])
+            or (incoming_critical >= max(player_hp, 1) and selected_switch[3])
         ):
-            mon = best_switch[1]
+            mon = selected_switch[1]
             species = mon["state"].get("species")
             return {
                 "action": "switch",
                 "slot": mon["slot"],
                 "species": species,
-                "reason": "matchup_survival_and_turn_order",
+                "reason": (
+                    "emergency_critical_entry_switch"
+                    if incoming >= max(player_hp, 1) and selected_switch is critical_entry_switch
+                    else "emergency_entry_switch"
+                    if incoming >= max(player_hp, 1) and selected_switch is emergency_finish_switch
+                    else "emergency_survival_entry_switch"
+                    if incoming >= max(player_hp, 1) and selected_switch is ordinary_entry_switch
+                    else
+                    "critical_survival_switch"
+                    if incoming_critical >= max(player_hp, 1) and selected_switch[3]
+                    else "matchup_survival_and_turn_order"
+                ),
             }
+        if incoming >= max(player_hp, 1):
+            preempting_moves = []
+            for item in active_moves:
+                metadata = (move_data or {}).get(item["move_id"])
+                priority = int(metadata.priority) if metadata is not None else int(item["move_id"] in MOVE_PRIORITY_IDS)
+                if priority > damaging_opponent_priority or priority == damaging_opponent_priority and acts_first:
+                    preempting_moves.append(item)
+            if preempting_moves:
+                last_action = max(preempting_moves, key=lambda item: (item["damage"], -item["slot"]))
+                return {
+                    "action": "move",
+                    "slot": last_action["slot"],
+                    "move_id": last_action["move_id"],
+                    "reason": "last_preempting_damage_line",
+                }
         return {
             "action": "move",
             "slot": best_move["slot"],
             "move_id": best_move["move_id"],
-            "reason": "best_damage_while_surviving",
+            "reason": (
+                "avoid_low_hp_reversal" if reversal_adjusted
+                else "avoid_activating_guts_before_reply" if guts_activation_avoided
+                else "best_damage_while_surviving"
+            ),
         }
 
     @classmethod
@@ -1918,6 +2439,7 @@ class RunBunAdapter:
         allow_switch: bool = True,
         actor_slot: int | None = None,
         target_slot: int | None = None,
+        fresh_entry: bool = False,
     ) -> dict[str, Any]:
         """Choose a safe move or a switch using the current RAM observation.
 
@@ -1935,7 +2457,8 @@ class RunBunAdapter:
             actor_slot = battle.get("menu", {}).get("command_battler") if battle.get("format") == "double" else 0
         if actor_slot not in (0, 2):
             actor_slot = 0
-        opponents = [slot for slot in (1, 3) if any(m.get("slot") == slot and m.get("present") and m["state"].get("current_hp", 0) > 0 for m in mons)]
+        opponent_slots = (1, 3) if battle.get("format") == "double" else (1,)
+        opponents = [slot for slot in opponent_slots if any(m.get("slot") == slot and m.get("present") and m["state"].get("current_hp", 0) > 0 for m in mons)]
         if target_slot not in opponents:
             target_slot = opponents[0] if opponents else 1
         player = next((m["state"] for m in mons if m.get("slot") == actor_slot and m.get("present")), None)
@@ -1944,6 +2467,75 @@ class RunBunAdapter:
             return {"action": "none", "reason": "battle_mons_incomplete"}
 
         party = observation.get("party", {}).get("mons", [])
+        if battle.get("party_switch_required") or battle.get("menu", {}).get("state") == "party_switch":
+            candidates = [
+                mon for mon in party
+                if mon.get("present") and int(mon.get("state", {}).get("current_hp", 0)) > 0
+            ]
+            if not candidates:
+                return {"action": "none", "reason": "no_forced_replacement"}
+
+            def replacement_rank(mon: dict[str, Any]) -> tuple[Any, ...]:
+                state = mon["state"]
+                incoming_bounds = [
+                    cls._damage_bounds(
+                        move_id, opponent, state, type_chart=type_chart,
+                        damage_memory=damage_memory, move_data=move_data,
+                    )
+                    for move_id in opponent.get("moves", ()) if move_id
+                ]
+                incoming = max((high for _low, high in incoming_bounds), default=0.0)
+                critical = max((
+                    cls._critical_damage_bounds(
+                        move_id, opponent, state, type_chart=type_chart,
+                        damage_memory=damage_memory, move_data=move_data,
+                    )[1]
+                    for move_id in opponent.get("moves", ()) if move_id
+                ), default=0.0)
+                entry_plan = cls._tactical_battle_action(
+                    state, opponent, party,
+                    effectiveness_memory=effectiveness_memory, type_chart=type_chart,
+                    damage_memory=damage_memory, move_data=move_data,
+                    low_hp_fraction=low_hp_fraction, allow_switch=False, fresh_entry=True,
+                ) or {}
+                move_id = int(entry_plan.get("move_id", 0) or 0)
+                low, high = cls._damage_bounds(
+                    move_id, state, opponent, effectiveness_memory=effectiveness_memory,
+                    type_chart=type_chart, damage_memory=damage_memory, move_data=move_data,
+                ) if move_id else (0.0, 0.0)
+                metadata = (move_data or {}).get(move_id)
+                priority = int(metadata.priority) if metadata is not None else int(move_id in MOVE_PRIORITY_IDS)
+                damaging_priority = max(
+                    (
+                        int((move_data or {})[foe_move].priority)
+                        if foe_move in (move_data or {}) else int(foe_move in MOVE_PRIORITY_IDS)
+                        for foe_move in opponent.get("moves", ()) if foe_move
+                        if (move_data or {}).get(foe_move) is None
+                        or ((move_data or {})[foe_move].power > 0 and (move_data or {})[foe_move].category != "status")
+                    ),
+                    default=0,
+                )
+                finishes_first = bool(
+                    low >= int(opponent.get("current_hp", 0)) > 0
+                    and (priority > damaging_priority or priority == damaging_priority and cls._effective_speed(state) > cls._effective_speed(opponent))
+                )
+                hp = int(state.get("current_hp", 0))
+                return (
+                    finishes_first,
+                    hp > critical,
+                    hp > incoming,
+                    entry_plan.get("reason", "").startswith("fresh_entry_fake_out"),
+                    high,
+                    cls._effective_speed(state),
+                    hp,
+                )
+
+            best = max(candidates, key=replacement_rank)
+            return {
+                "action": "switch", "slot": best["slot"],
+                "species": best["state"].get("species"),
+                "reason": "forced_replacement_best_entry",
+            }
         tactical = cls._tactical_battle_action(
             player,
             opponent,
@@ -1954,6 +2546,7 @@ class RunBunAdapter:
             move_data=move_data,
             low_hp_fraction=low_hp_fraction,
             allow_switch=allow_switch,
+            fresh_entry=fresh_entry,
         )
         if tactical is not None:
             return tactical
@@ -2029,6 +2622,7 @@ class RunBunAdapter:
         allow_switch: bool = True,
         actor_slot: int | None = None,
         target_slot: int | None = None,
+        fresh_entry: bool = False,
     ) -> dict[str, Any]:
         """Return a compact, auditable explanation for one battle turn.
 
@@ -2045,7 +2639,8 @@ class RunBunAdapter:
             actor_slot = battle.get("menu", {}).get("command_battler") if battle.get("format") == "double" else 0
         if actor_slot not in (0, 2):
             actor_slot = 0
-        opponents = [slot for slot in (1, 3) if any(m.get("slot") == slot and m.get("present") and m["state"].get("current_hp", 0) > 0 for m in mons)]
+        opponent_slots = (1, 3) if battle.get("format") == "double" else (1,)
+        opponents = [slot for slot in opponent_slots if any(m.get("slot") == slot and m.get("present") and m["state"].get("current_hp", 0) > 0 for m in mons)]
         if target_slot not in opponents:
             target_slot = opponents[0] if opponents else 1
         player = next((m["state"] for m in mons if m.get("slot") == actor_slot and m.get("present")), None)
@@ -2064,6 +2659,7 @@ class RunBunAdapter:
             allow_switch=allow_switch,
             actor_slot=actor_slot,
             target_slot=target_slot,
+            fresh_entry=fresh_entry,
         )
         opponent_hp = opponent.get("current_hp", 0)
         opponent_speed = cls._effective_speed(opponent)
@@ -2088,7 +2684,13 @@ class RunBunAdapter:
                 move_data=move_data,
             )
             damage = (damage_min + damage_max) / 2
-            critical_damage_max = damage_max if move_id in MOVE_FIXED_DAMAGE_FRACTIONS else damage_max * 2
+            critical_damage_min, critical_damage_max = cls._critical_damage_bounds(
+                move_id, state, defender,
+                effectiveness_memory=effectiveness_memory,
+                type_chart=type_chart,
+                damage_memory=memory,
+                move_data=move_data,
+            )
             accuracy_known = metadata is not None
             base_accuracy = int(metadata.accuracy) if metadata is not None else None
             hit_probability = (
@@ -2097,8 +2699,12 @@ class RunBunAdapter:
                 else min(1.0, max(0.0, (base_accuracy or 0) / 100 * cls._accuracy_stage_multiplier(state) / cls._evasion_stage_multiplier(defender)))
             )
             expected_damage = damage * hit_probability
-            ko_in = int((defender.get("current_hp", 0) + max(damage_max, 1) - 1) // max(damage_max, 1))
-            guaranteed_ko_in = int((defender.get("current_hp", 0) + max(damage_min, 1) - 1) // max(damage_min, 1))
+            defender_hp = int(defender.get("current_hp", 0) or 0)
+            berry_heal = _berry_heal(defender)
+            estimate_hp = defender_hp if damage_max >= defender_hp else defender_hp + berry_heal
+            guaranteed_hp = defender_hp if damage_min >= defender_hp else defender_hp + berry_heal
+            ko_in = int((estimate_hp + max(damage_max, 1) - 1) // max(damage_max, 1))
+            guaranteed_ko_in = int((guaranteed_hp + max(damage_min, 1) - 1) // max(damage_min, 1))
             priority_value = int(metadata.priority) if metadata is not None else int(move_id in MOVE_PRIORITY_IDS)
             attacker_speed = cls._effective_speed(state)
             defender_speed = cls._effective_speed(defender)
@@ -2114,7 +2720,11 @@ class RunBunAdapter:
                 uncertainties.append("move_accuracy_unavailable")
             if metadata is not None and metadata.secondary_chance:
                 uncertainties.append("secondary_effect_identity_unmodeled")
-            if metadata is not None and metadata.category == "status":
+            if (
+                metadata is not None
+                and metadata.category == "status"
+                and move_id not in PHYSICAL_THREAT_DEBUFF_STAGES
+            ):
                 uncertainties.append("status_move_effect_unmodeled")
             if move_id in RESIDUAL_OR_MULTI_TURN_MOVE_IDS:
                 uncertainties.append("residual_or_multi_turn_transition_unmodeled")
@@ -2124,9 +2734,9 @@ class RunBunAdapter:
                 uncertainties.append(f"attacker_ability_effect_unmodeled:{attacker_ability}")
             if defender_ability not in MECHANICS_MODELED_ABILITIES:
                 uncertainties.append(f"defender_ability_effect_unmodeled:{defender_ability}")
-            if int(state.get("held_item", 0) or 0):
+            if int(state.get("held_item", 0) or 0) not in MECHANICS_MODELED_HELD_ITEMS:
                 uncertainties.append(f"attacker_held_item_effect_unmodeled:{int(state['held_item'])}")
-            if int(defender.get("held_item", 0) or 0):
+            if int(defender.get("held_item", 0) or 0) not in MECHANICS_MODELED_HELD_ITEMS:
                 uncertainties.append(f"defender_held_item_effect_unmodeled:{int(defender['held_item'])}")
             uncertainties = list(dict.fromkeys(uncertainties))
             return {
@@ -2135,6 +2745,8 @@ class RunBunAdapter:
                 "target": target_slot,
                 "move_id": move_id,
                 "move": move_name(state, slot, move_id),
+                "move_type": metadata.type_id if metadata is not None else MOVE_TYPE_IDS.get(move_id),
+                "category": metadata.category if metadata is not None else None,
                 "damage_est": round(expected_damage, 2),
                 "damage_on_hit": round(damage, 2),
                 "damage_range": [round(damage_min, 2), round(damage_max, 2)],
@@ -2151,7 +2763,7 @@ class RunBunAdapter:
                 "outcome_set": {
                     "miss_probability": round(1 - hit_probability, 6),
                     "normal_hit": [round(damage_min, 2), round(damage_max, 2)],
-                    "critical_hit": [round(damage_min * 2, 2), round(critical_damage_max, 2)],
+                    "critical_hit": [round(critical_damage_min, 2), round(critical_damage_max, 2)],
                     "critical_probability_given_hit": 0.0625,
                 },
                 "mechanics_coverage": {
@@ -2182,7 +2794,10 @@ class RunBunAdapter:
         for slot, move_id in enumerate(opponent.get("moves", ())):
             if move_id:
                 incoming.append(move_report(opponent, slot, move_id, player))
-        max_opponent_priority = max((item["priority"] for item in incoming), default=0)
+        max_opponent_priority = max(
+            (item["priority"] for item in incoming if item["damage_range"][1] > 0),
+            default=0,
+        )
         for item in moves:
             if item["priority"] > max_opponent_priority:
                 item["order"] = "first"
@@ -2211,9 +2826,21 @@ class RunBunAdapter:
         elif chosen and plan.get("reason") == "safe_two_turn_finish":
             proof_level = "expected_best"
             claim = "estimated two-turn finish while surviving the modeled intervening hit"
+        elif chosen and plan.get("reason") == "fresh_entry_fake_out_threshold":
+            proof_level = "expected_best"
+            claim = "fresh-entry Fake Out creates a guaranteed modeled follow-up threshold before any lower-priority reply"
+        elif chosen and plan.get("reason") == "fresh_entry_fake_out_survival":
+            proof_level = "minimax_visible"
+            claim = "fresh-entry Fake Out preempts every modeled damaging reply; a higher-priority status action deals no damage"
         elif chosen and plan.get("reason") == "defensive_status_vs_physical_threat":
             proof_level = "expected_best"
             claim = "only live status line that can reduce the modeled physical KO threat; every switch candidate is also KO'd"
+        elif chosen and plan.get("reason") == "physical_debuff_changes_damage_race":
+            proof_level = "expected_best"
+            claim = "modeled Attack drop changes the expected physical damage race from losing to surviving"
+        elif chosen and plan.get("reason") == "physical_debuff_prevents_critical_ko":
+            proof_level = "minimax_visible"
+            claim = "modeled Attack drop changes the worst visible critical from lethal to survivable before every damaging reply"
         elif chosen and plan.get("reason") == "last_damage_line":
             proof_level = "heuristic"
             claim = "no legal line guarantees survival; selected the highest observed damage chance"
@@ -3616,7 +4243,10 @@ class RunBunAdapter:
             # bound even though later-generation mechanics often use 1.5x;
             # a move is capture-safe only when every modeled crit remains
             # nonlethal.
-            critical_damage_max = damage_max * 2
+            critical_damage_max = cls._critical_damage_bounds(
+                move_id, player, opponent,
+                type_chart=type_chart, damage_memory=damage_memory, move_data=move_data,
+            )[1]
             metadata = (move_data or {}).get(int(move_id))
             status_effect = CAPTURE_STATUS_MOVES.get((metadata.name or "") if metadata else "")
             status_effectiveness = 1.0
@@ -4321,6 +4951,7 @@ class RunBunAdapter:
         persistent_blocked_edges = set(blocked_edges or ())
         dynamic_blocked_edges: set[tuple[tuple[int, int], str]] = set()
         stalled: dict[tuple[tuple[int, int], str], int] = {}
+        no_progress_replans = 0
         actions: list[dict[str, Any]] = []
         last_state = self.observe()
 
@@ -4472,6 +5103,12 @@ class RunBunAdapter:
                     "reason": "map_transition",
                 }
             if next_position == current:
+                no_progress_replans += 1
+                if no_progress_replans >= 3:
+                    raise RuntimeError(
+                        f"adaptive route made no progress at {current} after "
+                        f"{no_progress_replans} inputs; overworld control may be locked"
+                    )
                 stalled[first_edge] = stalled.get(first_edge, 0) + 1
                 if stalled[first_edge] >= 3:
                     raise RuntimeError(
@@ -4482,6 +5119,7 @@ class RunBunAdapter:
                 if blocked_wait_frames:
                     self.gba.wait_frames(blocked_wait_frames)
             else:
+                no_progress_replans = 0
                 # Dynamic blockers are transient.  Once movement resumes,
                 # discard their directed-edge hints and solve from reality.
                 dynamic_blocked_edges.clear()
@@ -4973,7 +5611,7 @@ class RunBunAdapter:
             and data[3] == 2077
             and data[4] == 51445
             and data[5] == 2077
-            and 0 <= data[6] <= 4
+            and 0 <= data[6] <= 5
             and data[9] == 8
         )
 
@@ -4988,7 +5626,11 @@ class RunBunAdapter:
             and not before_ui.get("field_start_menu_open")
             and not before_ui.get("field_message_box_mode")
         ):
-            raise RuntimeError("field_ui_not_open")
+            if before.get("mode") != "overworld":
+                raise RuntimeError("field_ui_not_open")
+            self.gba.press("B", frames=3)
+            self.gba.wait_frames(wait_frames)
+            return {"closed_layers": 1, "state": self.observe()}
         closed = 0
         for _ in range(max_layers):
             state = self.observe()
@@ -4997,6 +5639,11 @@ class RunBunAdapter:
             if not bag_open and not start_open:
                 if state.get("mode") == "overworld" and state.get("ui", {}).get("field_message_box_mode") == 0:
                     return {"closed_layers": closed, "state": state}
+                if state.get("mode") == "dialogue" and state.get("ui", {}).get("field_message_box_mode"):
+                    self.gba.press("B", frames=3)
+                    self.gba.wait_frames(wait_frames)
+                    closed += 1
+                    continue
                 raise RuntimeError(f"field_menu_cleanup_stopped_in_mode: {state.get('mode')}")
             self.gba.press("B", frames=3)
             self.gba.wait_frames(wait_frames)
@@ -5013,10 +5660,26 @@ class RunBunAdapter:
 
     def _field_start_menu_open(self) -> bool:
         """Whether the verified Start-menu input owner is still active."""
-        return any(
-            task.get("active") and task.get("function_address") == 0x080BD7B9
+        return self._field_start_menu_task() is not None
+
+    def _field_start_menu_task(self) -> dict[str, Any] | None:
+        return next((
+            task
             for task in self.gba.inspect_tasks().get("tasks", [])
-        )
+            if task.get("active") and task.get("function_address") == 0x080BD7B9
+        ), None)
+
+    def _move_start_menu_cursor(self, target: int, *, max_steps: int = 8) -> int:
+        """Move the Start menu through its live field-choice cursor."""
+        for _ in range(max_steps):
+            if not self._field_start_menu_task():
+                raise RuntimeError("field_start_menu_task_missing")
+            current = self.gba.read8(YES_NO_CURSOR)
+            if current == target:
+                return current
+            self.gba.press("UP" if current > target else "DOWN", frames=3)
+            self.gba.wait_frames(30)
+        raise RuntimeError(f"field_start_menu_cursor_failed: target={target}")
 
     def _move_field_cursor(self, address: int, target: int, *, max_steps: int = 8) -> int:
         """Move a small RAM-backed vertical cursor and verify every step."""
@@ -5119,8 +5782,9 @@ class RunBunAdapter:
         self,
         *,
         target_species: int,
-        forget_slot: int,
+        forget_slot: int | None,
         expected_move_id: int | None = None,
+        decline: bool = False,
         max_frames: int = 1800,
     ) -> dict[str, Any]:
         """Resolve a pending four-move learn screen with RAM verification.
@@ -5130,7 +5794,7 @@ class RunBunAdapter:
         guesses which existing move to discard and verifies the resulting
         party move tuple before closing the reusable item target screen.
         """
-        if not 0 <= forget_slot < 4:
+        if not decline and (forget_slot is None or not 0 <= forget_slot < 4):
             raise ValueError("forget_slot must be in 0..3")
         if max_frames < 1:
             raise ValueError("max_frames must be positive")
@@ -5185,6 +5849,49 @@ class RunBunAdapter:
         if question:
             self.gba.press("A", frames=3)
             self.gba.wait_frames(180)
+
+        if decline:
+            for _ in range(4):
+                self.gba.press("DOWN", frames=3)
+                self.gba.wait_frames(60)
+            self.gba.press("A", frames=3)
+            self.gba.wait_frames(180)
+            for _ in range(12):
+                state = self.observe()
+                pages = self._move_learning_page_texts(state)
+                if any("Stop trying to teach" in page for page in pages):
+                    if self.gba.read8(YES_NO_CURSOR) == 1:
+                        self.gba.press("UP", frames=3)
+                        self.gba.wait_frames(30)
+                    self.gba.press("A", frames=3)
+                    self.gba.wait_frames(120)
+                elif any("did not learn" in page for page in pages):
+                    self.gba.press("A", frames=3)
+                    self.gba.wait_frames(120)
+                    break
+                else:
+                    self.gba.wait_frames(30)
+            for _ in range(8):
+                state = self.observe()
+                if state.get("mode") == "overworld" and not self._field_start_menu_open():
+                    try:
+                        self._field_bag_task()
+                    except RuntimeError:
+                        break
+                self.gba.press("B", frames=3)
+                self.gba.wait_frames(90)
+            final = self.observe()
+            final_target = next(
+                mon for mon in final.get("party", {}).get("mons", [])
+                if mon.get("present") and mon.get("state", {}).get("species") == target_species
+            )
+            if tuple(final_target["state"].get("moves", ())) != old_moves:
+                raise RuntimeError("declined_move_changed_party_moves")
+            return {
+                "verified": True, "declined": True, "target_species": target_species,
+                "old_moves": old_moves, "new_moves": old_moves, "expected_move_id": expected_move_id,
+                "state": final,
+            }
 
         # The five-row move-forget task uses a separate cursor byte from the
         # ordinary field party cursor. Its initial position is the first move;
@@ -5379,6 +6086,7 @@ class RunBunAdapter:
         if not target_mon or not target_mon.get("present"):
             raise ValueError(f"field_item_target_slot_invalid: {target_slot}")
         hp_before = target_mon.get("state", {}).get("current_hp")
+        level_before = int(target_mon.get("state", {}).get("level", 0) or 0)
         item_cursor = 0
         if item_key == "potion":
             medicine = self.inventory().get("pockets", {}).get("runbun_medicine", [])
@@ -5401,11 +6109,18 @@ class RunBunAdapter:
                 raise RuntimeError("field_item_menu_already_open")
             self.gba.press("B", frames=3)
             self.gba.wait_frames(90)
+        # A dismissed PC/storage script can leave a one-step hidden Start
+        # owner: the first B exposes it and the second closes it. On a clean
+        # overworld both presses are inert.
+        for _ in range(2):
+            self.gba.press("B", frames=3)
+            self.gba.wait_frames(90)
         if self._field_start_menu_open():
             self.gba.press("B", frames=3)
             self.gba.wait_frames(90)
 
-        # Open Start -> Bag. The live menu has three entries and Bag is cursor 2.
+        # Open Start -> Bag by its RAM-decoded row label; menu layout varies
+        # with unlocked field features.
         menu_ready = False
         for _ in range(2):
             self.gba.wait_frames(30)
@@ -5416,13 +6131,29 @@ class RunBunAdapter:
                 break
         if not menu_ready:
             raise RuntimeError("field_start_menu_not_ready")
-        self._move_field_cursor(FIELD_MENU_CURSOR, 2, max_steps=4)
+        self._move_start_menu_cursor(2)
+        start_task = next(
+            task for task in self.gba.inspect_tasks().get("tasks", [])
+            if task.get("active") and task.get("function_address") == 0x080BD7B9
+        )
         self.gba.press("A", frames=3)
-        self.gba.wait_frames(180)
+        for _ in range(12):
+            self.gba.wait_frames(30)
+            try:
+                self._field_bag_task()
+                break
+            except RuntimeError:
+                continue
+        else:
+            raise RuntimeError(
+                f"field_bag_open_timeout: mode={self.observe().get('mode')} "
+                f"field_mode={self.gba.read8(FIELD_MESSAGE_BOX_MODE)} "
+                f"cursor={self.gba.read8(FIELD_MENU_CURSOR)} start_task_data={start_task.get('data')}"
+            )
 
         # Bag opens on Poké Balls (2) in this save. Read the task instead of
         # assuming that state; RIGHT advances to Key Items (4).
-        desired_pocket = 4 if item_key == "endless candy" else 1
+        desired_pocket = 5 if item_key == "endless candy" else 1
         for _ in range(4):
             task = self._field_bag_task()
             pocket = task["data"][6]
@@ -5513,8 +6244,11 @@ class RunBunAdapter:
             None,
         )
         hp_after = (after_target or {}).get("state", {}).get("current_hp")
+        level_after = int((after_target or {}).get("state", {}).get("level", 0) or 0)
         if item_key == "potion" and (hp_before is None or hp_after is None or hp_after <= hp_before):
             raise RuntimeError(f"potion_no_hp_change: before={hp_before} after={hp_after}")
+        if item_key == "endless candy" and level_after != level_before + 1:
+            raise RuntimeError(f"endless_candy_no_level_change: before={level_before} after={level_after}")
         compact_party = [
             {
                 "slot": mon.get("slot"),
@@ -5533,6 +6267,8 @@ class RunBunAdapter:
             "text": text,
             "hp_before": hp_before,
             "hp_after": hp_after,
+            "level_before": level_before,
+            "level_after": level_after,
             "move_learning_pending": move_learning_pending,
             "state": {
                 "frame": after.get("frame"),
@@ -5957,9 +6693,9 @@ class RunBunAdapter:
                 interaction_gap=interaction_gap,
                 prefer_open_gap=False,
                 avoid_trainer_sight_lines=avoid_trainer_sight_lines,
-                ignored_trainer_ids=(
+                ignored_trainer_ids=(verified_defeated_trainer_local_ids or set()) | (
                     {int(target.local_id)}
-                    if interact and getattr(target, "trainer_type", 0) else None
+                    if interact and getattr(target, "trainer_type", 0) else set()
                 ),
             )
             if not path:

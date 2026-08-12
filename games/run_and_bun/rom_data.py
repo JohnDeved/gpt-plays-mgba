@@ -23,6 +23,12 @@ TYPE_CHART_ADDRESS = 0x083ADEE2
 TYPE_CHART_TYPES = 19
 TYPE_CHART_SCALE = 0x1000
 
+# Fixed cartridge ability IDs that nullify one attacking type.
+ABILITY_TYPE_IMMUNITIES = {
+    10: 13, 11: 11, 18: 10, 26: 4, 31: 13,
+    78: 13, 87: 11, 114: 11, 157: 12,
+}
+
 # Move names are fixed 13-byte Gen III strings, indexed from move 1.  Move 0
 # is the null move and has no display name.
 MOVE_NAMES_ADDRESS = 0x083A4493
@@ -234,7 +240,7 @@ class BattleRomData:
                 pp=raw[4],
                 secondary_chance=raw[5],
                 target_flags=int.from_bytes(raw[6:8], "little"),
-                priority=int.from_bytes(raw[8:10], "little", signed=True),
+                priority=int.from_bytes(raw[8:9], "little", signed=True),
                 category=category,
                 raw_flags=tuple(
                     int.from_bytes(raw[offset:offset + 2], "little")

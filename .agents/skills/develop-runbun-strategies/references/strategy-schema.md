@@ -17,6 +17,9 @@ Each strategy requires:
   `rules` array of those blocks. Directives are only `prefer`, `forbid`, or
   `reserve`, and action selectors contain only legal action fields such as
   `kind`, `move_id`, `species`, `slot`, or a bound party `role`.
+- `preconditions` (optional): fixed prebattle predicates over battle format and
+  party/enemy move, type, or ability sets. Candidate/tested records whose
+  preconditions match are trialed automatically in clones.
 
 Supported predicates are battle format, active role, opponent species,
 forced switch, fresh entry, usable move IDs, active/opponent types and
@@ -25,6 +28,12 @@ survival, guaranteed KO, role availability, and verified action count.
 Automatic matching must include at least one state discriminator beyond
 battle format; empty wildcard matchers are rejected. Arbitrary expressions
 and Python callbacks are not valid strategy data.
+
+Action selectors may additionally match canonical candidate facts: safety,
+guaranteed KO/hit, turn order, survival margin, priority, move type/category,
+and switch-target type/ability. These facts come from the same RAM/ROM battle
+certificate used by the scorer. Exact move IDs remain appropriate for
+move-specific mechanics such as Fake Out.
 
 The policy bundle validator rejects duplicate rule IDs, unknown roles, and
 exact overlapping `prefer`/`forbid` directives before clone launch. Prose
@@ -37,6 +46,7 @@ Promotion is mechanical:
 
 - tested: at least one successful reproduction.
 - exact_proven: two successful reproductions and one exhaustive entry with `terminal_win`, `legal_actions_complete`, and `rng_ai_complete` true.
+- reusable_tested: three influential clean reproductions on each of two trainers; blind live activation is limited to soft prefer/reserve directives.
 - reusable_proven: exact-proven, three distinct state hashes, and two trainer keys.
 
 Any unresolved counterexample blocks promotion. Preserve retired records and their failure evidence. Executable policy

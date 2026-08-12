@@ -35,7 +35,11 @@ def _promotion_errors(evidence: Any) -> list[str]:
                 sys.path.insert(0, str(REPO_ROOT))
                 from games.run_and_bun.battle_policy import load_profile, load_strategies, policy_bundle_hash
 
-                actual = policy_bundle_hash(load_profile(profile), load_strategies())
+                loaded = load_profile(profile)
+                actual = policy_bundle_hash(
+                    loaded, load_strategies(),
+                    "clone_trial" if loaded.get("schema_version") == 2 else "legacy",
+                )
                 if actual != digest:
                     errors.append("evidence.behavior_hash does not match policy profile and executable strategies")
             except (OSError, ValueError, json.JSONDecodeError) as error:

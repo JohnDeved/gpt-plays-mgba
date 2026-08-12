@@ -1,0 +1,111 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T16:57:17.801196+00:00",
+  "review_id": "2f8cfe3e2ff5fdb0d68c",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+  "behavior_hash": "eb293f6568ed9d0201e52c6da4cda745e06166c7d8d91019ac423acf6813ff7f",
+  "policy_id": "generated-map-0-25-local-23",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "fresh-entry-fake-out-tempo",
+    "fresh-tempo-one-control"
+  ],
+  "influential_strategy_ids": [
+    "fresh-entry-fake-out-tempo",
+    "fresh-tempo-one-control"
+  ],
+  "certified_actions": 28,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer, Ohmnomnom, and Bushtank fainted; Birdlaw survived at 2 HP and Croakatoa at 15 HP, so the win again had limited reserve margin.",
+        "action_changing": false,
+        "observed_fact": "Lildozer, Ohmnomnom, and Bushtank fainted; Birdlaw survived at 2 HP and Croakatoa at 15 HP, so the win again had limited reserve margin.",
+        "strategic_judgment": "Lildozer, Ohmnomnom, and Bushtank fainted; Birdlaw survived at 2 HP and Croakatoa at 15 HP, so the win again had limited reserve margin.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run v36 qualification clone 3 unchanged from the identical opening and perform the final agent review before qualification.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "A critical Shock Wave interrupted Ohmnomnom before its selected Spark, but the forced Bushtank line recovered and completed Eelektrik.",
+        "action_changing": false,
+        "observed_fact": "A critical Shock Wave interrupted Ohmnomnom before its selected Spark, but the forced Bushtank line recovered and completed Eelektrik.",
+        "strategic_judgment": "A critical Shock Wave interrupted Ohmnomnom before its selected Spark, but the forced Bushtank line recovered and completed Eelektrik.",
+        "confidence": "heuristic",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run v36 qualification clone 3 unchanged from the identical opening and perform the final agent review before qualification.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "medium",
+        "summary": "Eight switches occurred, but three were forced; the remaining pivots changed matchups or escaped sleep, with no voluntary immediate reversal and no relaxed switch-stall veto.",
+        "action_changing": false,
+        "observed_fact": "Eight switches occurred, but three were forced; the remaining pivots changed matchups or escaped sleep, with no voluntary immediate reversal and no relaxed switch-stall veto.",
+        "strategic_judgment": "Eight switches occurred, but three were forced; the remaining pivots changed matchups or escaped sleep, with no voluntary immediate reversal and no relaxed switch-stall veto.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run v36 qualification clone 3 unchanged from the identical opening and perform the final agent review before qualification.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Bugatti was put to sleep at 26 HP and had to yield the 6-HP Sunflora finish to Birdlaw; the status escape preserved Bugatti and avoided a status-prevented wasted turn.",
+        "action_changing": false,
+        "observed_fact": "Bugatti was put to sleep at 26 HP and had to yield the 6-HP Sunflora finish to Birdlaw; the status escape preserved Bugatti and avoided a status-prevented wasted turn.",
+        "strategic_judgment": "Bugatti was put to sleep at 26 HP and had to yield the 6-HP Sunflora finish to Birdlaw; the status escape preserved Bugatti and avoided a status-prevented wasted turn.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run v36 qualification clone 3 unchanged from the identical opening and perform the final agent review before qualification.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "info",
+        "summary": "The battle took 28 certified actions with no Rollout, no Protect stall, and no tooling discrepancy.",
+        "action_changing": false,
+        "observed_fact": "The battle took 28 certified actions with no Rollout, no Protect stall, and no tooling discrepancy.",
+        "strategic_judgment": "The battle took 28 certified actions with no Rollout, no Protect stall, and no tooling discrepancy.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run v36 qualification clone 3 unchanged from the identical opening and perform the final agent review before qualification.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "Fresh Fake Out and the one-use Nuzzle strategy both influenced the Eelektrik plan.",
+      "The engine treated the critical Shock Wave as an interrupted action and selected a forced replacement from current RAM.",
+      "Sleeping Bugatti pivoted to healthy Birdlaw rather than attempting an action that could not execute."
+    ],
+    "next_test": "Run v36 qualification clone 3 unchanged from the identical opening and perform the final agent review before qualification."
+  }
+}

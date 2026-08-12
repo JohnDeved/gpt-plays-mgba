@@ -1,5 +1,7 @@
 import importlib.util
+import json
 from pathlib import Path
+import tempfile
 import unittest
 
 
@@ -31,6 +33,7 @@ class StrategyEvidenceTests(unittest.TestCase):
             "trainer_key": "trainer-1",
             "certified_actions": 4,
             "matched_strategy_ids": ["pivot"],
+            "influential_strategy_ids": ["pivot"],
             "agent_review": {"status": "complete", "author": "agent", "findings": []},
         }
 
@@ -92,6 +95,45 @@ class StrategyEvidenceTests(unittest.TestCase):
         self.assertEqual(summary["automatic_reusable_count"], 0)
         self.assertEqual(summary["strategies"][0]["trainers"], 0)
         self.assertEqual(summary["strategies"][0]["eligible_status"], "candidate")
+
+    def test_two_three_win_trainers_promote_to_reusable_tested(self):
+        data = self.data()
+        for trainer in ("trainer-1", "trainer-2"):
+            for attempt in range(3):
+                review = self.review()
+                review.update({
+                    "review_id": f"{trainer}-{attempt}",
+                    "trainer_key": trainer,
+                    "opening_state_hash": f"{trainer}-state-{attempt}",
+                })
+                MODULE.record_review(data, review, [])
+        self.assertEqual(data["strategies"][0]["status"], "reusable_tested")
+
+    def test_health_uses_latest_trainer_review_and_exposes_reuse_gap(self):
+        data = self.data()
+        data["strategies"][0]["status"] = "tested"
+        data["strategies"][0]["evidence"]["reproductions"] = [{
+            "terminal_win": True, "clean_review": True, "trainer_key": "trainer-1",
+        }]
+        data["strategies"][0]["evidence"]["trainer_keys"] = ["trainer-1"]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            old = self.review()
+            old.pop("agent_review")
+            old["created_at"] = "2026-01-01T00:00:00+00:00"
+            latest = self.review()
+            latest["created_at"] = "2026-01-02T00:00:00+00:00"
+            latest["agent_review"].update({
+                "schema_version": 1, "reviewed_actions": 4,
+                "correct_choices": [], "next_test": "next fight",
+            })
+            (root / "old.json").write_text(json.dumps(old), encoding="utf-8")
+            (root / "latest.json").write_text(json.dumps(latest), encoding="utf-8")
+            health = MODULE.system_health(data, root)
+        self.assertTrue(health["healthy_to_continue"])
+        self.assertEqual(health["reviews"]["legacy_or_incomplete"], 1)
+        self.assertEqual(health["reviews"]["latest_blockers"], [])
+        self.assertIn("pivot", next(item for item in health["priorities"] if item["kind"] == "cross_trainer_evidence_gap")["strategy_ids"])
 
 
 if __name__ == "__main__":

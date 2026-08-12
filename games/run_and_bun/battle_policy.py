@@ -11,15 +11,20 @@ from collections import Counter
 import hashlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Iterable
+
+from .rom_data import ABILITY_TYPE_IMMUNITIES
 
 
 ROOT = Path(__file__).resolve().parents[2]
 STRATEGY_DB = ROOT / ".agents" / "skills" / "develop-runbun-strategies" / "references" / "strategies.json"
-POLICY_ENGINE_VERSION = "hybrid-policy-v30"
+POLICY_ENGINE_VERSION = "hybrid-policy-v38"
 # Verified Run & Bun ROM move: Infestation prevents voluntary switching while
 # its volatile effect is active. Keep this generic so unknown trainers benefit.
 VOLATILE_TRAP_MOVE_IDS = frozenset({611})
+LOCKED_MULTI_TURN_MOVE_IDS = frozenset({205})  # Rollout, verified five-turn lock.
+LOCKED_ENEMY_MOVE_IDS = frozenset({37, 200})  # Thrash and Outrage: next turn is forced after first use.
 FLINCH_IMMUNE_ABILITIES = frozenset({19, 39})  # Shield Dust, Inner Focus
 FREEZE_STATUS = 0x20
 SUPPORTED_PREDICATES = frozenset({
@@ -52,11 +57,183 @@ LIST_PREDICATES = frozenset({
     "active_role", "opponent_species", "active_move_ids_any", "active_move_ids_all",
     "active_types_any", "opponent_types_any", "active_abilities_any", "opponent_abilities_any",
 })
-ACTION_SELECTOR_FIELDS = frozenset({"kind", "actor", "slot", "move_id", "target", "species", "role"})
+ACTION_SELECTOR_FIELDS = frozenset({
+    "kind", "actor", "slot", "move_id", "target", "species", "role",
+    "safe", "guaranteed_ko", "acts_before_threat", "guaranteed_hit",
+    "survival_margin_gte", "priority_gte", "move_type_any", "move_category",
+    "switch_target_types_any", "switch_target_abilities_any",
+})
+ACTIVATION_MODES = frozenset({"legacy", "clone_trial", "blind_live", "qualified_live"})
+STRATEGY_STATUSES = frozenset({"candidate", "tested", "reusable_tested", "exact_proven", "reusable_proven", "retired"})
+PREBATTLE_PREDICATES = frozenset({
+    "battle_format", "party_move_ids_any", "party_move_ids_all", "enemy_move_ids_any",
+    "party_types_any", "enemy_types_any", "party_abilities_any", "enemy_abilities_any",
+})
 
 
 class PolicyError(ValueError):
     """A profile cannot safely produce a policy decision."""
+
+
+def _normalize_profile(profile: dict[str, Any]) -> dict[str, Any]:
+    """Adapt generated schema-v2 profiles to the small runtime policy shape."""
+    if profile.get("schema_version") != 2:
+        return profile
+    reserves: dict[str, set[int]] = {}
+    for assignment in profile.get("matchup_assignments", []):
+        species = int((assignment.get("target") or {}).get("species", 0) or 0)
+        if not species:
+            continue
+        for role in [assignment.get("primary")]:
+            if role:
+                reserves.setdefault(str(role), set()).add(species)
+    return {
+        **profile,
+        "roles": profile.get("party_bindings", {}),
+        "strategy_ids": [],
+        "reserve_objectives": [
+            {"role": role, "for_opponent_species": sorted(species), "switch_bonus": False}
+            for role, species in sorted(reserves.items())
+        ],
+        "constraints": profile.get("exceptions", []),
+    }
+
+
+def _prebattle_context(party: list[dict[str, Any]], trainer: dict[str, Any]) -> dict[str, Any]:
+    roster = trainer.get("roster") or []
+    return {
+        "battle_format": (trainer.get("battle") or {}).get("format", "single"),
+        "party_move_ids": sorted({int(move) for mon in party for move in (mon.get("moves") or []) if move}),
+        "enemy_move_ids": sorted({int(move) for mon in roster for move in (mon.get("moves") or []) if move}),
+        "party_types": sorted({int(value) for mon in party for value in (mon.get("types") or [])}),
+        "enemy_types": sorted({int(value) for mon in roster for value in (mon.get("types") or [])}),
+        "party_abilities": sorted({int(mon.get("ability", 0) or 0) for mon in party}),
+        "enemy_abilities": sorted({int(mon.get("ability_id", 0) or 0) for mon in roster}),
+    }
+
+
+def _prebattle_matches(requirements: dict[str, Any], context: dict[str, Any]) -> bool:
+    if set(requirements) - PREBATTLE_PREDICATES:
+        return False
+    if "battle_format" in requirements and context["battle_format"] not in _set(requirements["battle_format"]):
+        return False
+    for predicate, field in (
+        ("party_move_ids_any", "party_move_ids"), ("enemy_move_ids_any", "enemy_move_ids"),
+        ("party_types_any", "party_types"), ("enemy_types_any", "enemy_types"),
+        ("party_abilities_any", "party_abilities"), ("enemy_abilities_any", "enemy_abilities"),
+    ):
+        if predicate in requirements and not (_set(requirements[predicate]) & _set(context[field])):
+            return False
+    return "party_move_ids_all" not in requirements or _set(requirements["party_move_ids_all"]) <= _set(context["party_move_ids"])
+
+
+def prebattle_strategy_applicable(strategy: dict[str, Any], context: dict[str, Any]) -> bool:
+    return strategy.get("status") != "retired" and _prebattle_matches(strategy.get("preconditions") or {}, context)
+
+
+def generate_battle_profile(
+    party: list[dict[str, Any]],
+    trainer: dict[str, Any],
+    strategies: Iterable[dict[str, Any]] = (),
+    *,
+    state_hash: str,
+    rom: Any | None = None,
+) -> dict[str, Any]:
+    """Generate trainer-specific bindings while keeping tactics in the strategy DB."""
+    if not party:
+        raise PolicyError("generated profile requires a non-empty party")
+    if not (trainer.get("battle") or {}).get("roster_complete"):
+        raise PolicyError("generated profile requires a complete trainer roster")
+    roles = {
+        f"member_{index}": {
+            key: int(mon[key]) for key in ("personality", "ot_id") if mon.get(key) is not None
+        } or {"species": int(mon["species"])}
+        for index, mon in enumerate(party)
+    }
+    chart = rom.type_chart() if rom is not None else {}
+
+    def effectiveness(move_type: int, defender_types: list[int]) -> float:
+        value = 1.0
+        for defender_type in dict.fromkeys(int(item) for item in defender_types):
+            value *= float(chart.get(int(move_type), {}).get(defender_type, 1.0))
+        return value
+
+    assignments = []
+    for position, enemy in enumerate(trainer.get("roster") or [], 1):
+        enemy_types = [int(value) for value in enemy.get("types", [])]
+        immune_type = ABILITY_TYPE_IMMUNITIES.get(enemy.get("ability_id"))
+        ranked = []
+        for index, mon in enumerate(party):
+            candidate_types = [int(value) for value in mon.get("types") or []]
+            candidate_immune_type = ABILITY_TYPE_IMMUNITIES.get(mon.get("ability"))
+            best = 0.0
+            for move_id in mon.get("moves") or []:
+                if not move_id or rom is None:
+                    continue
+                move = rom.move(int(move_id))
+                if move.category != "status" and move.power > 0:
+                    multiplier = 0.0 if move.type_id == immune_type else effectiveness(move.type_id, enemy_types)
+                    if int(enemy.get("held_item_id", 0) or 0) == 553 and move.type_id == 12 and multiplier > 1:
+                        multiplier /= 2  # Rindo Berry's first super-effective Grass hit.
+                    stab = 1.5 if move.type_id in candidate_types else 1.0
+                    best = max(best, float(move.power) * multiplier * stab)
+            incoming = []
+            for move_id in enemy.get("moves") or []:
+                if not move_id or rom is None:
+                    continue
+                move = rom.move(int(move_id))
+                if move.category == "status" or move.power <= 0:
+                    continue
+                defended_types = [value for value in candidate_types if not (int(move_id) == 614 and value == 2)]
+                multiplier = 0.0 if move.type_id == candidate_immune_type else effectiveness(move.type_id, defended_types)
+                incoming.append(multiplier)
+            worst = max(incoming, default=0.0)
+            immunities = sum(value == 0 for value in incoming)
+            resistances = sum(0 < value < 1 for value in incoming)
+            ranked.append((-worst, best, immunities, resistances, int(mon.get("hp", mon.get("max_hp", 0)) or 0), -index, f"member_{index}"))
+        ranked.sort(reverse=True)
+        assignments.append({
+            "target": {
+                "roster_position": int(enemy.get("send_out_position", position) or position),
+                "species": int(enemy["species_id"]),
+            },
+            "primary": ranked[0][6],
+            "backups": [item[6] for item in ranked[1:3]],
+        })
+    context = _prebattle_context(party, trainer)
+    manifest = {"clone_trial": [], "blind_live_soft": [], "full_live": [], "rejected": []}
+    for strategy in sorted(strategies, key=lambda item: str(item.get("id", ""))):
+        sid = strategy.get("id")
+        status = strategy.get("status")
+        if not sid or status == "retired" or not strategy.get("executable"):
+            continue
+        if not prebattle_strategy_applicable(strategy, context):
+            manifest["rejected"].append({"id": sid, "reason": "preconditions_not_met"})
+            continue
+        manifest["clone_trial"].append(sid)
+        if status == "reusable_tested":
+            manifest["blind_live_soft"].append(sid)
+        elif status in {"exact_proven", "reusable_proven"}:
+            manifest["full_live"].append(sid)
+    trainer_behavior = {
+        "key": trainer.get("key"), "battle": trainer.get("battle"), "roster": trainer.get("roster"),
+    }
+    trainer_hash = hashlib.sha256(json.dumps(trainer_behavior, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return {
+        "schema_version": 2,
+        "id": f"generated-{str(trainer.get('key')).replace(':', '-').replace('/', '-')}",
+        "trainer_key": trainer.get("key"),
+        "party_bindings": roles,
+        "matchup_assignments": assignments,
+        "strategy_manifest": manifest,
+        "exceptions": [],
+        "generation": {
+            "party_state_hash": state_hash,
+            "trainer_record_hash": trainer_hash,
+            "classification": "heuristic" if rom is None else "expected-best",
+            "uncertainties": list(trainer.get("uncertainties") or []),
+        },
+    }
 
 
 def _list(value: Any) -> list[Any]:
@@ -113,13 +290,27 @@ def _battle_state(mon: dict[str, Any]) -> dict[str, Any]:
     return state
 
 
-def _damage_bounds(move_id: int, attacker: dict[str, Any], defender: dict[str, Any]) -> tuple[float, float]:
+def _damage_bounds(
+    move_id: int,
+    attacker: dict[str, Any],
+    defender: dict[str, Any],
+    move_data: dict[int, SimpleNamespace] | None = None,
+) -> tuple[float, float]:
     try:
         from games.runbun import RunBunAdapter
 
-        return RunBunAdapter._damage_bounds(move_id, _battle_state(attacker), _battle_state(defender))
+        return RunBunAdapter._damage_bounds(
+            move_id, _battle_state(attacker), _battle_state(defender), move_data=move_data,
+        )
     except (AttributeError, KeyError, TypeError, ValueError):
         return (0.0, 0.0)
+
+
+def _certificate_move_data(certificate: dict[str, Any]) -> dict[int, SimpleNamespace]:
+    return {
+        int(move_id): SimpleNamespace(**metadata)
+        for move_id, metadata in (certificate.get("move_data") or {}).items()
+    }
 
 
 def _critical_damage_bound(move_id: int, normal_max: float) -> float:
@@ -139,6 +330,7 @@ def _survival_margin_after_hits(
     attacker: dict[str, Any],
     defender: dict[str, Any],
     hits: int,
+    move_data: dict[int, SimpleNamespace] | None = None,
 ) -> float:
     """Return worst remaining HP while recomputing current-HP damage each hit."""
     states = [float(defender.get("current_hp", defender.get("hp", 0)) or 0)]
@@ -147,7 +339,10 @@ def _survival_margin_after_hits(
         states = [
             hp - _critical_damage_bound(
                 move_id,
-                _damage_bounds(move_id, attacker, {**defender, "current_hp": max(0, int(hp))})[1],
+                _damage_bounds(
+                    move_id, attacker,
+                    {**defender, "current_hp": max(0, int(hp))}, move_data,
+                )[1],
             )
             for hp in states
             for move_id in moves
@@ -157,6 +352,14 @@ def _survival_margin_after_hits(
 
 def _definitely_incapacitated(status: int) -> bool:
     return bool(status & FREEZE_STATUS or status & 0x7)
+
+
+def _status_residual_damage(status: int, max_hp: int) -> int:
+    if status & 0x10:  # Burn uses the modern 1/16 tick in this ROM.
+        return max(1, max_hp // 16)
+    if status & (0x08 | 0x80):
+        return max(1, max_hp // 8)
+    return 0
 
 
 def _switch_projection(
@@ -171,8 +374,9 @@ def _switch_projection(
     target_hp = int(target.get("hp", target.get("current_hp", action.get("hp", 0))) or 0)
     target_state = _battle_state(target)
     opponent_state = _battle_state(opponent)
+    move_data = _certificate_move_data(certificate)
     outgoing = [
-        _damage_bounds(int(move_id), target_state, opponent_state)
+        _damage_bounds(int(move_id), target_state, opponent_state, move_data)
         for slot, move_id in enumerate(target_state.get("moves", ()) or ())
         if move_id and int((target_state.get("pp") or (0, 0, 0, 0))[slot] or 0) > 0
     ]
@@ -191,9 +395,11 @@ def _switch_projection(
     )
     required_hits = 1 if forced_switch or acts_before_threat else 2
     survival_margin = _survival_margin_after_hits(
-        opponent_state.get("moves", ()), opponent_state, target_state, required_hits
+        opponent_state.get("moves", ()), opponent_state, target_state, required_hits, move_data
     )
-    safe = target_hp > 0 and not int(target.get("status", 0) or 0) and survival_margin > 0
+    status = int(target.get("status", 0) or 0)
+    survival_margin -= _status_residual_damage(status, int(target.get("max_hp", target_hp) or target_hp))
+    safe = target_hp > 0 and not _definitely_incapacitated(status) and survival_margin > 0
     return {
         "safe": safe,
         "survival_margin": survival_margin,
@@ -210,7 +416,9 @@ def _automatic_strategy(strategy: dict[str, Any]) -> bool:
     return strategy.get("status") == "reusable_proven" and bool(strategy.get("auto_match"))
 
 
-def _profile_behavior(profile: dict[str, Any], strategies: Iterable[dict[str, Any]]) -> dict[str, Any]:
+def _profile_behavior(
+    profile: dict[str, Any], strategies: Iterable[dict[str, Any]], activation_mode: str = "legacy",
+) -> dict[str, Any]:
     try:
         from games.runbun import BATTLE_SCORER_VERSION
         from games.run_and_bun.capabilities import BATTLE_EXECUTION_VERSION, BATTLE_OBSERVATION_VERSION
@@ -219,7 +427,11 @@ def _profile_behavior(profile: dict[str, Any], strategies: Iterable[dict[str, An
         BATTLE_OBSERVATION_VERSION = "battle-cert-v1"
         BATTLE_EXECUTION_VERSION = "battle-step-v1"
     executable_strategies = []
-    wanted = set(profile.get("strategy_ids", ()))
+    normalized = _normalize_profile(profile)
+    manifest = profile.get("strategy_manifest") or {}
+    wanted = set(normalized.get("strategy_ids", ())) | {
+        str(sid) for key in ("clone_trial", "blind_live_soft", "full_live") for sid in manifest.get(key, [])
+    }
     for strategy in strategies:
         if (strategy.get("id") in wanted or _automatic_strategy(strategy)) and strategy.get("executable"):
             executable_strategies.append({
@@ -229,25 +441,29 @@ def _profile_behavior(profile: dict[str, Any], strategies: Iterable[dict[str, An
             })
     return {
         "engine_version": POLICY_ENGINE_VERSION,
+        "activation_mode": activation_mode,
         "tactical_scorer_version": BATTLE_SCORER_VERSION,
         "observation_version": BATTLE_OBSERVATION_VERSION,
         "execution_version": BATTLE_EXECUTION_VERSION,
         "profile": {
-            "id": profile.get("id"),
-            "trainer_key": profile.get("trainer_key"),
-            "roles": profile.get("roles", {}),
-            "strategy_ids": profile.get("strategy_ids", []),
-            "reserve_objectives": profile.get("reserve_objectives", []),
-            "constraints": profile.get("constraints", []),
+            "id": normalized.get("id"),
+            "trainer_key": normalized.get("trainer_key"),
+            "roles": normalized.get("roles", {}),
+            "strategy_ids": normalized.get("strategy_ids", []),
+            "strategy_manifest": manifest,
+            "reserve_objectives": normalized.get("reserve_objectives", []),
+            "constraints": normalized.get("constraints", []),
         },
         "strategies": sorted(executable_strategies, key=lambda item: item["id"]),
     }
 
 
-def policy_bundle_hash(profile: dict[str, Any], strategies: Iterable[dict[str, Any]] = ()) -> str:
+def policy_bundle_hash(
+    profile: dict[str, Any], strategies: Iterable[dict[str, Any]] = (), activation_mode: str = "legacy",
+) -> str:
     """Hash only behavior-affecting policy data, not prose or evidence."""
     payload = json.dumps(
-        _profile_behavior(profile, strategies),
+        _profile_behavior(profile, strategies, activation_mode),
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=False,
@@ -257,11 +473,12 @@ def policy_bundle_hash(profile: dict[str, Any], strategies: Iterable[dict[str, A
 
 def validate_profile(profile: dict[str, Any]) -> list[str]:
     errors: list[str] = []
-    if profile.get("schema_version") != 1:
-        errors.append("schema_version must be 1")
+    if profile.get("schema_version") not in {1, 2}:
+        errors.append("schema_version must be 1 or 2")
     if not isinstance(profile.get("id"), str) or not profile["id"].strip():
         errors.append("id is required")
-    roles = profile.get("roles")
+    normalized = _normalize_profile(profile)
+    roles = normalized.get("roles")
     if not isinstance(roles, dict) or not roles:
         errors.append("roles must be a non-empty object")
         roles = {}
@@ -270,7 +487,7 @@ def validate_profile(profile: dict[str, Any]) -> list[str]:
         if not isinstance(role, str) or not role.strip() or not isinstance(binding, dict):
             errors.append(f"invalid role binding: {role}")
             continue
-        selectors = [key for key in ("species", "personality") if key in binding]
+        selectors = [key for key in ("species", "personality", "ot_id") if key in binding]
         if not selectors or any(not isinstance(binding[key], int) or binding[key] <= 0 for key in selectors):
             errors.append(f"roles.{role} must bind a positive species or personality")
         if "species" in binding:
@@ -278,8 +495,8 @@ def validate_profile(profile: dict[str, Any]) -> list[str]:
             if species in seen_species:
                 errors.append(f"species {species} is ambiguously bound to {seen_species[species]} and {role}")
             seen_species[species] = role
-    errors.extend(_validate_rules(profile.get("constraints", []), "constraints"))
-    reserves = profile.get("reserve_objectives", [])
+    errors.extend(_validate_rules(normalized.get("constraints", []), "constraints"))
+    reserves = normalized.get("reserve_objectives", [])
     if not isinstance(reserves, list):
         errors.append("reserve_objectives must be an array")
     else:
@@ -288,9 +505,18 @@ def validate_profile(profile: dict[str, Any]) -> list[str]:
                 errors.append(f"reserve_objectives[{index}].role must reference a known role")
             if not isinstance(reserve.get("for_opponent_species"), list) or not reserve["for_opponent_species"]:
                 errors.append(f"reserve_objectives[{index}].for_opponent_species must be non-empty")
-    strategies = profile.get("strategy_ids", [])
+    strategies = normalized.get("strategy_ids", [])
     if not isinstance(strategies, list) or not all(isinstance(item, str) and item for item in strategies):
         errors.append("strategy_ids must be an array of non-empty strings")
+    if profile.get("schema_version") == 2:
+        manifest = profile.get("strategy_manifest")
+        if not isinstance(manifest, dict):
+            errors.append("strategy_manifest must be an object")
+        else:
+            for key in ("clone_trial", "blind_live_soft", "full_live"):
+                values = manifest.get(key, [])
+                if not isinstance(values, list) or not all(isinstance(item, str) and item for item in values):
+                    errors.append(f"strategy_manifest.{key} must be an array of strategy IDs")
     return errors
 
 
@@ -407,12 +633,16 @@ def validate_policy_bundle(profile: dict[str, Any], strategies: Iterable[dict[st
         if strategy.get("auto_match") is not None:
             errors.extend(validate_auto_match(strategy["auto_match"], f"strategies[{index}].auto_match"))
         errors.extend(_validate_rules(_strategy_rules(strategy), f"strategies[{index}].executable", require_ids=False))
-    wanted = set(profile.get("strategy_ids", ()))
+    normalized = _normalize_profile(profile)
+    manifest = profile.get("strategy_manifest") or {}
+    wanted = set(normalized.get("strategy_ids", ())) | {
+        str(sid) for key in ("clone_trial", "blind_live_soft", "full_live") for sid in manifest.get(key, [])
+    }
     errors.extend(f"unknown strategy id {sid}" for sid in sorted(wanted - set(by_id)))
 
     selected: list[tuple[str, dict[str, Any]]] = [
         (f"profile:{rule.get('id', index)}", rule)
-        for index, rule in enumerate(profile.get("constraints", []))
+        for index, rule in enumerate(normalized.get("constraints", []))
     ]
     for strategy in rows:
         if strategy.get("id") in wanted or _automatic_strategy(strategy):
@@ -423,7 +653,7 @@ def validate_policy_bundle(profile: dict[str, Any], strategies: Iterable[dict[st
 
     seen_rule_ids: set[str] = set()
     effects: dict[tuple[str, str], dict[str, set[str]]] = {}
-    roles = set(profile.get("roles", {}))
+    roles = set(normalized.get("roles", {}))
     for source, rule in selected:
         if source in seen_rule_ids:
             errors.append(f"duplicate executable rule id {source}")
@@ -544,9 +774,10 @@ def _strategy_context(
     actor = _actor_slot(certificate)
     active = _compact_mon(certificate, actor)
     battle_mons = list(((certificate.get("compact_state") or {}).get("battle") or {}).get("mons", []) or [])
+    opponent_slots = (1, 3) if (certificate.get("boundary") or {}).get("format") == "double" else (1,)
     opponents = [
         mon for mon in battle_mons
-        if mon.get("slot") in (1, 3)
+        if mon.get("slot") in opponent_slots
         and int(mon.get("species", 0) or 0) > 0
         and int(mon.get("hp", mon.get("current_hp", 0)) or 0) > 0
     ]
@@ -622,6 +853,10 @@ class BattleHistory:
         self._trapped_identity: str | None = None
         self._trap_turns = 0
         self._defeated_species: set[int] = set()
+        self._fresh_enemy_by_identity: dict[str, bool] = {}
+        self._enemy_lock_move: int | None = None
+        self._enemy_lock_species: int | None = None
+        self._enemy_lock_uses = 0
 
     @classmethod
     def from_jsonl(
@@ -697,7 +932,7 @@ class BattleHistory:
         for record in reversed(self._records):
             if record.get("actor_slot") != actor:
                 continue
-            if record.get("action", {}).get("kind") != "switch":
+            if record.get("action", {}).get("kind") != "switch" or record.get("forced_switch"):
                 break
             count += 1
         return count
@@ -707,6 +942,20 @@ class BattleHistory:
         if role != _role_for_mon(profile, player):
             return 0
         return self._counts[(_identity_value(player), int(opponent_species), int(move_id))]
+
+    def opponent_fresh_entry(self, opponent: dict[str, Any]) -> bool:
+        return self._fresh_enemy_by_identity.get(_identity_value(opponent), True)
+
+    def enemy_move_constraint(
+        self, opponent_species: int, *, opponent: dict[str, Any] | None = None,
+    ) -> set[int] | None:
+        """Return a forced second Thrash/Outrage turn; later duration is random."""
+        if self._enemy_lock_species == int(opponent_species) and self._enemy_lock_uses == 1:
+            return {int(self._enemy_lock_move)} if self._enemy_lock_move is not None else None
+        if opponent is not None and not self.opponent_fresh_entry(opponent):
+            state = _battle_state(opponent)
+            return {int(move_id) for move_id in state.get("moves", ()) if move_id and int(move_id) != 252}
+        return None
 
     def record(self, certificate: dict[str, Any], result: dict[str, Any] | dict[str, Any]) -> None:
         action = result.get("action", result)
@@ -731,11 +980,29 @@ class BattleHistory:
         ) if isinstance(result, dict) else None
         post_opponent_state = _battle_state(post_opponent or {})
         opponent_species = int(opponent.get("species", 0) or 0)
+        opponent_identity = _identity_value(opponent)
+        self._fresh_enemy_by_identity[opponent_identity] = False
+        if post_opponent_state.get("species") and int(post_opponent_state.get("current_hp", post_opponent_state.get("hp", 0)) or 0) > 0:
+            post_opponent_identity = _identity_value(post_opponent_state)
+            if post_opponent_identity != opponent_identity:
+                self._fresh_enemy_by_identity[post_opponent_identity] = True
         if opponent_species and post_opponent is not None and (
             int(post_opponent_state.get("species", 0) or 0) != opponent_species
             or int(post_opponent_state.get("current_hp", post_opponent_state.get("hp", 0)) or 0) <= 0
         ):
             self._defeated_species.add(opponent_species)
+            self._enemy_lock_move = self._enemy_lock_species = None
+            self._enemy_lock_uses = 0
+        elif enemy_move is not None and int(enemy_move) in LOCKED_ENEMY_MOVE_IDS:
+            if self._enemy_lock_move == int(enemy_move) and self._enemy_lock_species == opponent_species:
+                self._enemy_lock_uses += 1
+            else:
+                self._enemy_lock_move = int(enemy_move)
+                self._enemy_lock_species = opponent_species
+                self._enemy_lock_uses = 1
+        elif enemy_move is not None or int(action.get("move_id", 0) or 0) == 252:
+            self._enemy_lock_move = self._enemy_lock_species = None
+            self._enemy_lock_uses = 0
         if action.get("kind") == "switch" and (action.get("species") or action.get("personality")):
             post_identity = _identity_value(action)
         else:
@@ -754,7 +1021,7 @@ class BattleHistory:
                 if not self._trap_turns:
                     self._trapped_identity = None
         self._fresh_by_identity[player_identity] = False
-        self._fresh_by_identity[post_identity] = action.get("kind") == "switch"
+        self._fresh_by_identity[post_identity] = post_identity != player_identity
         self._fresh_entry = self._fresh_by_identity[post_identity]
         if action.get("kind") == "switch":
             self._switch_edges.append((actor_slot, player_identity, post_identity))
@@ -765,6 +1032,7 @@ class BattleHistory:
             "post_identity": post_identity,
             "opponent_species": opponent.get("species"),
             "enemy_move_id": int(enemy_move) if enemy_move is not None else None,
+            "forced_switch": bool((certificate.get("boundary") or {}).get("party_switch_required")),
         })
 
     def snapshot(self) -> dict[str, Any]:
@@ -781,6 +1049,7 @@ class BattleHistory:
                 for (actor, opponent, move), count in sorted(self._counts.items())
             ],
             "verified_actions": len(self._records),
+            "enemy_move_constraint": sorted(self.enemy_move_constraint(self._enemy_lock_species or 0) or ()),
         }
 
 
@@ -792,7 +1061,9 @@ def _identity_value(mon: dict[str, Any]) -> str:
 def _role_for_mon(profile: dict[str, Any], mon: dict[str, Any]) -> str | None:
     state = mon.get("state", mon)
     for role, binding in profile.get("roles", {}).items():
-        if any(state.get(key) == binding.get(key) for key in ("personality", "species") if key in binding):
+        keys = [key for key in ("personality", "ot_id", "species") if key in binding]
+        matches = [state.get(key) == binding.get(key) for key in keys]
+        if matches and (all(matches) if profile.get("schema_version") == 2 else any(matches)):
             return role
     return None
 
@@ -829,7 +1100,9 @@ def _match_when(
     return True
 
 
-def _action_matches(action: dict[str, Any], selector: dict[str, Any], role: str | None) -> bool:
+def _action_matches(
+    action: dict[str, Any], selector: dict[str, Any], role: str | None, certificate: dict[str, Any],
+) -> bool:
     if selector.get("kind") and action.get("kind") != selector["kind"]:
         return False
     if selector.get("move_id") is not None and action.get("move_id") != selector["move_id"]:
@@ -839,6 +1112,59 @@ def _action_matches(action: dict[str, Any], selector: dict[str, Any], role: str 
     if selector.get("slot") is not None and action.get("slot") != selector["slot"]:
         return False
     if selector.get("role") is not None and role != selector["role"]:
+        return False
+    report = certificate.get("report", certificate)
+    actor = _actor_slot(certificate, action)
+    target_slot = _opponent_slot(action)
+    opponent = _compact_mon(certificate, target_slot)
+    player = _compact_mon(certificate, actor)
+    move = next((
+        item for item in report.get("alternatives", [])
+        if int(item.get("actor", actor)) == actor
+        and int(item.get("slot", -1)) == int(action.get("slot", -1))
+        and int(item.get("move_id", -1)) == int(action.get("move_id", -1))
+        and (action.get("target") not in (1, 3) or int(item.get("target", target_slot)) == target_slot)
+    ), None)
+    if action.get("kind") == "move":
+        incoming = (report.get("incoming_by_target") or {}).get(str(target_slot), report.get("incoming") or {})
+        critical = float(incoming.get("critical_max_damage_est", 0) or 0)
+        player_hp = int(player.get("hp", player.get("current_hp", 0)) or 0)
+        opponent_hp = int(opponent.get("hp", opponent.get("current_hp", 0)) or 0)
+        minimum = float(((move or {}).get("damage_range") or [0])[0])
+        facts = {
+            "safe": bool((move or {}).get("ko_before_hit") or critical < player_hp),
+            "guaranteed_ko": bool((move or {}).get("guaranteed_hit", True) and minimum >= opponent_hp > 0),
+            "acts_before_threat": bool((move or {}).get("acts_first")),
+            "guaranteed_hit": bool((move or {}).get("guaranteed_hit", True)),
+            "survival_margin": player_hp - critical,
+            "priority": int((move or {}).get("priority", 0) or 0),
+            "move_type": (move or {}).get("move_type"),
+            "move_category": (move or {}).get("category"),
+        }
+    else:
+        projection = _switch_projection(certificate, action, opponent, forced_switch=bool((certificate.get("boundary") or {}).get("party_switch_required")))
+        target = next((item for item in _party(certificate) if item.get("slot") == action.get("slot")), action)
+        facts = {
+            "safe": projection["safe"], "guaranteed_ko": False,
+            "acts_before_threat": projection["acts_before_threat"], "guaranteed_hit": True,
+            "survival_margin": projection["survival_margin"], "priority": 0,
+            "switch_target_types": _battle_state(target).get("types") or (),
+            "switch_target_ability": int(_battle_state(target).get("ability", 0) or 0),
+        }
+    for key in ("safe", "guaranteed_ko", "acts_before_threat", "guaranteed_hit"):
+        if key in selector and bool(selector[key]) != bool(facts[key]):
+            return False
+    if "survival_margin_gte" in selector and float(facts["survival_margin"]) < float(selector["survival_margin_gte"]):
+        return False
+    if "priority_gte" in selector and int(facts["priority"]) < int(selector["priority_gte"]):
+        return False
+    if "move_type_any" in selector and facts.get("move_type") not in _set(selector["move_type_any"]):
+        return False
+    if "move_category" in selector and facts.get("move_category") != selector["move_category"]:
+        return False
+    if "switch_target_types_any" in selector and not (_set(selector["switch_target_types_any"]) & _set(facts.get("switch_target_types"))):
+        return False
+    if "switch_target_abilities_any" in selector and facts.get("switch_target_ability") not in _set(selector["switch_target_abilities_any"]):
         return False
     return True
 
@@ -852,26 +1178,45 @@ class BattlePolicy:
         *,
         strategies: Iterable[dict[str, Any]] = (),
         history: BattleHistory | None = None,
+        activation_mode: str = "legacy",
     ) -> None:
+        if activation_mode not in ACTIVATION_MODES:
+            raise PolicyError(f"unsupported activation mode: {activation_mode}")
         self.strategies = list(strategies)
         errors = validate_policy_bundle(profile, self.strategies)
         if errors:
             raise PolicyError("; ".join(errors))
-        self.profile = profile
+        self.source_profile = profile
+        self.profile = _normalize_profile(profile)
+        self.activation_mode = activation_mode
         self.history = history or BattleHistory()
-        self.behavior_hash = policy_bundle_hash(profile, self.strategies)
+        behavior_mode = "clone_trial" if activation_mode == "qualified_live" else activation_mode
+        self.behavior_hash = policy_bundle_hash(profile, self.strategies, behavior_mode)
         self.last_decision: dict[str, Any] | None = None
+
+    def _strategy_activation(self, strategy: dict[str, Any], certificate: dict[str, Any]) -> str | None:
+        sid = strategy.get("id")
+        wanted = set(self.profile.get("strategy_ids", []))
+        if sid in wanted:
+            return "full"
+        manifest = self.source_profile.get("strategy_manifest") or {}
+        if self.activation_mode in {"clone_trial", "qualified_live"} and sid in set(manifest.get("clone_trial", [])):
+            return "full"
+        if sid in set(manifest.get("full_live", [])):
+            return "full"
+        if self.activation_mode == "blind_live" and sid in set(manifest.get("blind_live_soft", [])):
+            return "soft"
+        if self.source_profile.get("schema_version") == 1 and _automatic_strategy(strategy) and _strategy_applies_to_certificate(
+            strategy, certificate, history=self.history, profile=self.profile
+        ):
+            return "full"
+        return None
 
     def _rules(self, certificate: dict[str, Any]) -> list[dict[str, Any]]:
         rules = list(self.profile.get("constraints", []))
-        wanted = set(self.profile.get("strategy_ids", []))
         for strategy in self.strategies:
-            if (
-                strategy.get("id") in wanted
-                or (_automatic_strategy(strategy) and _strategy_applies_to_certificate(
-                    strategy, certificate, history=self.history, profile=self.profile
-                ))
-            ) and isinstance(strategy.get("executable"), dict):
+            activation = self._strategy_activation(strategy, certificate)
+            if activation and isinstance(strategy.get("executable"), dict):
                 executable = strategy["executable"]
                 blocks = executable.get("rules")
                 if not isinstance(blocks, list):
@@ -879,6 +1224,8 @@ class BattlePolicy:
                 rules.extend(
                     {
                         "id": f"strategy:{strategy['id']}/rule:{block.get('id', index)}",
+                        "strategy_id": strategy["id"],
+                        "soft": activation == "soft",
                         "when": block.get("when", {}),
                         "directives": block.get("directives", []),
                     }
@@ -886,16 +1233,26 @@ class BattlePolicy:
                 )
         return rules
 
-    def _directive_effects(self, certificate: dict[str, Any]) -> tuple[dict[str, int], dict[str, list[str]], dict[str, int], list[str]]:
+    def _directive_effects(
+        self, certificate: dict[str, Any], *, excluded_strategy_ids: set[str] | None = None,
+    ) -> tuple[dict[str, int], dict[str, list[str]], dict[str, int], list[str]]:
         preferences: Counter[str] = Counter()
         reservations: Counter[str] = Counter()
         vetoes: dict[str, list[str]] = {}
         applied: list[str] = []
         for rule in self._rules(certificate):
+            if rule.get("strategy_id") in (excluded_strategy_ids or set()):
+                continue
             if not _match_when(rule.get("when", {}), profile=self.profile, certificate=certificate, history=self.history):
                 continue
-            applied.append(rule["id"])
-            for directive in rule.get("directives", []):
+            active_directives = [
+                directive for directive in rule.get("directives", [])
+                if not (rule.get("soft") and directive.get("kind") == "forbid")
+            ]
+            if not active_directives:
+                continue
+            rule_applied = False
+            for directive in active_directives:
                 kind = directive.get("kind")
                 if kind == "reserve":
                     protected_role = directive.get("role")
@@ -904,16 +1261,21 @@ class BattlePolicy:
                         opponent = _compact_mon(certificate, _opponent_slot(action)).get("species")
                         if self._action_role(action, certificate) == protected_role and opponent not in exceptions:
                             reservations[_action_key(action)] += int(directive.get("priority", 1))
+                            rule_applied = True
                     continue
                 selector = directive.get("action", {})
                 for action in certificate.get("legal_actions", []):
                     role = self._action_role(action, certificate)
-                    if _action_matches(action, selector, role):
+                    if _action_matches(action, selector, role, certificate):
                         key = _action_key(action)
                         if kind == "prefer":
                             preferences[key] += int(directive.get("priority", 1))
+                            rule_applied = True
                         elif kind == "forbid":
                             vetoes.setdefault(key, []).append(rule["id"])
+                            rule_applied = True
+            if rule_applied:
+                applied.append(rule["id"])
         return dict(preferences), vetoes, dict(reservations), applied
 
     def _action_role(self, action: dict[str, Any], certificate: dict[str, Any]) -> str | None:
@@ -923,8 +1285,29 @@ class BattlePolicy:
         return _role_for_mon(self.profile, mon or {"species": action.get("species")})
 
     def _reserve_score(self, action: dict[str, Any], certificate: dict[str, Any]) -> int:
-        opponent = _compact_mon(certificate, _opponent_slot(action)).get("species")
+        opponent_mon = _compact_mon(certificate, _opponent_slot(action))
+        opponent = opponent_mon.get("species")
         role = self._action_role(action, certificate)
+        if (
+            self.source_profile.get("schema_version") == 2
+            and (certificate.get("boundary") or {}).get("party_switch_required")
+        ):
+            if int(opponent_mon.get("hp", opponent_mon.get("current_hp", 0)) or 0) > 0:
+                assignment = next((
+                    item for item in self.source_profile.get("matchup_assignments", [])
+                    if int((item.get("target") or {}).get("species", 0) or 0) == int(opponent or 0)
+                ), None)
+                if assignment:
+                    backups = list(assignment.get("backups", []))
+                    return 3 if assignment.get("primary") == role else max(0, 2 - backups.index(role)) if role in backups else 0
+            remaining = [
+                item for item in self.source_profile.get("matchup_assignments", [])
+                if int((item.get("target") or {}).get("species", 0) or 0) not in self.history._defeated_species
+            ]
+            return sum(
+                2 if item.get("primary") == role else 1 if role in item.get("backups", []) else 0
+                for item in remaining
+            )
         score = 0
         for objective in self.profile.get("reserve_objectives", []):
             if objective.get("role") != role:
@@ -933,7 +1316,10 @@ class BattlePolicy:
             if not targets:
                 continue
             if action.get("kind") == "switch":
-                score += 1 if opponent in targets else -(len(targets) + 1)
+                score += (
+                    int(objective.get("switch_bonus", True))
+                    if opponent in targets else -(len(targets) + 1)
+                )
             elif self._action_role(action, certificate) == role and opponent not in targets:
                 score -= 1
         return score
@@ -1023,23 +1409,30 @@ class BattlePolicy:
                     "target_identity": projection["target_identity"],
                 }
             preserve = self._reserve_score(action, certificate) - (reservations or {}).get(key, 0)
+            if action.get("kind") == "switch" and int(action.get("status", 0) or 0):
+                preserve -= 1
             preference = preferences.get(key, 0)
             forbidden_by = [] if action.get("kind") == "switch" and incapacitated else list(vetoes.get(key, []))
             if action.get("kind") == "move" and int(action.get("move_id", 0)) == 252 and not self.history.fresh_entry_for(certificate, action):
                 forbidden_by.append("mechanics:fake_out_requires_fresh_entry")
+            if (
+                action.get("kind") == "move"
+                and int(action.get("move_id", 0)) in LOCKED_MULTI_TURN_MOVE_IDS
+                and preference <= 0
+            ):
+                forbidden_by.append("mechanics:unmodeled_locked_move_requires_strategy")
+            if (
+                move
+                and "status_move_effect_unmodeled" in move.get("uncertainties", [])
+                and preference <= 0
+            ):
+                forbidden_by.append("mechanics:unmodeled_status_move_requires_strategy")
             if (
                 action.get("kind") == "switch"
                 and actionable_switch_exists
                 and _definitely_incapacitated(int(action.get("status", 0) or 0))
             ):
                 forbidden_by.append("status:incapacitated_switch_target")
-            if (
-                action.get("kind") == "switch"
-                and not forced_switch
-                and not incapacitated
-                and int(action.get("status", 0) or 0)
-            ):
-                forbidden_by.append("status:major_status_voluntary_switch")
             if action.get("kind") == "switch" and not forced_switch and self.history.switch_forbidden_for(certificate, action):
                 forbidden_by.append("history:verified_volatile_trap")
             if action.get("kind") == "switch" and not forced_switch and not incapacitated and not safe:
@@ -1067,7 +1460,7 @@ class BattlePolicy:
                 int(guaranteed),
                 preserve if not forced_switch else 0,
                 preference,
-                int(acts_before_threat),
+                int(action.get("kind") == "move" and acts_before_threat),
                 round(float(minimum), 4),
                 round(float(estimate), 4),
                 int(action.get("hp", player_hp) or 0),
@@ -1098,6 +1491,22 @@ class BattlePolicy:
                 if item["action"].get("kind") == "switch" and item["safe"] and vetoes and vetoes <= soft_switch_vetoes:
                     item["relaxed_vetoes"] = item["forbidden_by"]
                     item["forbidden_by"] = []
+        if self.source_profile.get("schema_version") == 2:
+            # Generated policy may refine equal tactical lines, but it may not
+            # remove an action that strictly dominates every allowed alternative
+            # on survival, progress, guaranteed success, and preservation.
+            mechanical_prefixes = ("mechanics:", "status:", "history:", "safety:")
+            allowed = [item for item in result if not item["forbidden_by"]]
+            best_allowed_prefix = max((tuple(item["score"][:6]) for item in allowed), default=None)
+            for item in sorted(result, key=lambda value: tuple(value["score"]), reverse=True):
+                directive_vetoes = [veto for veto in item["forbidden_by"] if not str(veto).startswith(mechanical_prefixes)]
+                mechanical_vetoes = [veto for veto in item["forbidden_by"] if str(veto).startswith(mechanical_prefixes)]
+                if directive_vetoes and not mechanical_vetoes and (
+                    best_allowed_prefix is None or tuple(item["score"][:6]) > best_allowed_prefix
+                ):
+                    item["relaxed_vetoes"] = directive_vetoes
+                    item["forbidden_by"] = []
+                    best_allowed_prefix = tuple(item["score"][:6])
         if not any(not item["forbidden_by"] for item in result):
             raise PolicyError("all legal actions are forbidden by the policy profile")
         return sorted(result, key=lambda item: tuple(item["score"]), reverse=True)
@@ -1110,6 +1519,23 @@ class BattlePolicy:
         candidates = self._candidates(certificate, preferences, vetoes, reservations)
         allowed = [item for item in candidates if not item["forbidden_by"]]
         selected = allowed[0]
+        applied_strategy_ids = sorted({
+            str(item).split("strategy:", 1)[1].split("/rule:", 1)[0]
+            for item in applied if str(item).startswith("strategy:")
+        })
+        strategy_effects = []
+        for strategy_id in applied_strategy_ids:
+            without = self._directive_effects(certificate, excluded_strategy_ids={strategy_id})
+            without_candidates = self._candidates(certificate, without[0], without[1], without[2])
+            without_selected = next(item for item in without_candidates if not item["forbidden_by"])
+            strategy_effects.append({
+                "strategy_id": strategy_id,
+                "selected_changed": without_selected["action"] != selected["action"],
+                "selected_without": without_selected["action"],
+            })
+        influential_strategy_ids = sorted(
+            item["strategy_id"] for item in strategy_effects if item["selected_changed"]
+        )
         uncertainties: list[str] = []
         report = certificate.get("report", certificate)
         proof = report.get("proof", {})
@@ -1138,6 +1564,8 @@ class BattlePolicy:
             "selected": selected,
             "candidates": candidates,
             "applied_strategy_ids": applied,
+            "strategy_effects": strategy_effects,
+            "influential_strategy_ids": influential_strategy_ids,
             "vetoes": vetoes,
             "reservations": reservations,
             "uncertainties": {"action_changing": uncertainties, "other": other_uncertainties},

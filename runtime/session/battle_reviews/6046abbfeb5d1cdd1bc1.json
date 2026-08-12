@@ -1,0 +1,111 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T16:54:45.715209+00:00",
+  "review_id": "6046abbfeb5d1cdd1bc1",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+  "behavior_hash": "eb293f6568ed9d0201e52c6da4cda745e06166c7d8d91019ac423acf6813ff7f",
+  "policy_id": "generated-map-0-25-local-23",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "fresh-entry-fake-out-tempo",
+    "fresh-tempo-one-control"
+  ],
+  "influential_strategy_ids": [
+    "fresh-entry-fake-out-tempo",
+    "fresh-tempo-one-control"
+  ],
+  "certified_actions": 29,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 29,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Ohmnomnom, Birdlaw, and Lildozer fainted; the remaining Bushtank and Bugatti finished at 5 and 3 HP, so the win retained little physical margin despite three survivors.",
+        "action_changing": false,
+        "observed_fact": "Ohmnomnom, Birdlaw, and Lildozer fainted; the remaining Bushtank and Bugatti finished at 5 and 3 HP, so the win retained little physical margin despite three survivors.",
+        "strategic_judgment": "Ohmnomnom, Birdlaw, and Lildozer fainted; the remaining Bushtank and Bugatti finished at 5 and 3 HP, so the win retained little physical margin despite three survivors.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run v36 qualification clone 2 unchanged from the identical opening and review it before clone 3.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "medium",
+        "summary": "The Sunflora line used Bugatti as a one-turn special-hit buffer before Croakatoa; bounded direct-Croak replay caused Croakatoa to faint on the second Energy Ball, so the two-switch sequence was justified rather than blind switch spam.",
+        "action_changing": false,
+        "observed_fact": "The Sunflora line used Bugatti as a one-turn special-hit buffer before Croakatoa; bounded direct-Croak replay caused Croakatoa to faint on the second Energy Ball, so the two-switch sequence was justified rather than blind switch spam.",
+        "strategic_judgment": "The Sunflora line used Bugatti as a one-turn special-hit buffer before Croakatoa; bounded direct-Croak replay caused Croakatoa to faint on the second Energy Ball, so the two-switch sequence was justified rather than blind switch spam.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run v36 qualification clone 2 unchanged from the identical opening and review it before clone 3.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer was spent for priority chip on 6-HP Dustox; Bugatti projected a guaranteed knockout but could not survive the critical bound before acting, so the sacrifice was minimax rather than dominated.",
+        "action_changing": false,
+        "observed_fact": "Lildozer was spent for priority chip on 6-HP Dustox; Bugatti projected a guaranteed knockout but could not survive the critical bound before acting, so the sacrifice was minimax rather than dominated.",
+        "strategic_judgment": "Lildozer was spent for priority chip on 6-HP Dustox; Bugatti projected a guaranteed knockout but could not survive the critical bound before acting, so the sacrifice was minimax rather than dominated.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run v36 qualification clone 2 unchanged from the identical opening and review it before clone 3.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Croakatoa ended asleep, Bushtank toxic, and Dustox Infestation reduced Bugatti to 3 HP; repeat clones must show the no-Rollout endgame remains stable across move variance.",
+        "action_changing": false,
+        "observed_fact": "Croakatoa ended asleep, Bushtank toxic, and Dustox Infestation reduced Bugatti to 3 HP; repeat clones must show the no-Rollout endgame remains stable across move variance.",
+        "strategic_judgment": "Croakatoa ended asleep, Bushtank toxic, and Dustox Infestation reduced Bugatti to 3 HP; repeat clones must show the no-Rollout endgame remains stable across move variance.",
+        "confidence": "heuristic",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run v36 qualification clone 2 unchanged from the identical opening and review it before clone 3.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "info",
+        "summary": "The battle took 29 certified actions, used no Rollout, no Protect stall, and no immediate switch reversal.",
+        "action_changing": false,
+        "observed_fact": "The battle took 29 certified actions, used no Rollout, no Protect stall, and no immediate switch reversal.",
+        "strategic_judgment": "The battle took 29 certified actions, used no Rollout, no Protect stall, and no immediate switch reversal.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run v36 qualification clone 2 unchanged from the identical opening and review it before clone 3.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "The scorer vetoed unmodeled Rollout and used controllable Bug Bite throughout the Sunflora and Dustox endgame.",
+      "Fresh Fake Out and exactly one Nuzzle both influenced the Eelektrik line.",
+      "The apparent Bugatti-to-Croakatoa switch chain was retained only after the bounded direct alternative demonstrably fainted Croakatoa."
+    ],
+    "next_test": "Run v36 qualification clone 2 unchanged from the identical opening and review it before clone 3."
+  }
+}

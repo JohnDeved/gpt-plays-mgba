@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260812T172011Z-certified-battle-step-prediction-mismatch",
+  "status": "observed",
+  "created_at": "2026-08-12T17:20:11.045197+00:00",
+  "summary": "Certified battle step prediction mismatch",
+  "component": "certified battle interface",
+  "symptom": "selected move PP delta was missing, expected exactly one",
+  "classification": "prediction_model",
+  "severity": "high",
+  "live_state": {
+    "required": false,
+    "preserved": false,
+    "artifact": null,
+    "sha256": null,
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "One legal action reaches a changed stable battle boundary: {'kind': 'move', 'slot': 2, 'move_id': 232, 'pp': 34}",
+    "actual": "{\"allied_action_outcome\": \"executed\", \"allied_pp_deltas\": [], \"enemy_move_id\": 525, \"enemy_move_ids\": [525], \"opponent_pp_deltas\": [{\"battler\": 1, \"delta\": 1, \"move_id\": 525, \"slot\": 1}], \"resolution\": {\"feedback\": \"Foe Hakamo-o used\\nDragon Tail!\\nIt's not very effective\\u2026\\nOhmnomnom's Iron Barbs\\nhurt Foe Hakamo-o!\\n<CTRL_02>Coppertop<CTRL_01>\\u2640\\nCoppertop was\\ndragged out!<PROMPT_CLEAR>\\nWhat will\\nCoppertop do?\", \"frames\": 288, \"presses\": 6, \"state\": \"command_menu\"}}",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

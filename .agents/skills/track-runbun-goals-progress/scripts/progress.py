@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -264,6 +265,14 @@ def record_checkpoint(record: dict[str, Any], args: argparse.Namespace) -> dict[
     if not path.is_file():
         raise SystemExit(f"checkpoint does not exist: {path}")
     digest = sha256(path)
+    if path.name in {"auto-forward-latest.state", "auto-forward-previous.state"}:
+        immutable = path.parent / "progress-checkpoints" / f"{digest}.state"
+        immutable.parent.mkdir(parents=True, exist_ok=True)
+        if not immutable.exists():
+            shutil.copyfile(path, immutable)
+        if sha256(immutable) != digest:
+            raise SystemExit(f"immutable checkpoint hash mismatch: {immutable}")
+        path = immutable
     if any(item.get("sha256") == digest for item in record["checkpoints"]):
         raise SystemExit(f"checkpoint already recorded: {digest}")
     completed_ids = [item["id"] for item in record["milestones"] if item.get("status") == "completed"]

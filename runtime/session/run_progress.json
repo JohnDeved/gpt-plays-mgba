@@ -19,32 +19,53 @@
         "kind": "emulator_api",
         "source": "verified north map connection from Slateport",
         "value": "Map (0,1) north edge reached and destination map (0,25) loaded with battle inactive."
+      },
+      {
+        "kind": "event_flag",
+        "source": "live museum battles, NPC state, dialogue, and post-event RAM",
+        "value": "Both Oceanic Museum Aqua grunts were defeated; Archie and Stern dialogue completed; scripted actors disappeared and Slateport overworld control returned."
       }
     ]
   },
   "current_goal": {
-    "id": "route110-local23-reprepare",
-    "objective": "Reprepare and defeat the required Route 110 trainer Camper Gavi (map 0:25, local 23), then continue to the next authoritative Route 110 milestone.",
+    "id": "dewford-gym-brawly-badge",
+    "objective": "Prepare for and defeat Dewford Gym Leader Brawly, verify the Gym Badge from authoritative state, and unlock Briney's Petalburg return voyage.",
     "status": "active",
     "parent": "global_goal",
-    "why_now": "Camper Gavi is authoritatively defeated and the party has been fully healed in Slateport. The direct Route 110 north edge is not reachable from the lower section, so identify the blocking low-road script or trainer before advancing toward Mauville.",
+    "why_now": "Route 110's north road is Bike-gated, and Briney's ROM dialogue explicitly refuses Petalburg until a Gym Badge is obtained. Brawly is therefore the next required story milestone and must receive full hard-fight preparation.",
     "created_at": "2026-08-09T00:00:00+00:00",
     "completion_conditions": [
       {
-        "claim": "Camper Gavi is defeated with a ROM/RAM-verified identity, revised strategy plan, and post-battle victory proof.",
-        "oracle": "Live event-template identity, ROM trainerbattle roster/script, canonical battle RAM, and victory text/post-battle state",
-        "satisfied": true,
+        "claim": "Brawly's exact roster, moves, held items, and battle requirements are decoded and a prepared team/policy passes the hard-fight preflight gate.",
+        "oracle": "ROM trainer script/table, owned-party/PC RAM, generated profile, and three clean reviewed cartridge-clone wins with one behavior/opening hash",
+        "satisfied": false,
         "evidence": [
           {
+            "kind": "rom",
+            "source": "trainer database map:3:3/local:1 and generated Brawly profile",
+            "value": "Brawly's six-Pok\u00e9mon roster, moves, held items, order, level cap 21, and gym rules are decoded; prepared party is fully healed and ordered. Three clean clone wins remain required."
+          },
+          {
             "kind": "trainer_flag",
-            "source": "live battle transaction log and post-battle RAM",
-            "value": "Player defeated Camper Gavi; battle inactive on map (0,25), review 7e1f73af1a81f4069e64 complete."
+            "source": "live battle transactions and review 6eabc970ee750c68cfd2",
+            "value": "Mandatory Battle Girl Laura at map (3,3) local 4 was defeated without a party faint; all high review findings were fixed and regression-verified."
+          },
+          {
+            "kind": "trainer_flag",
+            "source": "runtime/session/battle_reviews/dewford-gym-takao-live.json",
+            "value": "Blocking Black Belt Takao at map (3,3) local 2 was defeated and reviewed; the party was healed afterward."
           }
         ]
       },
       {
-        "claim": "RAM verifies arrival at the next map or story destination beyond this Route 110 segment.",
-        "oracle": "Authoritative map connection/warp or ROM story script plus destination map identity and stable overworld/battle state",
+        "claim": "Brawly is defeated and the Dewford Gym Badge is verified.",
+        "oracle": "Trainer identity and terminal battle RAM plus decoded badge/event flag and protected post-battle checkpoint",
+        "satisfied": false,
+        "evidence": []
+      },
+      {
+        "claim": "Briney's Petalburg/Route 104 voyage is unlocked after the badge.",
+        "oracle": "ROM-identified sailor dialogue and verified scripted transit destination",
         "satisfied": false,
         "evidence": []
       }
@@ -75,6 +96,16 @@
       "id": "route110-local23-gavi",
       "status": "achieved",
       "evidence": "Three clean reviewed cartridge-clone wins qualified behavior hash 48575e91466ff521446c39c42a85bde6a918812b1c563141df95da626547f71b; live review 7e1f73af1a81f4069e64 verifies Camper Gavi defeated."
+    },
+    {
+      "id": "slateport-oceanic-museum-aqua-event",
+      "status": "achieved",
+      "evidence": "Live RAM verified both Aqua grunt wins, completed Archie/Stern dialogue, removal of all scripted museum actors, and return to stable Slateport overworld; protected checkpoint runtime/session/slateport-post-museum-scott-forward-20260812.state."
+    },
+    {
+      "id": "route110-bike-and-badge-blocker-resolved",
+      "status": "achieved",
+      "evidence": "Route 110 north edge was collision-unreachable; Cycling Road gatekeeper ROM dialogue required a Bike; Briney then explicitly refused Petalburg until a Gym Badge, identifying Brawly as the next mandatory milestone."
     }
   ],
   "milestones": [
@@ -133,6 +164,28 @@
           "value": "Camper Gavi defeated; battle inactive at Route 110 (15,89)."
         }
       ]
+    },
+    {
+      "id": "map:9:8/team-aqua-event",
+      "kind": "story_event",
+      "order": 4,
+      "required": true,
+      "status": "completed",
+      "evidence": [
+        {
+          "kind": "event_flag",
+          "source": "live battle transactions, compact reviews, NPC object RAM, and post-event dialogue state",
+          "value": "Oceanic Museum grunts 20 and 21 defeated; Archie/Stern event completed; all event actors removed and Slateport control restored."
+        }
+      ]
+    },
+    {
+      "id": "map:3:3/brawly-badge",
+      "kind": "gym_badge",
+      "order": 5,
+      "required": true,
+      "status": "pending",
+      "evidence": []
     }
   ],
   "checkpoints": [
@@ -829,44 +882,119 @@
         4
       ],
       "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/slateport-post-museum-scott-forward-20260812.state",
+      "sha256": "b5e593296e8b3da481a13347a459328ec0db087dc7cef67eb4512a2441301907",
+      "recorded_at": "2026-08-12T13:26:10.664777+00:00",
+      "canonical_state_hash": "1e4f218983876a88",
+      "map": [
+        0,
+        1,
+        30,
+        27
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached",
+        "map:0:25/local:23",
+        "map:9:8/team-aqua-event"
+      ],
+      "rank": [
+        4,
+        5,
+        5
+      ],
+      "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-post-cristian-healed-forward-20260812.state",
+      "sha256": "5590c3cacb1ca95b4edfc38c45755ff613cd4602fa9e052ce9678b4d84344cfd",
+      "recorded_at": "2026-08-12T16:37:27.886402+00:00",
+      "canonical_state_hash": "04157d8e1931cbdc",
+      "map": [
+        3,
+        1,
+        7,
+        4
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached",
+        "map:0:25/local:23",
+        "map:9:8/team-aqua-event"
+      ],
+      "rank": [
+        4,
+        5,
+        5
+      ],
+      "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-post-takao-healed-forward-20260812.state",
+      "sha256": "e3c5056d52ec18cb8b639e8a11648f98958d7768163c1fe5a02365b4b003ac79",
+      "recorded_at": "2026-08-12T17:11:48.647113+00:00",
+      "canonical_state_hash": "fd8932f3242a679d",
+      "map": [
+        3,
+        1,
+        7,
+        4
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached",
+        "map:0:25/local:23",
+        "map:9:8/team-aqua-event"
+      ],
+      "rank": [
+        4,
+        5,
+        5
+      ],
+      "verified": true
     }
   ],
-  "furthest_checkpoint_sha256": "bc9c8ed931edf5c1910022368a5587246a63d0ffe837d92c2b48ab3d279143b7",
+  "furthest_checkpoint_sha256": "b5e593296e8b3da481a13347a459328ec0db087dc7cef67eb4512a2441301907",
   "next_actions": [
     {
       "priority": 1,
-      "kind": "observation",
-      "action": "Decode the reachable Route 110 low-road path and identify the next blocking NPC or script from ROM/map data before entering any sightline.",
-      "advances_goal_id": "route110-local23-reprepare",
-      "precondition": "Route 110 RAM is battle-inactive at (17,99), all six party members are fully healed, and Gavi local 23 is verified defeated.",
-      "expected_postcondition": "The next reachable waypoint and any mandatory trainer identity/roster are known without starting a battle."
+      "kind": "preparation",
+      "action": "Return to Dewford Gym and stop at Brawly's exact precontact tile without interacting.",
+      "advances_goal_id": "dewford-gym-brawly-badge",
+      "precondition": "Dewford Center RAM state b01d9ab48f9749b4 is battle-inactive; all six party members have full HP/status/PP; gym locals 2, 3, 4, 6, 7, and 8 are defeated and reviewed.",
+      "expected_postcondition": "Every blocking gym trainer is defeated and reviewed, and a protected checkpoint is saved outside Brawly's trigger with no boss battle active."
     },
     {
       "priority": 2,
       "kind": "preparation",
-      "action": "If the blocking trainer is already classified hard or ROM evidence shows a likely boss, run hard-fight preparation and three reviewed clean clones before live engagement.",
-      "advances_goal_id": "route110-local23-reprepare",
-      "precondition": "The blocking trainer identity and roster are resolved from ROM/map data.",
-      "expected_postcondition": "A qualified policy exists for a hard fight, or the trainer is confirmed eligible for a blind easy-fight attempt."
+      "action": "Regenerate and validate Brawly's profile and readiness plan against the exact precontact checkpoint and prepared party.",
+      "advances_goal_id": "dewford-gym-brawly-badge",
+      "precondition": "Brawly's exact roster is decoded, the prepared level-21 party is healed and ordered, and the exact precontact checkpoint exists.",
+      "expected_postcondition": "The prepared party and policy satisfy every hard-fight preflight requirement from authoritative RAM."
     },
     {
       "priority": 3,
-      "kind": "gameplay",
-      "action": "Continue north through Route 110 using RAM map transitions and hard-fight gates for any trainer that has already caused a loss.",
-      "advances_goal_id": "route110-local23-reprepare",
-      "precondition": "Party is fully healed, the no-action switch-spam regression suite passes, and any required hard-fight gate is satisfied.",
-      "expected_postcondition": "RAM verifies arrival at the next map or story destination beyond this Route 110 segment."
+      "kind": "preparation",
+      "action": "Run reviewed cartridge clones from the identical Brawly opening until three consecutive clean wins share one unchanged behavior hash; only then execute live.",
+      "advances_goal_id": "dewford-gym-brawly-badge",
+      "precondition": "Prepared party, exact checkpoint, policy profile, and review gate are valid.",
+      "expected_postcondition": "Brawly live execution is qualified, then terminal victory and badge state are verified."
     }
   ],
   "blockers": [],
   "last_reconciled": {
-    "at": "2026-08-11T12:44:31.636018+00:00",
-    "canonical_state_hash": "5b38de68f01e2960",
+    "at": "2026-08-12T17:56:32.149673+00:00",
+    "canonical_state_hash": "b01d9ab48f9749b4",
     "sources": [
       {
-        "kind": "ram",
-        "source": "verified Slateport Pokemon Center heal and north map transition",
-        "value": "Route 110 (17,99), battle inactive; all six party members full HP, status-free, and at full PP; Gavi milestone preserved."
+        "kind": "trainer_flag",
+        "source": "runtime/session/battle_reviews/dewford-gym-jocelyn-live.json",
+        "value": "Dewford Gym local 3 Battle Girl Jocelyn defeated and reviewed; all six party members healed to full HP/status/PP."
       }
     ]
   }

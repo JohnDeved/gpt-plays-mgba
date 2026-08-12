@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "id": "20260812T130220Z-live-emulator-exited-during-isolated-regression-",
+  "status": "unresolved",
+  "created_at": "2026-08-12T13:02:20.643832+00:00",
+  "summary": "Live emulator exited during isolated regression work",
+  "component": "client.mgba_clone / live mGBA process lifecycle",
+  "symptom": "The live port 8765 listener and its mGBA process disappeared after clone regression commands; exact termination time and owner were not captured.",
+  "classification": "environment",
+  "severity": "medium",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/slateport-museum-grunt20-defeated-forward-20260812.state",
+    "sha256": "e2089e9bdb97b3e8dbe9d0f68fe6883b0070ffd11001109fac59265f9e9aa7b3",
+    "canonical_state": {},
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "Disposable clones terminate only their unique-port listener and the protected live mGBA remains idle-stopped on port 8765.",
+    "actual": "No live mGBA process remained. The newest post-first-grunt checkpoint was intact and restored to canonical state d641c92b26fca056.",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "The unique PID listening on live port 8765 must remain present and preserve canonical state d641c92b26fca056 across clone startup and teardown.",
+    "sources": [
+      "lsof listener PID on port 8765",
+      "canonical RAM state hash",
+      "hashed forward checkpoint"
+    ]
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [
+    {
+      "claim": "A clone teardown selected the live listener PID instead of its unique-port listener.",
+      "predicted_discriminator": "PID/port tracing will show a teardown signal sent to the port-8765 owner.",
+      "result": "not reproduced by one subsequent clone; unresolved"
+    },
+    {
+      "claim": "The original long-running launcher/session exited independently of clone cleanup.",
+      "predicted_discriminator": "Future clone PID traces preserve port 8765 while the launcher lifecycle records the live exit separately.",
+      "result": "unresolved"
+    }
+  ],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": "Relaunch from the newest SHA-verified forward checkpoint and verify the exact canonical RAM hash before continuing; capture live and clone listener PIDs around future clone runs."
+  },
+  "verification": {
+    "targeted_checks": [
+      {
+        "name": "one post-recovery clone isolation probe",
+        "command": "python3 tools/runbun_call.py game_observe --clone-state runtime/session/slateport-museum-grunt20-defeated-forward-20260812.state --args '{}'",
+        "passed": true,
+        "evidence": "clone returned state d641c92b26fca056 and the live port then returned the same hash"
+      }
+    ],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [
+    "The exact process owner and termination signal for the original live mGBA exit were not captured."
+  ],
+  "next_experiments": [
+    {
+      "hypothesis": "Clone cleanup can incorrectly target the live listener.",
+      "action": "Before the next necessary disposable clone, record live and clone listener PID/port pairs, run one read-only clone, then record both pairs again.",
+      "expected_discriminator": "The clone PID disappears while the unchanged live PID remains bound to 8765 and returns the protected canonical hash.",
+      "risk": "Low; the newest forward checkpoint is SHA-verified and relaunchable.",
+      "cost": "One clone launch, two lsof reads, and two canonical observations.",
+      "rollback": "Relaunch only the newest forward checkpoint and require state hash d641c92b26fca056."
+    }
+  ]
+}

@@ -1,0 +1,128 @@
+{
+  "schema_version": 3,
+  "created_at": "2026-08-12T17:09:52.788393+00:00",
+  "review_id": "6e595b16421c1f878ace",
+  "terminal": "win",
+  "source": "live",
+  "opening_state_hash": "3840f4ecb9b71769",
+  "behavior_hash": null,
+  "policy_id": "generic-scorer-v33",
+  "trainer_key": "map:3:3/local:2",
+  "matched_strategy_ids": [],
+  "certified_actions": 14,
+  "status": "needs_improvement",
+  "classification": "policy_gap",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 14,
+    "findings": [
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "At Breloom 13 HP the scorer initially preferred a zero-progress critical-safety switch over the bounded priority Vacuum Wave finish.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "f94263a78d3c747d",
+          "observed": "The corrected live Vacuum Wave KOed Breloom before any reply."
+        },
+        "observed_fact": "The unchanged-state recommendation changed from emergency_critical_entry_switch to move 410 after the shared scorer fix.",
+        "strategic_judgment": "A switch guaranteed an enemy turn while Vacuum Wave had an average KO roll and Croakatoa survived every preempting critical plus the expected reply.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "5e55e94e9ff4d1b3"
+        ],
+        "next_test": "Retain the exact priority-finisher regression and require the classifier, not an operator override, to choose move 410.",
+        "state_unavailable_reason": "The live state was intentionally held but its rolling savestate was superseded after the corrected action; the exact stats are retained in the regression and transaction.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "Triple Axel was modeled as one hit and its two-PP cartridge implementation was rejected, underbounding Bushtank damage by 8 HP.",
+        "state": "runtime/session/battle_reviews/states/takao-pre-triple-axel-18304d50.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "dfbeb3d19fc79f51",
+          "observed": "Disposable replay modeled 8-48 normal / 96 critical, attributed move 741 with delta 2, and verified cleanly."
+        },
+        "observed_fact": "Three hits dealt 42 while the old critical ceiling was 34; move 741 consumed two PP.",
+        "strategic_judgment": "An underbounded multi-hit threat can select unsafe entries and invalidate survival certificates.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "4c828a6e7af66d1c34e4"
+        ],
+        "next_test": "Replay state 18304d50 and require the full three-hit envelope, move attribution, accepted PP delta, and no discrepancy.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "medium",
+        "summary": "Planning called map-local trainer 2 Hitoshi, while the authoritative intro identified Black Belt Takao.",
+        "action_changing": false,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "observed": "The additive trainer database now validates with a map-linked Takao record and all three authoritative live builds."
+        },
+        "observed_fact": "RAM battle text named Takao and the live roster was Breloom, Buneary, Mienfoo.",
+        "strategic_judgment": "A wrong overworld identity can attach the wrong preparation record on a future run.",
+        "confidence": "verified",
+        "fix_layer": "hard_fight_preparation",
+        "turns": [
+          "battle_intro"
+        ],
+        "next_test": "Resolve map:3:3/local:2 by graphics 44 and script 0x08232280 to Takao and this exact roster.",
+        "knowledge_target": "preparation"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "low",
+        "summary": "The win left four party members materially damaged: Croakatoa 7/54, Lildozer 36/69, OhmNomNom 23/59, and Bushtank 17/69.",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "Authoritative terminal party HP confirms the damage.",
+        "strategic_judgment": "Starting another trainer or Brawly without healing would convert a clean win into avoidable run risk.",
+        "confidence": "verified",
+        "fix_layer": "hard_fight_preparation",
+        "turns": [
+          "terminal"
+        ],
+        "next_test": "Heal and verify full HP/status/PP before any trainer contact.",
+        "knowledge_target": "preparation"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "low",
+        "summary": "Two consecutive Detect successes consumed 2 Sludge PP without progress.",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "Both attacks were protected and no HP changed.",
+        "strategic_judgment": "No legal move bypassed Detect and switching would donate tempo, so repeating the guaranteed-KO attack remained correct; chain probability is still unmodeled.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "98511c5cb621e2d6259b",
+          "42a4c4cec3291bf84ac9"
+        ],
+        "next_test": "Record Detect-chain history only if a future matchup offers a materially different action.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "Opening Croakatoa Fake Out gave verified free chip and activated Breloom Toxic Orb without exposure.",
+      "The corrected priority Vacuum Wave finished Breloom instead of donating a switch turn.",
+      "Bushtank safely absorbed fresh Buneary Fake Out; OhmNomNom then used Iron Barbs plus fresh Fake Out to finish.",
+      "Lildozer Charm cut Mienfoo physical damage by two stages before the planned Croakatoa pivot.",
+      "The controller persisted with guaranteed-KO Sludge through two Detects instead of switch cycling."
+    ],
+    "next_test": "Heal the whole party, verify Takao review and trainer record gates, then reach Brawly precontact without engaging and begin the mandatory hard-fight preparation plus three reviewed clones."
+  }
+}

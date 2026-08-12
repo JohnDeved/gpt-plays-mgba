@@ -1,57 +1,57 @@
 {
   "path": "/Users/johann/gpt-plays-mgba/runtime/session/auto-forward-latest.state",
-  "sha256": "694ac97869a8a72e81c1a1ed9c690a2c35d76092f6ae6ea09807332dc14f244b",
-  "state_hash": "5b38de68f01e2960",
-  "frame": 18948828,
+  "sha256": "d010efd90f296ca703d9d19a229308956b868163c8e5902e1583cc40c6ffd482",
+  "state_hash": "e24e32a0c8750538",
+  "frame": 20927384,
   "map": {
-    "group": 0,
-    "number": 25,
-    "x": 17,
-    "y": 99,
-    "warp_id": 255
+    "group": 3,
+    "number": 3,
+    "x": 4,
+    "y": 4,
+    "warp_id": 0
   },
   "party": [
     {
       "slot": 0,
-      "species": 777,
-      "personality": 3325952935,
-      "ot_id": 3307282159,
-      "level": 17
-    },
-    {
-      "slot": 1,
       "species": 453,
       "personality": 506087644,
       "ot_id": 3307282159,
-      "level": 17
+      "level": 21
     },
     {
-      "slot": 2,
-      "species": 388,
-      "personality": 1476487022,
-      "ot_id": 3307282159,
-      "level": 17
-    },
-    {
-      "slot": 3,
+      "slot": 1,
       "species": 231,
       "personality": 1744238455,
       "ot_id": 3307282159,
-      "level": 17
+      "level": 21
+    },
+    {
+      "slot": 2,
+      "species": 777,
+      "personality": 3325952935,
+      "ot_id": 3307282159,
+      "level": 21
+    },
+    {
+      "slot": 3,
+      "species": 388,
+      "personality": 1476487022,
+      "ot_id": 3307282159,
+      "level": 21
     },
     {
       "slot": 4,
-      "species": 543,
-      "personality": 2609223149,
+      "species": 551,
+      "personality": 4136568345,
       "ot_id": 3307282159,
-      "level": 17
+      "level": 21
     },
     {
       "slot": 5,
-      "species": 397,
-      "personality": 1813210531,
+      "species": 878,
+      "personality": 4082287436,
       "ot_id": 3307282159,
-      "level": 17
+      "level": 21
     }
   ]
 }

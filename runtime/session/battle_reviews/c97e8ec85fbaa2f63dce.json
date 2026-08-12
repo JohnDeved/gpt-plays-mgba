@@ -1,0 +1,111 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T16:58:54.463309+00:00",
+  "review_id": "c97e8ec85fbaa2f63dce",
+  "terminal": "win",
+  "source": "cartridge_clone",
+  "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+  "behavior_hash": "eb293f6568ed9d0201e52c6da4cda745e06166c7d8d91019ac423acf6813ff7f",
+  "policy_id": "generated-map-0-25-local-23",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "fresh-entry-fake-out-tempo",
+    "fresh-tempo-one-control"
+  ],
+  "influential_strategy_ids": [
+    "fresh-entry-fake-out-tempo",
+    "fresh-tempo-one-control"
+  ],
+  "certified_actions": 28,
+  "status": "clean",
+  "classification": "verified_win",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 28,
+    "findings": [
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer and Ohmnomnom fainted; Bushtank survived at 2 HP, while Birdlaw, Bugatti, and Croakatoa retained 12, 10, and 31 HP.",
+        "action_changing": false,
+        "observed_fact": "Lildozer and Ohmnomnom fainted; Bushtank survived at 2 HP, while Birdlaw, Bugatti, and Croakatoa retained 12, 10, and 31 HP.",
+        "strategic_judgment": "Lildozer and Ohmnomnom fainted; Bushtank survived at 2 HP, while Birdlaw, Bugatti, and Croakatoa retained 12, 10, and 31 HP.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Mark v36 qualified after gate verification, then validate a separately generated non-Gavi profile without adding trainer-specific engine code.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "A critical Shock Wave again fainted Ohmnomnom, but current-RAM forced replacement and Bushtank recovered the Eelektrik line without a prediction discrepancy.",
+        "action_changing": false,
+        "observed_fact": "A critical Shock Wave again fainted Ohmnomnom, but current-RAM forced replacement and Bushtank recovered the Eelektrik line without a prediction discrepancy.",
+        "strategic_judgment": "A critical Shock Wave again fainted Ohmnomnom, but current-RAM forced replacement and Bushtank recovered the Eelektrik line without a prediction discrepancy.",
+        "confidence": "heuristic",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Mark v36 qualified after gate verification, then validate a separately generated non-Gavi profile without adding trainer-specific engine code.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "medium",
+        "summary": "Nine switches occurred, including two forced; the only relaxed switch-stall veto was the previously bounded Bugatti hit-buffer into Croakatoa line, whose direct-Croak alternative had fainted.",
+        "action_changing": false,
+        "observed_fact": "Nine switches occurred, including two forced; the only relaxed switch-stall veto was the previously bounded Bugatti hit-buffer into Croakatoa line, whose direct-Croak alternative had fainted.",
+        "strategic_judgment": "Nine switches occurred, including two forced; the only relaxed switch-stall veto was the previously bounded Bugatti hit-buffer into Croakatoa line, whose direct-Croak alternative had fainted.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Mark v36 qualified after gate verification, then validate a separately generated non-Gavi profile without adding trainer-specific engine code.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Croakatoa ended asleep and Birdlaw toxic, but both remained alive and the preserved Birdlaw matchup closed Dustox in two Aerial Aces.",
+        "action_changing": false,
+        "observed_fact": "Croakatoa ended asleep and Birdlaw toxic, but both remained alive and the preserved Birdlaw matchup closed Dustox in two Aerial Aces.",
+        "strategic_judgment": "Croakatoa ended asleep and Birdlaw toxic, but both remained alive and the preserved Birdlaw matchup closed Dustox in two Aerial Aces.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Mark v36 qualified after gate verification, then validate a separately generated non-Gavi profile without adding trainer-specific engine code.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "info",
+        "summary": "The battle took 28 certified actions with no Rollout, no Protect stall, no interrupted player action, and no tooling discrepancy.",
+        "action_changing": false,
+        "observed_fact": "The battle took 28 certified actions with no Rollout, no Protect stall, no interrupted player action, and no tooling discrepancy.",
+        "strategic_judgment": "The battle took 28 certified actions with no Rollout, no Protect stall, no interrupted player action, and no tooling discrepancy.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Mark v36 qualified after gate verification, then validate a separately generated non-Gavi profile without adding trainer-specific engine code.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "The same generic Fake Out and one-control Nuzzle strategies influenced the third independent clone.",
+      "The engine kept Rollout vetoed and used controllable Bug Bite before preserving Birdlaw for Dustox.",
+      "All forced replacements and status pivots were selected from authoritative current RAM; no stale opponent slot influenced a decision."
+    ],
+    "next_test": "Mark v36 qualified after gate verification, then validate a separately generated non-Gavi profile without adding trainer-specific engine code."
+  }
+}

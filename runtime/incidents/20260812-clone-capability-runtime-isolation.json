@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260812T115514Z-generic-clone-capability-call-wrote-automatic-ch",
+  "status": "verified",
+  "created_at": "2026-08-12T11:55:14.209978+00:00",
+  "summary": "Generic clone capability call wrote automatic checkpoint into live runtime directory",
+  "component": "tools/runbun_call.py clone execution environment",
+  "symptom": "A disposable clone warp replaced runtime/session/auto-forward-latest.state and metadata with clone map 29:11",
+  "classification": "environment",
+  "severity": "high",
+  "live_state": {
+    "required": true,
+    "preserved": true,
+    "artifact": "/Users/johann/gpt-plays-mgba/runtime/session/route110-post-gavi-healed-forward-20260811.state",
+    "sha256": "bc9c8ed931edf5c1910022368a5587246a63d0ffe837d92c2b48ab3d279143b7",
+    "canonical_state": {"state_hash": "5b38de68f01e2960", "map": [0, 25, 17, 99]},
+    "restored_after_probe": true
+  },
+  "unexpected": {
+    "predicted": "All clone emulator and capability artifacts remain inside disposable temporary runtime storage",
+    "actual": "The clone emulator was isolated, but the capability subprocess inherited the live MGBA_RUNTIME_DIR default",
+    "diff": ["capability subprocess lacked an isolated MGBA_RUNTIME_DIR"],
+    "extra_state_deltas": ["live auto-forward checkpoint and metadata were replaced by clone map 29:11; explicit live save repaired both"]
+  },
+  "authority": {
+    "oracle": "SHA-256 of the ledger checkpoint and live auto-forward files, canonical RAM state hash, and returned clone auto-checkpoint path",
+    "sources": ["runtime/session/run_progress.json", "runtime/session/route110-post-gavi-healed-forward-20260811.state", "tools/runbun_call.py"]
+  },
+  "reproduction": {
+    "deterministic": true,
+    "fixture": "runtime/session/route110-post-gavi-healed-forward-20260811.state",
+    "fixture_sha256": "bc9c8ed931edf5c1910022368a5587246a63d0ffe837d92c2b48ab3d279143b7",
+    "command": "python3 tools/runbun_call.py game_travel_warp --clone-state runtime/session/route110-post-gavi-healed-forward-20260811.state --args '{\"destination\":[29,11],\"defeated_trainer_local_ids\":[23]}'",
+    "steps": ["hash live checkpoint files", "execute clone warp", "compare hashes and returned auto-checkpoint path"],
+    "run_count": 2,
+    "same_outcome": true,
+    "observed": "Static code path proved the child inherited the live runtime default; the pre-fix run wrote map 29:11 metadata under runtime/session"
+  },
+  "hypotheses": [{"claim": "The capability subprocess inherits the controller's live runtime directory rather than the clone launcher's temporary runtime", "predicted_discriminator": "setting MGBA_RUNTIME_DIR for the child moves auto-forward output to a temporary path without changing live hashes", "evidence_for": "fixed replay returned /private/.../runbun-call-.../auto-forward-latest.state.meta.json and all three protected hashes remained identical", "evidence_against": "", "result": "supported"}],
+  "root_cause": {
+    "verified": true,
+    "claim": "runbun_call changed only MGBA_RPC_PORT for clone calls; runbun_mcp therefore used the default live runtime directory for capability auto-checkpoints",
+    "evidence": ["pre-fix clone result named runtime/session/auto-forward-latest.state.meta.json", "post-fix result named a runbun-call temporary directory", "protected checkpoint hash remained unchanged"],
+    "alternatives_falsified": ["clone emulator isolation failure: the clone listened on its unique port and live RAM never moved"]
+  },
+  "solution": {
+    "kind": "code_fix",
+    "files": ["tools/runbun_call.py", "tests/test_runbun_call.py"],
+    "contract_change": "--clone-state now gives both the emulator and capability subprocess disposable runtime storage",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [{"name": "clone runtime routing", "command": "python3 -m unittest tests.test_runbun_call", "passed": true, "evidence": "1 test passed; child receives clone port and MGBA_RUNTIME_DIR"}],
+    "regression_checks": [{"name": "protected hash replay", "command": "fixed clone warp followed by shasum of live auto-forward and ledger checkpoint", "passed": true, "evidence": "36165d6f..., be4fe95f..., and bc9c8ed9... unchanged"}],
+    "replay": {
+      "passed": true,
+      "runs": 2,
+      "expected": "Clone auto-checkpoint is temporary and live hashes remain unchanged",
+      "actual": "Both clone auto-checkpoints were under separate /private/.../runbun-call-* directories and live hashes were unchanged",
+      "extra_state_deltas": []
+    },
+    "metrics": {"protected_live_files_changed": 0, "clone_warp_replays": "2/2"}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": ["generic capability write in disposable clone must not use live runtime directory"],
+    "tooling_contracts": ["--clone-state isolates RPC port, emulator runtime, and capability artifact runtime"]
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

@@ -11,6 +11,8 @@ from games.runbun import (
     GEN3_CHARSET,
     PLAYER_PARTY,
     RunBunAdapter,
+    _berry_heal,
+    _berry_triggers_after,
     decode_gen3_text,
     decode_text_observation,
     decode_battle_mon,
@@ -655,6 +657,10 @@ class RunBunTests(unittest.TestCase):
             "active": 1,
             "data": [10876, 512, 51237, 2077, 51445, 2077, 4, 4, 0, 8, 12305, 1792, 0, 3],
         }))
+        self.assertTrue(RunBunAdapter._is_field_bag_task({
+            "active": 1,
+            "data": [10876, 512, 51237, 2077, 51445, 2077, 5, 5, 0, 8, 12305, 1792, 0, 4],
+        }))
         self.assertFalse(RunBunAdapter._is_field_bag_task({"active": 1, "data": [0] * 16}))
 
     def test_follow_route_rejects_hidden_bag_task(self):
@@ -815,9 +821,10 @@ class RunBunTests(unittest.TestCase):
             as_dict=lambda: {"local_id": 2},
         )
         gate_calls = []
+        approach_calls = []
         adapter.trainer_preflight = lambda _target: {"ready": True}
         adapter._npc_approach_target = lambda *args, **kwargs: (
-            (1, 1), ["RIGHT", "RIGHT"], 1
+            approach_calls.append(kwargs) or ((1, 1), ["RIGHT", "RIGHT"], 1)
         )
         adapter.follow_route = lambda *args, **kwargs: self.fail(
             "movement must not start after a rejected full-path preflight"
@@ -829,8 +836,11 @@ class RunBunTests(unittest.TestCase):
                 patch("games.run_and_bun.objects.select_live_object", return_value=target), \
                 patch("games.run_and_bun.live_map.read_live_map", return_value=object()):
             with self.assertRaisesRegex(RuntimeError, "trainer_engagement_blocked"):
-                adapter.follow_live_path_to_npc(local_id=2)
+                adapter.follow_live_path_to_npc(
+                    local_id=2, verified_defeated_trainer_local_ids={4, 6},
+                )
         self.assertEqual(gate_calls, [["RIGHT", "RIGHT"]])
+        self.assertEqual(approach_calls[0]["ignored_trainer_ids"], {4, 6})
 
     def test_adaptive_path_preflights_full_route_before_first_chunk(self):
         adapter = RunBunAdapter.__new__(RunBunAdapter)
@@ -868,6 +878,37 @@ class RunBunTests(unittest.TestCase):
                 )
         self.assertEqual(gate_calls, [["RIGHT", "RIGHT"]])
 
+    def test_adaptive_path_stops_when_script_lock_blocks_every_direction(self):
+        adapter = RunBunAdapter.__new__(RunBunAdapter)
+        adapter.gba = FakeMGBA()
+        adapter.enforce_live_trainer_gate = False
+        state = {
+            "mode": "overworld", "battle": {"active": False},
+            "map": {"group": 9, "number": 8, "x": 12, "y": 6},
+        }
+        adapter.observe = lambda: state
+        adapter.follow_route = lambda *_args, **_kwargs: {"action": {}, "state": state}
+
+        class FakeLiveMap:
+            @staticmethod
+            def walkable(_x, _y):
+                return True
+
+            directions = iter(("RIGHT", "UP", "DOWN", "LEFT"))
+
+            @classmethod
+            def path_to(cls, *_args, **_kwargs):
+                return [next(cls.directions)]
+
+        with patch("games.run_and_bun.live_map.read_live_map", return_value=FakeLiveMap()), patch(
+            "games.run_and_bun.objects.read_live_objects", return_value=[]
+        ):
+            with self.assertRaisesRegex(RuntimeError, "made no progress.*control may be locked"):
+                adapter.follow_live_path_adaptive(
+                    (6, 2), expected_map=(9, 8), avoid_trainer_sight_lines=False,
+                    blocked_wait_frames=0, max_replans=4,
+                )
+
     def test_battle_strategy_avoids_flash_fire(self):
         observation = {
             "battle": {
@@ -900,7 +941,7 @@ class RunBunTests(unittest.TestCase):
             "party": {"mons": []},
         }
         action = RunBunAdapter.choose_battle_action(observation)
-        self.assertEqual(action["action"], "move")
+        self.assertEqual(action["action"], "move", action)
         self.assertEqual(action["slot"], 0)
 
     def test_battle_strategy_prefers_mach_punch_over_neutral_scratch(self):
@@ -951,6 +992,30 @@ class RunBunTests(unittest.TestCase):
         self.assertEqual(report["chosen"]["move_id"], 16)
         self.assertTrue(report["proof"]["caveat"])
 
+    def test_single_tactical_report_ignores_stale_double_battle_opponent(self):
+        observation = {
+            "battle": {"active": True, "format": "single", "mons": [
+                {"slot": 0, "present": True, "state": {
+                    "species": 1, "current_hp": 20, "max_hp": 20, "level": 10,
+                    "attack": 20, "defense": 20, "speed": 20, "special_attack": 20, "special_defense": 20,
+                    "types": (0,), "moves": (10, 0, 0, 0), "pp": (10, 0, 0, 0),
+                }},
+                {"slot": 1, "present": True, "state": {
+                    "species": 2, "current_hp": 0, "max_hp": 20, "level": 10,
+                    "attack": 20, "defense": 20, "speed": 20, "special_attack": 20, "special_defense": 20,
+                    "types": (0,), "moves": (10, 0, 0, 0), "pp": (10, 0, 0, 0),
+                }},
+                {"slot": 3, "present": True, "state": {
+                    "species": 404, "current_hp": 20, "max_hp": 20, "level": 10,
+                    "attack": 20, "defense": 20, "speed": 20, "special_attack": 20, "special_defense": 20,
+                    "types": (13,), "moves": (209, 0, 0, 0), "pp": (10, 0, 0, 0),
+                }},
+            ]},
+            "party": {"mons": []},
+        }
+        report = RunBunAdapter.explain_battle_action(observation)
+        self.assertEqual(report["state"]["opponent"]["species"], 2)
+
     def test_tactical_report_models_accuracy_priority_and_outcome_set(self):
         observation = {
             "battle": {"active": True, "format": "single", "mons": [
@@ -987,6 +1052,42 @@ class RunBunTests(unittest.TestCase):
         self.assertFalse(chosen["ko_before_hit"])
         self.assertEqual(chosen["order"], "second")
         self.assertEqual(chosen["outcome_set"]["miss_probability"], 0.5)
+
+    def test_guaranteed_priority_ko_beats_slower_higher_damage_ko(self):
+        observation = {
+            "battle": {"active": True, "format": "single", "mons": [
+                {"slot": 0, "present": True, "state": {
+                    "species": 231, "current_hp": 54, "max_hp": 58, "level": 17,
+                    "attack": 24, "defense": 33, "speed": 22,
+                    "special_attack": 19, "special_defense": 20,
+                    "types": (4,), "moves": (420, 88, 0, 0), "pp": (30, 13, 0, 0),
+                    "stat_stages": (6,) * 8,
+                }},
+                {"slot": 1, "present": True, "state": {
+                    "species": 544, "current_hp": 3, "max_hp": 43, "level": 16,
+                    "attack": 27, "defense": 41, "speed": 77,
+                    "special_attack": 22, "special_defense": 38,
+                    "types": (6, 3), "moves": (474, 0, 0, 0), "pp": (16, 0, 0, 0),
+                    "stat_stages": (6,) * 8,
+                }},
+            ]},
+            "party": {"mons": []},
+        }
+        move = lambda move_id, power, move_type, priority=0: SimpleNamespace(
+            move_id=move_id, name=str(move_id), power=power, type_id=move_type,
+            type_name=str(move_type), accuracy=100, pp=10, secondary_chance=0,
+            target_flags=0, priority=priority, category="physical",
+        )
+        report = RunBunAdapter.explain_battle_action(
+            observation,
+            move_data={
+                420: move(420, 40, 15, 1),
+                88: move(88, 50, 5),
+                474: move(474, 65, 3),
+            },
+        )
+        self.assertEqual(report["decision"]["move_id"], 420)
+        self.assertTrue(report["chosen"]["ko_before_hit"])
 
     def test_tactical_report_lists_unmodeled_mechanics_in_one_coverage_envelope(self):
         observation = {
@@ -1060,12 +1161,287 @@ class RunBunTests(unittest.TestCase):
         defender = {"state": {"species": 388, "current_hp": 57}}
         self.assertEqual(RunBunAdapter._damage_bounds(162, attacker, defender), (28.0, 28.0))
 
+    def test_reversal_power_scales_from_current_hp(self):
+        mankey = {"state": {
+            "species": 56, "level": 19, "attack": 41, "types": (1,),
+            "current_hp": 44, "max_hp": 44,
+        }}
+        togedemaru = {"state": {"species": 777, "defense": 36, "types": (13, 8)}}
+        reversal = SimpleNamespace(power=1, type_id=1, category="physical")
+        self.assertEqual(RunBunAdapter._damage_bounds(179, mankey, togedemaru, move_data={179: reversal}), (14.0, 18.0))
+        mankey["state"]["current_hp"] = 1
+        self.assertEqual(RunBunAdapter._damage_bounds(179, mankey, togedemaru, move_data={179: reversal}), (108.0, 128.0))
+
+    def test_classifier_avoids_creating_a_lethal_low_hp_reversal(self):
+        player = {"slot": 0, "present": True, "state": {
+            "species": 777, "current_hp": 39, "max_hp": 59, "level": 21,
+            "attack": 42, "defense": 36, "speed": 52, "special_attack": 26, "special_defense": 36,
+            "types": (13, 8), "moves": (252, 609, 232, 209), "pp": (4, 20, 35, 19),
+            "stat_stages": (6,) * 8,
+        }}
+        opponent = {"slot": 1, "present": True, "state": {
+            "species": 56, "current_hp": 44, "max_hp": 44, "level": 19,
+            "attack": 41, "defense": 18, "speed": 40, "special_attack": 16, "special_defense": 22,
+            "types": (1,), "moves": (612, 179, 0, 0), "pp": (32, 15, 0, 0),
+            "stat_stages": (6,) * 8, "held_item": 481,
+        }}
+        move = lambda power, type_id: SimpleNamespace(
+            power=power, type_id=type_id, category="physical", priority=0, accuracy=100,
+            raw_flags=(0,),
+        )
+        action = RunBunAdapter.choose_battle_action(
+            {"battle": {"active": True, "mons": [player, opponent]}, "party": {"mons": []}},
+            move_data={
+                252: SimpleNamespace(power=40, type_id=0, category="physical", priority=3, accuracy=100, raw_flags=(0,)),
+                609: move(20, 13), 232: move(50, 8), 209: move(65, 13),
+                612: move(40, 1), 179: move(1, 1),
+            },
+            fresh_entry=False,
+        )
+        self.assertEqual((action["move_id"], action["reason"]), (609, "avoid_low_hp_reversal"))
+
+    def test_reversal_guard_still_allows_a_critical_safe_switch(self):
+        player = {"slot": 0, "present": True, "state": {
+            "species": 777, "current_hp": 39, "max_hp": 59, "level": 21,
+            "attack": 42, "defense": 36, "speed": 52, "special_attack": 26, "special_defense": 36,
+            "types": (13, 8), "moves": (252, 609, 232, 209), "pp": (4, 20, 35, 19),
+            "stat_stages": (6,) * 8,
+        }}
+        lildozer = {"slot": 1, "present": True, "state": {
+            "species": 231, "current_hp": 69, "max_hp": 69, "level": 21,
+            "attack": 29, "defense": 39, "speed": 27, "special_attack": 22, "special_defense": 23,
+            "types": (4,), "moves": (420, 523, 204, 88), "pp": (30, 20, 5, 15),
+            "stat_stages": (6,) * 8,
+        }}
+        opponent = {"slot": 1, "present": True, "state": {
+            "species": 56, "current_hp": 44, "max_hp": 44, "level": 19,
+            "attack": 41, "defense": 18, "speed": 40, "special_attack": 16, "special_defense": 22,
+            "types": (1,), "moves": (612, 179, 0, 0), "pp": (32, 15, 0, 0),
+            "stat_stages": (6,) * 8, "held_item": 481,
+        }}
+        move = lambda power, type_id, category="physical", priority=0: SimpleNamespace(
+            power=power, type_id=type_id, category=category, priority=priority, accuracy=100, raw_flags=(0,),
+        )
+        action = RunBunAdapter.choose_battle_action(
+            {"battle": {"active": True, "mons": [player, opponent]}, "party": {"mons": [player, lildozer]}},
+            move_data={
+                252: move(40, 0, priority=3), 609: move(20, 13), 232: move(50, 8), 209: move(65, 13),
+                420: move(40, 15, priority=1), 523: move(60, 4), 204: move(0, 18, "status"), 88: move(50, 5),
+                612: move(40, 1), 179: move(1, 1),
+            },
+            fresh_entry=False,
+        )
+        self.assertEqual((action["action"], action["slot"], action["reason"]), ("switch", 1, "critical_survival_switch"))
+
+    def test_switch_must_survive_entry_and_its_next_action_window(self):
+        croak = {"slot": 0, "present": True, "state": {
+            "species": 453, "current_hp": 38, "max_hp": 54, "level": 21,
+            "attack": 36, "defense": 24, "speed": 26, "special_attack": 34, "special_defense": 19,
+            "types": (3, 1), "moves": (124, 341, 252, 410), "pp": (20, 15, 5, 30), "stat_stages": (6,) * 8,
+        }}
+        bushtank = {"slot": 3, "present": True, "state": {
+            "species": 388, "current_hp": 69, "max_hp": 69, "level": 21,
+            "attack": 46, "defense": 42, "speed": 23, "special_attack": 30, "special_defense": 41,
+            "types": (12,), "moves": (44, 75, 71, 590), "pp": (25, 25, 25, 10), "stat_stages": (6,) * 8,
+        }}
+        meditite = {"slot": 1, "present": True, "state": {
+            "species": 307, "current_hp": 46, "max_hp": 46, "level": 19,
+            "attack": 27, "defense": 25, "speed": 36, "special_attack": 20, "special_defense": 29,
+            "types": (1, 14), "moves": (280, 88, 197, 0), "pp": (24, 15, 5, 0),
+            "stat_stages": (6,) * 8, "ability": 74, "held_item": 558,
+        }}
+        move = lambda power, type_id, category="physical", priority=0: SimpleNamespace(
+            power=power, type_id=type_id, category=category, priority=priority, accuracy=100, raw_flags=(0,),
+        )
+        action = RunBunAdapter.choose_battle_action(
+            {"battle": {"active": True, "mons": [croak, meditite]}, "party": {"mons": [croak, bushtank]}},
+            move_data={
+                124: move(65, 3, "special"), 341: move(55, 4, "special"), 252: move(40, 0, priority=3),
+                410: move(40, 1, "special", 1), 44: move(60, 17), 75: move(55, 12),
+                71: move(40, 12, "special"), 590: move(0, 0, "status"),
+                280: move(75, 1), 88: move(50, 5), 197: move(0, 1, "status", 4),
+            },
+            fresh_entry=False,
+        )
+        self.assertEqual((action["action"], action.get("move_id")), ("move", 124), action)
+
+        croak["state"]["current_hp"] = 36
+        breloom = {"slot": 1, "present": True, "state": {
+            "species": 286, "current_hp": 13, "max_hp": 57, "level": 19,
+            "attack": 60, "defense": 41, "speed": 40, "special_attack": 29, "special_defense": 33,
+            "types": (12, 1), "moves": (358, 331, 183, 147), "pp": (16, 29, 30, 15),
+            "stat_stages": (6,) * 8, "status": 128,
+        }}
+        action = RunBunAdapter.choose_battle_action(
+            {"battle": {"active": True, "mons": [croak, breloom]}, "party": {"mons": [croak, bushtank]}},
+            move_data={
+                124: move(65, 3, "special"), 341: move(55, 4, "special"), 252: move(40, 0, priority=3),
+                410: move(40, 1, "special", 1), 44: move(60, 17), 75: move(55, 12),
+                71: move(40, 12, "special"), 590: move(0, 0, "status"),
+                358: move(70, 1), 331: move(25, 12), 183: move(40, 1, priority=1),
+                147: move(0, 12, "status"),
+            },
+            damage_memory={
+                (453, 124, 286): [36, 44], (453, 341, 286): [5, 6],
+                (453, 252, 286): [7, 9], (453, 410, 286): [12, 15],
+                (286, 358, 453): [0], (286, 331, 453): [16, 45], (286, 183, 453): [12, 15],
+                (286, 358, 388): [5, 10], (286, 331, 388): [5, 10], (286, 183, 388): [5, 10],
+                (388, 44, 286): [10, 20], (388, 75, 286): [10, 20], (388, 71, 286): [10, 20],
+            },
+        )
+        self.assertEqual((action["action"], action["move_id"], action["reason"]), (
+            "move", 410, "expected_priority_finish_over_free_switch",
+        ))
+
+    def test_fresh_fake_out_preempts_lethal_attacks_despite_faster_detect(self):
+        croak = {"slot": 0, "present": True, "state": {
+            "species": 453, "current_hp": 18, "max_hp": 54, "level": 21,
+            "attack": 36, "defense": 24, "speed": 26, "special_attack": 34, "special_defense": 19,
+            "types": (3, 1), "moves": (124, 341, 252, 410), "pp": (20, 15, 5, 30), "stat_stages": (6,) * 8,
+        }}
+        meditite = {"slot": 1, "present": True, "state": {
+            "species": 307, "current_hp": 22, "max_hp": 46, "level": 19,
+            "attack": 27, "defense": 25, "speed": 36, "special_attack": 20, "special_defense": 29,
+            "types": (1, 14), "moves": (280, 88, 197, 0), "pp": (21, 15, 5, 0),
+            "stat_stages": (6,) * 8, "ability": 74, "held_item": 558,
+        }}
+        move = lambda power, type_id, category="physical", priority=0: SimpleNamespace(
+            power=power, type_id=type_id, category=category, priority=priority, accuracy=100, raw_flags=(0,),
+        )
+        action = RunBunAdapter.choose_battle_action(
+            {"battle": {"active": True, "mons": [croak, meditite]}, "party": {"mons": [croak]}},
+            move_data={
+                124: move(65, 3, "special"), 341: move(55, 4, "special"), 252: move(40, 0, priority=3),
+                410: move(40, 1, "special", 1), 280: move(75, 1), 88: move(50, 5), 197: move(0, 1, "status", 4),
+            },
+            fresh_entry=True,
+        )
+        self.assertEqual((action["move_id"], action["reason"]), (252, "fresh_entry_fake_out_survival"))
+
+    def test_fresh_fake_out_progress_ignores_harmless_higher_priority_protect(self):
+        player = {"slot": 0, "present": True, "state": {
+            "species": 777, "current_hp": 59, "max_hp": 59, "level": 21,
+            "attack": 42, "defense": 36, "speed": 52, "special_attack": 26, "special_defense": 36,
+            "types": (13, 8), "moves": (252, 609, 232, 209), "pp": (5, 20, 35, 20), "stat_stages": (6,) * 8,
+        }}
+        opponent = {"slot": 1, "present": True, "state": {
+            "species": 67, "current_hp": 62, "max_hp": 62, "level": 18,
+            "attack": 46, "defense": 35, "speed": 26, "special_attack": 26, "special_defense": 31,
+            "types": (1,), "moves": (233, 263, 339, 182), "pp": (13, 20, 19, 10),
+            "stat_stages": (6, 1, 7, 6, 6, 6, 6, 6), "ability": 62, "held_item": 472,
+        }}
+        move = lambda power, type_id, category="physical", priority=0: SimpleNamespace(
+            power=power, type_id=type_id, category=category, priority=priority, accuracy=100, raw_flags=(0,),
+        )
+        action = RunBunAdapter.choose_battle_action(
+            {"battle": {"active": True, "mons": [player, opponent]}, "party": {"mons": [player]}},
+            move_data={
+                252: move(40, 0, priority=3), 609: move(20, 13), 232: move(50, 8), 209: move(65, 13),
+                233: move(70, 1, priority=-1), 263: move(70, 0), 339: move(0, 1, "status"), 182: move(0, 0, "status", 4),
+            },
+            fresh_entry=True,
+        )
+        self.assertEqual((action["move_id"], action["reason"]), (252, "fresh_entry_fake_out_progress"))
+
+    def test_slower_ko_is_not_selected_when_it_faints_before_acting(self):
+        croak = {"slot": 0, "present": True, "state": {
+            "species": 453, "current_hp": 18, "max_hp": 54, "level": 21,
+            "attack": 36, "defense": 24, "speed": 26, "special_attack": 34, "special_defense": 19,
+            "types": (3, 1), "moves": (124, 341, 252, 410), "pp": (20, 15, 4, 30), "stat_stages": (6,) * 8,
+        }}
+        lildozer = {"slot": 1, "present": True, "state": {
+            "species": 231, "current_hp": 69, "max_hp": 69, "level": 21,
+            "attack": 29, "defense": 39, "speed": 27, "special_attack": 22, "special_defense": 23,
+            "types": (4, 15), "moves": (420, 523, 204, 88), "pp": (30, 20, 5, 15), "stat_stages": (6,) * 8,
+        }}
+        meditite = {"slot": 1, "present": True, "state": {
+            "species": 307, "current_hp": 12, "max_hp": 46, "level": 19,
+            "attack": 27, "defense": 25, "speed": 36, "special_attack": 20, "special_defense": 29,
+            "types": (1, 14), "moves": (280, 88, 197, 0), "pp": (21, 15, 5, 0),
+            "stat_stages": (6,) * 8, "ability": 74, "held_item": 558,
+        }}
+        move = lambda power, type_id, category="physical", priority=0: SimpleNamespace(
+            power=power, type_id=type_id, category=category, priority=priority, accuracy=100, raw_flags=(0,),
+        )
+        action = RunBunAdapter.choose_battle_action(
+            {"battle": {"active": True, "mons": [croak, meditite]}, "party": {"mons": [croak, lildozer]}},
+            move_data={
+                124: move(65, 3, "special"), 341: move(55, 4, "special"), 252: move(40, 0, priority=3),
+                410: move(40, 1, "special", 1), 420: move(40, 15, priority=1), 523: move(60, 4),
+                204: move(0, 18, "status"), 88: move(50, 5), 280: move(75, 1), 197: move(0, 1, "status", 4),
+            },
+            fresh_entry=False,
+        )
+        self.assertEqual((action["action"], action["slot"], action["reason"]), (
+            "move", 3, "last_preempting_damage_line",
+        ))
+
+    def test_charm_prevents_a_lethal_physical_critical_before_attacking(self):
+        lildozer = {"slot": 0, "present": True, "state": {
+            "species": 231, "current_hp": 44, "max_hp": 69, "level": 21,
+            "attack": 29, "defense": 39, "speed": 27, "special_attack": 22, "special_defense": 23,
+            "types": (4,), "moves": (420, 523, 204, 88), "pp": (30, 18, 5, 15), "stat_stages": (6,) * 8,
+        }}
+        machoke = {"slot": 1, "present": True, "state": {
+            "species": 67, "current_hp": 62, "max_hp": 62, "level": 18,
+            "attack": 46, "defense": 35, "speed": 26, "special_attack": 26, "special_defense": 31,
+            "types": (1,), "moves": (233, 263, 339, 182), "pp": (16, 20, 20, 10),
+            "stat_stages": (6,) * 8, "ability": 62, "held_item": 472,
+        }}
+        move = lambda power, type_id, category="physical", priority=0: SimpleNamespace(
+            power=power, type_id=type_id, category=category, priority=priority, accuracy=100, raw_flags=(0,),
+        )
+        action = RunBunAdapter.choose_battle_action(
+            {"battle": {"active": True, "mons": [lildozer, machoke]}, "party": {"mons": [lildozer]}},
+            move_data={
+                420: move(40, 15, priority=1), 523: move(60, 4), 204: move(0, 18, "status"), 88: move(50, 5),
+                233: move(70, 1, priority=-1), 263: move(70, 0), 339: move(0, 1, "status"), 182: move(0, 0, "status", 4),
+            },
+            fresh_entry=False,
+        )
+        self.assertEqual((action["move_id"], action["reason"]), (204, "physical_debuff_prevents_critical_ko"))
+        lildozer["state"]["speed"] = 25
+        action = RunBunAdapter.choose_battle_action(
+            {"battle": {"active": True, "mons": [lildozer, machoke]}, "party": {"mons": [lildozer]}},
+            move_data={
+                420: move(40, 15, priority=1), 523: move(60, 4), 204: move(0, 18, "status"), 88: move(50, 5),
+                233: move(70, 1, priority=-1), 263: move(70, 0), 339: move(0, 1, "status"), 182: move(0, 0, "status", 4),
+            }, fresh_entry=False,
+        )
+        self.assertNotEqual(action.get("move_id"), 204)
+
+    def test_charm_cannot_rank_at_the_attack_stage_floor(self):
+        lildozer = {"slot": 0, "present": True, "state": {
+            "species": 231, "current_hp": 19, "max_hp": 69, "level": 21,
+            "attack": 29, "defense": 39, "speed": 27, "special_attack": 22, "special_defense": 23,
+            "types": (4,), "moves": (420, 523, 204, 88), "pp": (30, 18, 2, 15), "stat_stages": (6,) * 8,
+        }}
+        machoke = {"slot": 1, "present": True, "state": {
+            "species": 67, "current_hp": 62, "max_hp": 62, "level": 18,
+            "attack": 46, "defense": 35, "speed": 26, "special_attack": 26, "special_defense": 31,
+            "types": (1,), "moves": (233, 263, 339, 182), "pp": (13, 20, 20, 10),
+            "stat_stages": (6, 0, 6, 6, 6, 6, 6, 6), "ability": 62, "held_item": 472,
+        }}
+        move = lambda power, type_id, category="physical", priority=0: SimpleNamespace(
+            power=power, type_id=type_id, category=category, priority=priority, accuracy=100, raw_flags=(0,),
+        )
+        action = RunBunAdapter.choose_battle_action(
+            {"battle": {"active": True, "mons": [lildozer, machoke]}, "party": {"mons": [lildozer]}},
+            move_data={
+                420: move(40, 15, priority=1), 523: move(60, 4), 204: move(0, 18, "status"), 88: move(50, 5),
+                233: move(70, 1, priority=-1), 263: move(70, 0), 339: move(0, 1, "status"), 182: move(0, 0, "status", 4),
+            },
+            fresh_entry=False,
+        )
+        self.assertNotEqual(action.get("move_id"), 204)
+
     def test_single_type_battler_deduplicates_repeated_live_type_bytes(self):
         mon = {"state": {"species": 388, "types": (12, 12, 9)}}
         self.assertEqual(RunBunAdapter._mon_types(mon), (12,))
 
     def test_current_party_fallback_types_cover_switch_scoring(self):
         self.assertEqual(RunBunAdapter._mon_types({"state": {"species": 453}}), (3, 1))
+        self.assertEqual(RunBunAdapter._mon_types({"state": {"species": 551}}), (4, 17))
         self.assertEqual(RunBunAdapter._mon_types({"state": {"species": 777}}), (13, 8))
 
     def test_ground_is_neutral_into_water_for_bulldoze_estimate(self):
@@ -1079,12 +1455,228 @@ class RunBunTests(unittest.TestCase):
         defender = {"state": {"species": 77, "level": 17, "defense": 28, "types": (10, 10, 9)}}
         self.assertEqual(RunBunAdapter._damage_bounds(523, attacker, defender), (14.0, 18.0))
         attacker["state"]["ability"] = 62
-        self.assertEqual(RunBunAdapter._damage_bounds(523, attacker, defender), (24.0, 30.0))
+        self.assertEqual(RunBunAdapter._damage_bounds(523, attacker, defender), (32.0, 42.0))
+        attacker["state"]["status"] = 8
+        self.assertEqual(RunBunAdapter._damage_bounds(523, attacker, defender), (32.0, 42.0))
+
+    def test_huge_and_pure_power_double_physical_attack(self):
+        attacker = {"state": {"species": 307, "level": 19, "attack": 27, "types": (1,), "ability": 74}}
+        defender = {"state": {"species": 453, "defense": 24, "types": (3, 1)}}
+        pure = RunBunAdapter._damage_bounds(280, attacker, defender)
+        attacker["state"]["ability"] = 37
+        self.assertEqual(RunBunAdapter._damage_bounds(280, attacker, defender), pure)
+        attacker["state"]["ability"] = 0
+        ordinary = RunBunAdapter._damage_bounds(280, attacker, defender)
+        self.assertGreaterEqual(pure[0], ordinary[0] * 1.8)
+
+    def test_coba_berry_halves_super_effective_flying_damage(self):
+        attacker = {"state": {"species": 16, "level": 20, "special_attack": 40, "types": (0, 2)}}
+        defender = {"state": {"species": 307, "special_defense": 30, "types": (1, 14), "held_item": 558}}
+        with_coba = RunBunAdapter._damage_bounds(16, attacker, defender)
+        defender["state"]["held_item"] = 0
+        without_coba = RunBunAdapter._damage_bounds(16, attacker, defender)
+        self.assertLess(with_coba[1], without_coba[0])
 
     def test_levitate_blocks_ground_moves(self):
         attacker = {"state": {"species": 878, "level": 17, "attack": 33, "types": (8, 8, 9)}}
         defender = {"state": {"species": 603, "ability": 26, "current_hp": 54, "level": 17, "defense": 34, "types": (13, 13, 9)}}
         self.assertEqual(RunBunAdapter._damage_bounds(523, attacker, defender), (0.0, 0.0))
+
+    def test_damage_bounds_models_tirtouga_solid_rock_and_rindo(self):
+        tirtouga = {"state": {
+            "species": 564, "level": 16, "types": (11, 5), "defense": 42,
+            "special_defense": 26, "ability": 116, "held_item": 553,
+        }}
+        ohmnomnom = {"state": {"species": 777, "level": 17, "types": (13, 8), "attack": 35}}
+        bushtank = {"state": {"species": 388, "level": 17, "types": (12,), "attack": 38}}
+        chart = {13: {11: 2, 5: 1}, 12: {11: 2, 5: 2}}
+        self.assertEqual(RunBunAdapter._damage_bounds(209, ohmnomnom, tirtouga, type_chart=chart), (18.0, 22.0))
+        self.assertEqual(RunBunAdapter._damage_bounds(75, bushtank, tirtouga, type_chart=chart), (15.0, 19.0))
+        tirtouga["state"]["held_item"] = 0
+        self.assertEqual(RunBunAdapter._damage_bounds(75, bushtank, tirtouga, type_chart=chart), (30.0, 39.0))
+
+    def test_damage_bounds_stack_iron_fist_and_muscle_band(self):
+        ledian = {"state": {
+            "species": 166, "level": 19, "types": (6, 2), "attack": 26,
+            "ability": 89, "held_item": 475,
+        }}
+        croagunk = {"state": {"species": 453, "types": (3, 1), "defense": 24}}
+        thunder_punch = SimpleNamespace(power=75, type_id=13, category="physical")
+        self.assertEqual(
+            RunBunAdapter._damage_bounds(9, ledian, croagunk, move_data={9: thunder_punch}),
+            (16.0, 20.0),
+        )
+
+    def test_damage_bounds_models_fluffy_contact_reduction(self):
+        attacker = {"state": {
+            "species": 453, "level": 21, "types": (3, 1), "attack": 36,
+            "special_attack": 34,
+        }}
+        stufful = {"state": {
+            "species": 759, "types": (0, 1), "defense": 27,
+            "special_defense": 29, "ability": 218,
+        }}
+        fake_out = SimpleNamespace(power=40, type_id=0, category="physical", raw_flags=(1,))
+        vacuum_wave = SimpleNamespace(power=40, type_id=1, category="special", raw_flags=(0,))
+        self.assertEqual(RunBunAdapter._damage_bounds(252, attacker, stufful, move_data={252: fake_out}), (5.0, 6.0))
+        self.assertEqual(RunBunAdapter._damage_bounds(410, attacker, stufful, move_data={410: vacuum_wave}), (26.0, 32.0))
+
+    def test_damage_bounds_include_both_dual_wingbeat_hits(self):
+        farfetchd = {"state": {
+            "species": 979, "level": 18, "types": (1,), "attack": 48,
+            "special_attack": 27,
+        }}
+        grotle = {"state": {
+            "species": 388, "types": (12,), "defense": 42,
+            "special_defense": 41, "ability": 75,
+        }}
+        dual_wingbeat = SimpleNamespace(
+            power=40, type_id=2, category="physical", raw_flags=(51, 2048, 0, 100, 279),
+        )
+        self.assertEqual(
+            RunBunAdapter._damage_bounds(742, farfetchd, grotle, move_data={742: dual_wingbeat}),
+            (32.0, 40.0),
+        )
+
+    def test_damage_bounds_cover_full_variable_pin_missile_range(self):
+        heracross = {"state": {
+            "species": 214, "level": 19, "types": (6, 1), "attack": 58,
+            "special_attack": 23,
+        }}
+        togedemaru = {"state": {
+            "species": 777, "types": (13, 8), "defense": 36,
+            "special_defense": 36, "stat_stages": (6, 6, 5, 6, 6, 6, 6, 6),
+        }}
+        pin_missile = SimpleNamespace(power=25, type_id=6, category="physical", raw_flags=(50, 0, 0, 100, 19))
+        self.assertEqual(
+            RunBunAdapter._damage_bounds(
+                42, heracross, togedemaru,
+                move_data={42: pin_missile}, type_chart={6: {13: 1, 8: 0.5}},
+            ),
+            (14.0, 45.0),
+        )
+
+    def test_damage_bounds_cover_all_three_triple_axel_hits(self):
+        buneary = {"state": {
+            "species": 427, "level": 19, "types": (0,), "attack": 40, "special_attack": 20,
+        }}
+        grotle = {"state": {
+            "species": 388, "types": (12,), "defense": 42, "special_defense": 41,
+        }}
+        triple_axel = SimpleNamespace(power=20, type_id=15, category="physical", raw_flags=(0,))
+        self.assertEqual(
+            RunBunAdapter._damage_bounds(741, buneary, grotle, move_data={741: triple_axel}),
+            (4.0, 25.0),
+        )
+
+    def test_classifier_uses_fresh_fake_out_only_for_a_safe_threshold(self):
+        player = {
+            "species": 777, "current_hp": 50, "max_hp": 50, "level": 17,
+            "types": (13, 8), "moves": (252, 609, 232, 209), "pp": (5, 20, 35, 20),
+            "speed": 44, "attack": 35, "defense": 30, "special_attack": 22, "special_defense": 30,
+            "stat_stages": (6,) * 8, "ability": 160, "held_item": 0,
+        }
+        murkrow = {
+            "species": 198, "current_hp": 47, "max_hp": 47, "level": 15,
+            "types": (17, 2), "moves": (252, 371, 101, 0), "pp": (5, 10, 15, 0),
+            "speed": 39, "attack": 35, "defense": 22, "special_attack": 31, "special_defense": 22,
+            "stat_stages": (6,) * 8, "ability": 15, "held_item": 522,
+        }
+        observation = {
+            "battle": {"active": True, "format": "single", "mons": [
+                {"slot": 0, "present": True, "state": player},
+                {"slot": 1, "present": True, "state": murkrow},
+            ]},
+            "party": {"mons": []},
+        }
+        move = lambda move_id, power, type_id, priority=0: SimpleNamespace(
+            move_id=move_id, name=str(move_id), power=power, type_id=type_id,
+            type_name=str(type_id), accuracy=100, pp=10, secondary_chance=0,
+            target_flags=0, priority=priority, category="physical",
+        )
+        move_data = {
+            252: move(252, 40, 0, 3), 609: move(609, 20, 13), 232: move(232, 50, 8),
+            209: move(209, 65, 13), 17: move(17, 60, 2), 371: move(371, 50, 17),
+            101: move(101, 0, 7),
+        }
+        chart = {13: {17: 1, 2: 2}, 0: {17: 1, 2: 1}, 8: {17: 1, 2: 1}}
+        fresh = RunBunAdapter.choose_battle_action(
+            observation, move_data=move_data, type_chart=chart, fresh_entry=True,
+        )
+        stale = RunBunAdapter.choose_battle_action(
+            observation, move_data=move_data, type_chart=chart, fresh_entry=False,
+        )
+        self.assertEqual((fresh["move_id"], fresh["reason"]), (252, "fresh_entry_fake_out_threshold"))
+        self.assertEqual(stale["move_id"], 209)
+
+        murkrow["held_item"] = 523
+        murkrow["max_hp"] = 100
+        self.assertNotEqual(
+            RunBunAdapter.choose_battle_action(
+                observation, move_data=move_data, type_chart=chart, fresh_entry=True,
+            ).get("move_id"),
+            252,
+        )
+        murkrow["held_item"] = 522
+        murkrow["max_hp"] = 47
+
+        move_data[182] = move(182, 0, 0, 4)
+        murkrow["moves"] = (17, 182, 0, 0)
+        protected = RunBunAdapter.choose_battle_action(
+            observation, move_data=move_data, type_chart=chart, fresh_entry=True,
+        )
+        self.assertEqual((protected["move_id"], protected["reason"]), (252, "fresh_entry_fake_out_progress"))
+
+    def test_iapapa_berry_matches_verified_quarter_threshold_and_half_heal(self):
+        kubfu = {"held_item": 528, "current_hp": 21, "max_hp": 60}
+        self.assertEqual(_berry_heal(kubfu), 30)
+        self.assertTrue(_berry_triggers_after(kubfu, 8))
+        kubfu["current_hp"] = 26
+        self.assertFalse(_berry_triggers_after(kubfu, 8))
+
+    def test_classifier_takes_free_fresh_fake_out_before_a_critical_switch(self):
+        croagunk = {"slot": 0, "present": True, "state": {
+            "species": 453, "current_hp": 54, "max_hp": 54, "level": 21,
+            "attack": 36, "defense": 24, "speed": 26,
+            "special_attack": 34, "special_defense": 19,
+            "types": (3, 1, 9), "moves": (124, 341, 252, 410), "pp": (20, 15, 5, 30),
+            "stat_stages": (6,) * 8, "ability": 143, "held_item": 0,
+        }}
+        grotle = {"slot": 3, "present": True, "state": {
+            "species": 388, "current_hp": 69, "max_hp": 69, "level": 21,
+            "attack": 46, "defense": 42, "speed": 23,
+            "special_attack": 30, "special_defense": 41,
+            "types": (12, 12, 9), "moves": (44, 75, 71, 590), "pp": (25, 25, 25, 10),
+            "stat_stages": (6,) * 8, "ability": 65, "held_item": 0,
+        }}
+        farfetchd = {"slot": 1, "present": True, "state": {
+            "species": 979, "current_hp": 52, "max_hp": 52, "level": 18,
+            "attack": 48, "defense": 30, "speed": 30,
+            "special_attack": 27, "special_defense": 32,
+            "types": (1, 1, 9), "moves": (249, 282, 742, 98), "pp": (24, 20, 10, 30),
+            "stat_stages": (6,) * 8, "ability": 113, "held_item": 523,
+        }}
+        move = lambda power, type_id, category="physical", priority=0: SimpleNamespace(
+            power=power, type_id=type_id, category=category, priority=priority, accuracy=100,
+        )
+        move_data = {
+            124: move(65, 3, "special"), 341: move(55, 4, "special"),
+            252: move(40, 0, priority=3), 410: move(40, 1, "special", 1),
+            249: move(40, 1), 282: move(65, 17), 742: move(40, 2), 98: move(40, 0, priority=1),
+            44: move(60, 17), 75: move(55, 12), 71: move(40, 12, "special"),
+            590: move(0, 0, "status"),
+        }
+        action = RunBunAdapter.choose_battle_action(
+            {
+                "battle": {"active": True, "format": "single", "mons": [croagunk, farfetchd]},
+                "party": {"mons": [croagunk, grotle]},
+            },
+            move_data=move_data,
+            fresh_entry=True,
+        )
+        self.assertEqual((action["action"], action["move_id"], action["reason"]), (
+            "move", 252, "fresh_entry_fake_out_survival",
+        ))
 
     def test_electric_is_ineffective_into_ground(self):
         attacker = {"state": {"species": 603, "level": 17, "special_attack": 35, "types": (13, 13, 9)}}
@@ -1121,6 +1713,15 @@ class RunBunTests(unittest.TestCase):
         state = {"stat_stages": (6, 5, 6, 6, 6)}
         self.assertAlmostEqual(RunBunAdapter._stage_multiplier(state, "attack"), 2 / 3)
 
+    def test_facade_power_doubles_when_the_attacker_is_statused(self):
+        move = SimpleNamespace(power=70, type_id=0, category="physical")
+        attacker = {"species": 67, "level": 18, "attack": 46, "types": (1,), "status": 0}
+        defender = {"species": 453, "defense": 24, "types": (3, 1)}
+        healthy = RunBunAdapter._damage_bounds(263, attacker, defender, move_data={263: move})
+        attacker["status"] = 8
+        statused = RunBunAdapter._damage_bounds(263, attacker, defender, move_data={263: move})
+        self.assertGreater(statused[0], healthy[1])
+
     def test_battle_strategy_keeps_a_finisher_against_faster_threat(self):
         observation = {
             "battle": {"active": True, "mons": [
@@ -1140,10 +1741,47 @@ class RunBunTests(unittest.TestCase):
             "party": {"mons": []},
         }
         action = RunBunAdapter.choose_battle_action(observation)
-        self.assertEqual(action["action"], "move")
+        self.assertEqual(action["action"], "move", action)
         self.assertEqual(action["move_id"], 16)
 
-    def test_battle_strategy_switches_to_matchup_before_forced_faint(self):
+    def test_battle_strategy_ignores_slower_crit_when_priority_hit_cannot_stop_ko(self):
+        active = {"slot": 0, "present": True, "state": {
+            "species": 777, "current_hp": 53, "max_hp": 59, "level": 21,
+            "attack": 42, "defense": 36, "speed": 52, "special_attack": 26, "special_defense": 36,
+            "types": (13, 8), "moves": (252, 609, 232, 209), "pp": (4, 20, 35, 20),
+            "stat_stages": (6,) * 8,
+        }}
+        bench = {"slot": 1, "present": True, "state": {
+            "species": 231, "current_hp": 69, "max_hp": 69, "level": 21,
+            "attack": 29, "defense": 39, "speed": 27, "special_attack": 22, "special_defense": 23,
+            "types": (4,), "moves": (420, 523, 204, 88), "pp": (30, 20, 5, 15),
+            "stat_stages": (6,) * 8,
+        }}
+        foe = {"slot": 1, "present": True, "state": {
+            "species": 166, "current_hp": 7, "max_hp": 55, "level": 19,
+            "attack": 26, "defense": 29, "speed": 43, "special_attack": 27, "special_defense": 52,
+            "types": (6, 2), "moves": (409, 183, 0, 0), "pp": (16, 30, 0, 0),
+            "stat_stages": (6,) * 8, "ability": 89, "held_item": 475,
+        }}
+        move = lambda power, type_id, priority=0: SimpleNamespace(
+            power=power, type_id=type_id, category="physical", priority=priority, accuracy=100,
+            raw_flags=(0,),
+        )
+        action = RunBunAdapter.choose_battle_action(
+            {"battle": {"active": True, "mons": [active, foe]}, "party": {"mons": [active, bench]}},
+            move_data={
+                252: move(40, 0, 3), 609: move(20, 13), 232: move(50, 8), 209: move(65, 13),
+                409: move(75, 1), 183: move(40, 1, 1),
+                420: move(40, 15, 1), 523: move(60, 4), 204: SimpleNamespace(power=0, type_id=18, category="status", priority=0, accuracy=100),
+                88: move(50, 5),
+            },
+            fresh_entry=False,
+        )
+        self.assertEqual((action["action"], action["move_id"], action["reason"]), (
+            "move", 209, "survive_priority_and_finish",
+        ))
+
+    def test_battle_strategy_rejects_a_sacrificial_matchup_switch(self):
         seedot = {"slot": 0, "present": True, "state": {
             "species": 273, "current_hp": 10, "max_hp": 34,
             "attack": 16, "defense": 18, "speed": 10,
@@ -1166,8 +1804,321 @@ class RunBunTests(unittest.TestCase):
             "party": {"mons": [seedot, pidgey]},
         }
         action = RunBunAdapter.choose_battle_action(observation)
+        self.assertEqual(action["action"], "move", action)
+        self.assertEqual(action.get("move_id"), 267, action)
+
+    def test_battle_strategy_does_not_trade_a_safe_attack_for_matchup_switch(self):
+        bushtank = {"slot": 0, "present": True, "state": {
+            "species": 388, "current_hp": 57, "max_hp": 69, "level": 21,
+            "attack": 46, "defense": 42, "speed": 23,
+            "special_attack": 30, "special_defense": 41,
+            "types": (12, 12, 9), "moves": (44, 75, 71, 590), "pp": (25, 25, 25, 10),
+        }}
+        ohmnomnom = {"slot": 2, "present": True, "state": {
+            "species": 777, "current_hp": 59, "max_hp": 59, "level": 21,
+            "attack": 42, "defense": 36, "speed": 52,
+            "special_attack": 26, "special_defense": 36,
+            "types": (13, 8, 9), "moves": (252, 609, 232, 209), "pp": (5, 20, 35, 20),
+        }}
+        riolu = {"slot": 1, "present": True, "state": {
+            "species": 447, "current_hp": 47, "max_hp": 47, "level": 18,
+            "attack": 35, "defense": 24, "speed": 35,
+            "special_attack": 20, "special_defense": 24,
+            "types": (1, 1, 9), "moves": (395, 34, 0, 0), "pp": (16, 14, 0, 0),
+        }}
+        action = RunBunAdapter.choose_battle_action({
+            "battle": {"active": True, "format": "single", "mons": [bushtank, riolu]},
+            "party": {"mons": [bushtank, ohmnomnom]},
+        })
+        self.assertEqual((action["action"], action["move_id"]), ("move", 75))
+
+    def test_battle_strategy_uses_a_critical_safe_switch_for_verified_crit_risk(self):
+        bushtank = {"slot": 0, "present": True, "state": {
+            "species": 388, "current_hp": 29, "max_hp": 69, "level": 21,
+            "attack": 46, "defense": 42, "speed": 23,
+            "special_attack": 30, "special_defense": 41,
+            "types": (12, 12, 9), "moves": (44, 75, 71, 590), "pp": (25, 23, 25, 10),
+        }}
+        lildozer = {"slot": 1, "present": True, "state": {
+            "species": 231, "current_hp": 69, "max_hp": 69, "level": 21,
+            "attack": 29, "defense": 39, "speed": 27,
+            "special_attack": 22, "special_defense": 23,
+            "types": (4, 4, 9), "moves": (420, 523, 204, 88), "pp": (30, 20, 5, 15),
+        }}
+        stufful = {"slot": 1, "present": True, "state": {
+            "species": 759, "current_hp": 56, "max_hp": 56, "level": 17,
+            "attack": 42, "defense": 26, "speed": 27,
+            "special_attack": 22, "special_defense": 25,
+            "types": (0, 1, 9), "moves": (34, 395, 339, 0), "pp": (15, 10, 20, 0),
+        }}
+        action = RunBunAdapter.choose_battle_action({
+            "battle": {"active": True, "format": "single", "mons": [bushtank, stufful]},
+            "party": {"mons": [bushtank, lildozer]},
+        })
+        self.assertEqual((action["action"], action["species"], action["reason"]), (
+            "switch", 231, "critical_survival_switch",
+        ))
+
+    def test_battle_strategy_rejects_a_switch_that_only_survives_entry(self):
+        croagunk = {"slot": 0, "present": True, "state": {
+            "species": 453, "current_hp": 30, "max_hp": 54, "level": 21,
+            "attack": 36, "defense": 24, "speed": 26,
+            "special_attack": 34, "special_defense": 19,
+            "types": (3, 1, 9), "moves": (124, 341, 252, 410), "pp": (19, 15, 4, 30),
+            "stat_stages": (6, 6, 5, 6, 6, 6, 6, 6), "ability": 143, "held_item": 0,
+        }}
+        togedemaru = {"slot": 2, "present": True, "state": {
+            "species": 777, "current_hp": 39, "max_hp": 59, "level": 21,
+            "attack": 42, "defense": 36, "speed": 52,
+            "special_attack": 26, "special_defense": 36,
+            "types": (13, 8, 9), "moves": (252, 609, 232, 209), "pp": (5, 20, 35, 18),
+            "stat_stages": (6,) * 8, "ability": 160, "held_item": 0,
+        }}
+        heracross = {"slot": 1, "present": True, "state": {
+            "species": 214, "current_hp": 42, "max_hp": 65, "level": 19,
+            "attack": 58, "defense": 39, "speed": 47,
+            "special_attack": 23, "special_defense": 46,
+            "types": (6, 1, 9), "moves": (42, 249, 0, 0), "pp": (31, 14, 0, 0),
+            "stat_stages": (6,) * 8, "ability": 68, "held_item": 522,
+        }}
+        move = lambda power, type_id, category="physical", priority=0: SimpleNamespace(
+            power=power, type_id=type_id, category=category, priority=priority, accuracy=100,
+            raw_flags=(0,),
+        )
+        action = RunBunAdapter.choose_battle_action(
+            {
+                "battle": {"active": True, "format": "single", "mons": [croagunk, heracross]},
+                "party": {"mons": [croagunk, togedemaru]},
+            },
+            move_data={
+                124: move(65, 3, "special"), 341: move(55, 4, "special"),
+                252: move(40, 0, priority=3), 410: move(40, 1, "special", 1),
+                42: move(25, 6), 249: move(40, 1), 609: move(20, 13),
+                232: move(50, 8), 209: move(65, 13),
+            },
+            type_chart={
+                0: {6: 1, 1: 1}, 1: {6: 0.5, 1: 1}, 3: {6: 1, 1: 1},
+                4: {6: 0.5, 1: 1}, 6: {3: 0.5, 1: 0.5, 13: 1, 8: 0.5},
+                8: {6: 1, 1: 1}, 13: {6: 1, 1: 1},
+            },
+            fresh_entry=False,
+        )
+        self.assertEqual((action["action"], action.get("move_id")), ("move", 410), action)
+
+    def test_battle_strategy_uses_charm_when_it_changes_a_physical_damage_race(self):
+        lildozer = {"slot": 0, "present": True, "state": {
+            "species": 231, "current_hp": 30, "max_hp": 69, "level": 21,
+            "attack": 29, "defense": 39, "speed": 27,
+            "special_attack": 22, "special_defense": 23,
+            "types": (4, 4, 9), "moves": (420, 523, 204, 88), "pp": (30, 19, 5, 15),
+        }}
+        stufful = {"slot": 1, "present": True, "state": {
+            "species": 759, "current_hp": 38, "max_hp": 56, "level": 17,
+            "attack": 35, "defense": 27, "speed": 18,
+            "special_attack": 22, "special_defense": 29,
+            "types": (0, 1, 9), "moves": (34, 395, 339, 0), "pp": (23, 10, 20, 0),
+        }}
+        move = lambda power, category, type_id=0: SimpleNamespace(
+            power=power, type_id=type_id, category=category, priority=0, accuracy=100,
+        )
+        action = RunBunAdapter.choose_battle_action(
+            {
+                "battle": {"active": True, "format": "single", "mons": [lildozer, stufful]},
+                "party": {"mons": [lildozer]},
+            },
+            move_data={
+                420: move(40, "physical", 15), 523: move(60, "physical", 4),
+                204: move(0, "status", 18), 88: move(50, "physical", 5),
+                34: move(85, "physical"), 395: move(60, "physical"), 339: move(0, "status"),
+            },
+        )
+        self.assertEqual((action["move_id"], action["reason"]), (
+            204, "physical_debuff_prevents_critical_ko",
+        ))
+
+    def test_charm_cannot_make_an_offensive_pivot_crit_safe(self):
+        lildozer = {"slot": 0, "present": True, "state": {
+            "species": 231, "current_hp": 52, "max_hp": 69, "level": 21,
+            "attack": 29, "defense": 39, "speed": 27,
+            "special_attack": 22, "special_defense": 23,
+            "types": (4, 4, 9), "moves": (420, 523, 204, 88), "pp": (30, 20, 5, 15),
+            "stat_stages": (6,) * 8, "ability": 56, "held_item": 0,
+        }}
+        ohmnomnom = {"slot": 2, "present": True, "state": {
+            "species": 777, "current_hp": 59, "max_hp": 59, "level": 21,
+            "attack": 42, "defense": 36, "speed": 52,
+            "special_attack": 26, "special_defense": 36,
+            "types": (13, 8, 9), "moves": (252, 609, 232, 209), "pp": (5, 20, 35, 20),
+            "stat_stages": (6,) * 8, "ability": 160, "held_item": 0,
+        }}
+        farfetchd = {"slot": 1, "present": True, "state": {
+            "species": 979, "current_hp": 52, "max_hp": 52, "level": 18,
+            "attack": 48, "defense": 30, "speed": 30,
+            "special_attack": 27, "special_defense": 32,
+            "types": (1, 1, 9), "moves": (249, 282, 742, 98), "pp": (24, 20, 8, 30),
+            "stat_stages": (6,) * 8, "ability": 39, "held_item": 523,
+        }}
+        move = lambda power, type_id, category="physical", priority=0: SimpleNamespace(
+            power=power, type_id=type_id, category=category, priority=priority, accuracy=100,
+            raw_flags=(0,),
+        )
+        move_data = {
+            420: move(40, 15, priority=1), 523: move(60, 4), 204: move(0, 18, "status"),
+            88: move(50, 5), 249: move(40, 1), 282: move(65, 17),
+            742: move(40, 2), 98: move(40, 0, priority=1),
+            252: move(40, 0, priority=3), 609: move(20, 13), 232: move(50, 8), 209: move(65, 13),
+        }
+        action = RunBunAdapter.choose_battle_action(
+            {
+                "battle": {"active": True, "format": "single", "mons": [lildozer, farfetchd]},
+                "party": {"mons": [lildozer, ohmnomnom]},
+            },
+            move_data=move_data,
+            fresh_entry=True,
+        )
+        self.assertEqual((action["action"], action["move_id"], action["reason"]), (
+            "move", 523, "best_damage_while_surviving",
+        ))
+
+        lildozer["state"]["current_hp"] = 35
+        farfetchd["state"]["stat_stages"] = (6, 4, 6, 6, 6, 6, 6, 6)
+        action = RunBunAdapter.choose_battle_action(
+            {
+                "battle": {"active": True, "format": "single", "mons": [lildozer, farfetchd]},
+                "party": {"mons": [lildozer, ohmnomnom]},
+            },
+            move_data=move_data,
+            fresh_entry=False,
+        )
+        self.assertEqual((action["action"], action["move_id"], action["reason"]), (
+            "move", 523, "best_damage_while_surviving",
+        ))
+
+    def test_battle_strategy_avoids_activating_guts_before_the_reply(self):
+        ohmnomnom = {"slot": 0, "present": True, "state": {
+            "species": 777, "current_hp": 59, "max_hp": 59, "level": 21,
+            "attack": 42, "defense": 36, "speed": 52,
+            "special_attack": 26, "special_defense": 36,
+            "types": (13, 8, 9), "moves": (252, 609, 232, 209), "pp": (4, 20, 35, 19),
+            "stat_stages": (6,) * 8, "ability": 160, "held_item": 0, "status": 0,
+        }}
+        machoke = {"slot": 1, "present": True, "state": {
+            "species": 67, "current_hp": 59, "max_hp": 62, "level": 18,
+            "attack": 46, "defense": 33, "speed": 26,
+            "special_attack": 25, "special_defense": 28,
+            "types": (1, 1, 9), "moves": (233, 263, 339, 182), "pp": (9, 20, 19, 10),
+            "stat_stages": (6, 1, 7, 6, 6, 6, 6, 6), "ability": 62,
+            "held_item": 472, "status": 0,
+        }}
+        move = lambda power, type_id, category="physical", priority=0, secondary=0: SimpleNamespace(
+            power=power, type_id=type_id, category=category, priority=priority,
+            accuracy=100, secondary_chance=secondary, raw_flags=(0,),
+        )
+        action = RunBunAdapter.choose_battle_action(
+            {
+                "battle": {"active": True, "format": "single", "mons": [ohmnomnom, machoke]},
+                "party": {"mons": [ohmnomnom]},
+            },
+            move_data={
+                252: move(40, 0, priority=3), 609: move(20, 13, secondary=100),
+                232: move(50, 8, secondary=10), 209: move(65, 13, secondary=30),
+                233: move(70, 1, priority=-1), 263: move(70, 0),
+                339: move(0, 1, "status"), 182: move(0, 0, "status", priority=4),
+            },
+        )
+        self.assertEqual((action["action"], action["move_id"], action["reason"]), (
+            "move", 232, "avoid_activating_guts_before_reply",
+        ))
+
+        machoke["state"]["current_hp"] = 15
+        action = RunBunAdapter.choose_battle_action(
+            {
+                "battle": {"active": True, "format": "single", "mons": [ohmnomnom, machoke]},
+                "party": {"mons": [ohmnomnom]},
+            },
+            move_data={
+                252: move(40, 0, priority=3), 609: move(20, 13, secondary=100),
+                232: move(50, 8, secondary=10), 209: move(65, 13, secondary=30),
+                233: move(70, 1, priority=-1), 263: move(70, 0),
+                339: move(0, 1, "status"), 182: move(0, 0, "status", priority=4),
+            },
+        )
+        self.assertEqual((action["action"], action["move_id"]), ("move", 209))
+
+    def test_forced_replacement_returns_a_legal_surviving_party_slot(self):
+        fainted = {"slot": 0, "present": True, "state": {
+            "species": 1, "current_hp": 0, "max_hp": 30, "level": 15,
+            "attack": 20, "defense": 20, "speed": 20, "special_attack": 20,
+            "special_defense": 20, "types": (12,), "moves": (10, 0, 0, 0), "pp": (10, 0, 0, 0),
+        }}
+        fragile = {"slot": 1, "present": True, "state": {
+            "species": 2, "current_hp": 10, "max_hp": 30, "level": 15,
+            "attack": 20, "defense": 10, "speed": 30, "special_attack": 20,
+            "special_defense": 10, "types": (12,), "moves": (252, 0, 0, 0), "pp": (5, 0, 0, 0),
+        }}
+        sturdy = {"slot": 2, "present": True, "state": {
+            "species": 3, "current_hp": 60, "max_hp": 60, "level": 15,
+            "attack": 20, "defense": 50, "speed": 10, "special_attack": 20,
+            "special_defense": 50, "types": (12,), "moves": (10, 0, 0, 0), "pp": (10, 0, 0, 0),
+        }}
+        foe = {"slot": 1, "present": True, "state": {
+            "species": 4, "current_hp": 40, "max_hp": 40, "level": 15,
+            "attack": 35, "defense": 20, "speed": 20, "special_attack": 20,
+            "special_defense": 20, "types": (0,), "moves": (10, 0, 0, 0), "pp": (10, 0, 0, 0),
+        }}
+        move = SimpleNamespace(power=40, type_id=0, category="physical", priority=0)
+        action = RunBunAdapter.choose_battle_action(
+            {
+                "battle": {"active": True, "party_switch_required": True, "menu": {"state": "party_switch"}, "mons": [fainted, foe]},
+                "party": {"mons": [fainted, fragile, sturdy]},
+            },
+            move_data={10: move, 252: move},
+        )
+        self.assertEqual((action["action"], action["slot"], action["reason"]), (
+            "switch", 2, "forced_replacement_best_entry",
+        ))
+
+        foe["state"]["current_hp"] = 1
+        priority_move = SimpleNamespace(power=40, type_id=0, category="physical", priority=3)
+        action = RunBunAdapter.choose_battle_action(
+            {
+                "battle": {"active": True, "party_switch_required": True, "menu": {"state": "party_switch"}, "mons": [fainted, foe]},
+                "party": {"mons": [fainted, fragile, sturdy]},
+            },
+            move_data={10: move, 252: priority_move},
+        )
+        self.assertEqual(action["slot"], 1)
+
+    def test_two_turn_finish_is_not_safe_against_higher_priority_damage(self):
+        player = {"slot": 0, "present": True, "state": {
+            "species": 1, "current_hp": 50, "max_hp": 50, "level": 20,
+            "attack": 30, "defense": 20, "speed": 40, "special_attack": 20,
+            "special_defense": 20, "types": (0,), "moves": (10, 0, 0, 0), "pp": (10, 0, 0, 0),
+        }}
+        foe = {"slot": 1, "present": True, "state": {
+            "species": 2, "current_hp": 30, "max_hp": 30, "level": 20,
+            "attack": 35, "defense": 30, "speed": 20, "special_attack": 20,
+            "special_defense": 20, "types": (0,), "moves": (183, 0, 0, 0), "pp": (10, 0, 0, 0),
+        }}
+        move = lambda power, priority=0: SimpleNamespace(
+            power=power, type_id=0, category="physical", priority=priority,
+        )
+        action = RunBunAdapter.choose_battle_action(
+            {"battle": {"active": True, "mons": [player, foe]}, "party": {"mons": [player]}},
+            move_data={10: move(40), 183: move(40, 1)},
+        )
+        self.assertNotEqual(action["reason"], "safe_two_turn_finish")
+
+        player["state"]["current_hp"] = 2
+        foe["state"]["current_hp"] = 4
+        sturdy = {"slot": 1, "present": True, "state": {
+            **player["state"], "species": 3, "current_hp": 50, "max_hp": 50,
+        }}
+        action = RunBunAdapter.choose_battle_action(
+            {"battle": {"active": True, "mons": [player, foe]}, "party": {"mons": [player, sturdy]}},
+            move_data={10: move(40), 183: move(40, 1)},
+        )
         self.assertEqual(action["action"], "switch")
-        self.assertEqual(action["species"], 16)
 
     def test_battle_strategy_reuses_observed_super_effective_damage(self):
         seedot = {"slot": 0, "present": True, "state": {

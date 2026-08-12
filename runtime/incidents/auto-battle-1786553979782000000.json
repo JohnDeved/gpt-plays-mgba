@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "20260812T165939Z-certified-battle-step-prediction-mismatch",
+  "status": "observed",
+  "created_at": "2026-08-12T16:59:39.810534+00:00",
+  "summary": "Certified battle step prediction mismatch",
+  "component": "certified battle interface",
+  "symptom": "opponent consumed unexpected PP: [{'battler': 1, 'slot': 2, 'move_id': 741, 'delta': 2}]; allied HP loss 42 exceeded modeled incoming critical bound 34",
+  "classification": "prediction_model",
+  "severity": "high",
+  "live_state": {
+    "required": false,
+    "preserved": false,
+    "artifact": null,
+    "sha256": null,
+    "canonical_state": {},
+    "restored_after_probe": null
+  },
+  "unexpected": {
+    "predicted": "One legal action reaches a changed stable battle boundary: {'kind': 'move', 'slot': 1, 'move_id': 75, 'pp': 25}",
+    "actual": "{\"allied_action_outcome\": \"executed\", \"allied_pp_deltas\": [{\"battler\": 0, \"delta\": 1, \"move_id\": 75, \"slot\": 1}], \"enemy_move_id\": null, \"enemy_move_ids\": [], \"opponent_pp_deltas\": [{\"battler\": 1, \"delta\": 2, \"move_id\": 741, \"slot\": 2}], \"resolution\": {\"feedback\": \"It's super effective!\\nHit 3 time<0x5C>s<0x5D>!\\nBushtank used\\nRazor Leaf!\\nA critical hit!\\n<0xA0>                     What will\\nBushtank do?\", \"frames\": 264, \"presses\": 6, \"state\": \"command_menu\"}}",
+    "diff": [],
+    "extra_state_deltas": []
+  },
+  "authority": {
+    "oracle": "",
+    "sources": []
+  },
+  "reproduction": {
+    "deterministic": false,
+    "fixture": null,
+    "fixture_sha256": null,
+    "command": "",
+    "steps": [],
+    "run_count": 0,
+    "same_outcome": false,
+    "observed": ""
+  },
+  "hypotheses": [],
+  "root_cause": {
+    "verified": false,
+    "claim": "",
+    "evidence": [],
+    "alternatives_falsified": []
+  },
+  "solution": {
+    "kind": null,
+    "files": [],
+    "contract_change": "",
+    "workaround": null
+  },
+  "verification": {
+    "targeted_checks": [],
+    "regression_checks": [],
+    "replay": {
+      "passed": false,
+      "runs": 0,
+      "expected": "",
+      "actual": "",
+      "extra_state_deltas": []
+    },
+    "metrics": {}
+  },
+  "learning": {
+    "domain_knowledge": [],
+    "regression_cases": [],
+    "tooling_contracts": []
+  },
+  "action_changing_unknowns": [],
+  "next_experiments": []
+}

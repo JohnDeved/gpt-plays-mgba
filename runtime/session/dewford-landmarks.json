@@ -1,0 +1,255 @@
+{
+  "map": {
+    "group": 0,
+    "number": 11,
+    "x": 10,
+    "y": 18,
+    "warp_id": 2
+  },
+  "landmarks": [
+    {
+      "slot": 0,
+      "local_id": 1,
+      "graphics_id": 20,
+      "position": [
+        7,
+        12
+      ],
+      "movement_type": 5,
+      "trainer_type": 0,
+      "script_address": "0x0821dfcb",
+      "flag_id": 0,
+      "active_runtime": true,
+      "runtime_slot": 1,
+      "script_text": [
+        "Dewford is a tiny island community<AD><FE>If something gets trendy here<B8><FA>everyone picks up on it right away<AD>"
+      ],
+      "sign_role": null
+    },
+    {
+      "slot": 1,
+      "local_id": 2,
+      "graphics_id": 21,
+      "position": [
+        12,
+        9
+      ],
+      "movement_type": 9,
+      "trainer_type": 0,
+      "script_address": "0x0821defc",
+      "flag_id": 740,
+      "active_runtime": false,
+      "runtime_slot": null,
+      "script_text": [
+        "Letter delivered<AC><FE>Off to Slateport<AB>",
+        "Anchors aweigh<AB><FE>Peeko<B8> we<B4>re setting sail<B8> my darling<AB>",
+        "You just tell me whenever<FE>you need to set sail again<AB>",
+        "Then you go on and deliver<FE>that Letter<AD> I<B4>ll be waiting<AD>"
+      ],
+      "sign_role": null
+    },
+    {
+      "slot": 2,
+      "local_id": 3,
+      "graphics_id": 50,
+      "position": [
+        14,
+        13
+      ],
+      "movement_type": 2,
+      "trainer_type": 0,
+      "script_address": "0x0821e143",
+      "flag_id": 0,
+      "active_runtime": true,
+      "runtime_slot": 2,
+      "script_text": [
+        "My Old Rods are obsolete<B8><FE>I don<B4>t know what will be of my life<AD>"
+      ],
+      "sign_role": null
+    },
+    {
+      "slot": 3,
+      "local_id": 4,
+      "graphics_id": 88,
+      "position": [
+        12,
+        8
+      ],
+      "movement_type": 8,
+      "trainer_type": 0,
+      "script_address": "0x00000000",
+      "flag_id": 743,
+      "active_runtime": false,
+      "runtime_slot": null,
+      "script_text": [],
+      "sign_role": null
+    },
+    {
+      "slot": 4,
+      "local_id": 5,
+      "graphics_id": 7,
+      "position": [
+        1,
+        6
+      ],
+      "movement_type": 1,
+      "trainer_type": 0,
+      "script_address": "0x0821e2ce",
+      "flag_id": 0,
+      "active_runtime": false,
+      "runtime_slot": null,
+      "script_text": [
+        "Well<B8> if you hear of any happening new<FE>trends<B8> come share them with me<B8> okay<AC>"
+      ],
+      "sign_role": null
+    },
+    {
+      "slot": 5,
+      "local_id": 6,
+      "graphics_id": 239,
+      "position": [
+        10,
+        17
+      ],
+      "movement_type": 0,
+      "trainer_type": 0,
+      "script_address": "0x0821dfe6",
+      "flag_id": 143,
+      "active_runtime": false,
+      "runtime_slot": null,
+      "script_text": [
+        "The doors are locked<AD>"
+      ],
+      "sign_role": null
+    }
+  ],
+  "background_events": [
+    {
+      "slot": 0,
+      "position": [
+        10,
+        10
+      ],
+      "elevation": 0,
+      "kind": 0,
+      "script_address": "0x0821dfd4",
+      "map_id": [
+        0,
+        11
+      ],
+      "source": "map_background_event",
+      "script_text": [
+        "Dewford Town<FE><B1>A tiny island in the blue sea<AD><B2>"
+      ],
+      "sign_role": null
+    },
+    {
+      "slot": 1,
+      "position": [
+        13,
+        16
+      ],
+      "elevation": 0,
+      "kind": 0,
+      "script_address": "0x0821dfef",
+      "map_id": [
+        0,
+        11
+      ],
+      "source": "map_background_event",
+      "script_text": [
+        "Dewford Town Pok<1B>mon Gym<FE>Leader<F0> Brawly<FA><B1>A big wave in fighting<AB><B2>"
+      ],
+      "sign_role": "gym"
+    },
+    {
+      "slot": 2,
+      "position": [
+        4,
+        10
+      ],
+      "elevation": 0,
+      "kind": 1,
+      "script_address": "0x082a9ae7",
+      "map_id": [
+        0,
+        11
+      ],
+      "source": "map_background_event",
+      "script_text": [
+        "<B1>Rejuvenate your tired partners<AB><B2><FE>Pok<1B>mon Center"
+      ],
+      "sign_role": "pokecenter"
+    },
+    {
+      "slot": 3,
+      "position": [
+        3,
+        10
+      ],
+      "elevation": 0,
+      "kind": 1,
+      "script_address": "0x082a9ae7",
+      "map_id": [
+        0,
+        11
+      ],
+      "source": "map_background_event",
+      "script_text": [
+        "<B1>Rejuvenate your tired partners<AB><B2><FE>Pok<1B>mon Center"
+      ],
+      "sign_role": "pokecenter"
+    },
+    {
+      "slot": 4,
+      "position": [
+        2,
+        4
+      ],
+      "elevation": 0,
+      "kind": 0,
+      "script_address": "0x0821dff8",
+      "map_id": [
+        0,
+        11
+      ],
+      "source": "map_background_event",
+      "script_text": [
+        "Dewford Hall<FE><B1>Everyone<B4>s information exchange<AB><B2>",
+        "<09><09><FE><0B><FE><6A><5A><04>"
+      ],
+      "sign_role": null
+    }
+  ],
+  "building_entrances": [
+    {
+      "warp": {
+        "x": 2,
+        "y": 10,
+        "warp_id": 0,
+        "map_num": 1,
+        "map_group": 3,
+        "destination": [
+          3,
+          1
+        ]
+      },
+      "door_position": [
+        2,
+        10
+      ],
+      "sign_position": [
+        3,
+        10
+      ],
+      "door_metatile_id": 97,
+      "sign_metatile_id": 98,
+      "signature": "building-exterior-door-plus-right-sign-v1",
+      "sign_text": [
+        "<B1>Rejuvenate your tired partners<AB><B2><FE>Pok<1B>mon Center"
+      ],
+      "role": "pokecenter"
+    }
+  ],
+  "selection_rule": "use door metatile, adjacent sign text, and destination/runtime evidence; do not infer building role from appearance alone"
+}

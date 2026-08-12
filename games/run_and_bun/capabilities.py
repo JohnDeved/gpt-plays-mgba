@@ -8,6 +8,7 @@ can inspect one capability when they need the complete schema.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import copy
 import hashlib
 import json
 from pathlib import Path
@@ -54,8 +55,8 @@ class CapabilityError(RuntimeError):
 
 # These versions are part of the action-affecting policy bundle. Bump them
 # when canonical observation or verified action postconditions change.
-BATTLE_OBSERVATION_VERSION = "battle-cert-v3"
-BATTLE_EXECUTION_VERSION = "battle-step-v8"
+BATTLE_OBSERVATION_VERSION = "battle-cert-v4"
+BATTLE_EXECUTION_VERSION = "battle-step-v10"
 
 
 @dataclass(frozen=True)
@@ -179,7 +180,15 @@ class CapabilityRegistry:
                         suggested_capability="game_checkpoint",
                         required_user_action=json.dumps(guard, separators=(",", ":")),
                     )
-            result = capability.execute(args)
+            try:
+                result = capability.execute(args)
+            except Exception:
+                if capability.side_effect == "write" and name != "game_checkpoint":
+                    try:
+                        _checkpoint({"path": str(_auto_checkpoint_path()), "mode": "save"})
+                    except Exception:
+                        pass
+                raise
             if capability.side_effect == "write" and name != "game_checkpoint":
                 checkpoint = _checkpoint({
                     "path": str(_auto_checkpoint_path()),
@@ -538,21 +547,79 @@ def _battle_boundary(observation: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _battle_certificate(adapter: Any, observation: dict[str, Any]) -> dict[str, Any]:
+def _battle_certificate(
+    adapter: Any,
+    observation: dict[str, Any],
+    *,
+    fresh_entry: bool = False,
+    opponent_move_ids: set[int] | None = None,
+) -> dict[str, Any]:
     compact = _compact_state(observation)
     move_data = adapter.battle_move_data(observation)
+    if observation.get("battle", {}).get("format", "single") == "single":
+        opponent = _battle_mon(observation, 1) or {}
+        moves = tuple(opponent.get("moves", ()))
+        pp = tuple(opponent.get("pp", (0, 0, 0, 0)))
+        spent_fake_out = {
+            int(move_id)
+            for slot, move_id in enumerate(moves)
+            if move_id == 252
+            and slot < len(pp)
+            and int(pp[slot]) < int(getattr(move_data.get(int(move_id)), "pp", 0) or 0)
+        }
+        if spent_fake_out:
+            ram_legal = {int(move_id) for move_id in moves if move_id and int(move_id) not in spent_fake_out}
+            opponent_move_ids = ram_legal if opponent_move_ids is None else opponent_move_ids & ram_legal
+    serialized_moves = {
+        str(move_id): {
+            "power": move.power,
+            "type_id": move.type_id,
+            "category": move.category,
+            "priority": move.priority,
+            "accuracy": move.accuracy,
+            "raw_flags": list(move.raw_flags),
+        }
+        for move_id, move in move_data.items()
+    }
     report_args = {
         "damage_memory": adapter._damage_memory,
         "type_chart": adapter.rom_data().type_chart(),
         "move_data": move_data,
     }
-    report = adapter.explain_battle_action(observation, **report_args)
+    report_observation = observation
+    if any(
+        mon.get("state", {}).get("types") is None or mon.get("state", {}).get("ability") is None
+        for mon in observation.get("party", {}).get("mons", []) if mon.get("present")
+    ):
+        report_observation = copy.deepcopy(observation)
+        rom = adapter.rom_data()
+        for mon in report_observation.get("party", {}).get("mons", []):
+            state = mon.get("state", {})
+            if not mon.get("present") or not state.get("species"):
+                continue
+            species = rom.species(int(state["species"]))
+            state["types"] = species.type_ids
+            if species.ability_ids:
+                state["ability"] = species.ability_ids[min(int(state.get("ability_num", 0)), len(species.ability_ids) - 1)]
+    if opponent_move_ids is not None and observation.get("battle", {}).get("format", "single") == "single":
+        report_observation = copy.deepcopy(report_observation)
+        for mon in report_observation.get("battle", {}).get("mons", []):
+            if mon.get("slot") != 1 or not mon.get("present"):
+                continue
+            state = mon.get("state", {})
+            moves = tuple(state.get("moves", ()))
+            pp = tuple(state.get("pp", (0, 0, 0, 0)))
+            state["moves"] = tuple(move if move in opponent_move_ids else 0 for move in moves)
+            state["pp"] = tuple(value if moves[slot] in opponent_move_ids else 0 for slot, value in enumerate(pp))
+    report = adapter.explain_battle_action(report_observation, fresh_entry=fresh_entry, **report_args)
     if observation.get("battle", {}).get("format") == "double":
         actor = observation.get("battle", {}).get("menu", {}).get("command_battler")
         if actor not in (0, 2):
             actor = 0
         targets = [slot for slot in (1, 3) if (_battle_mon(observation, slot) or {}).get("current_hp", 0) > 0]
-        matchups = [adapter.explain_battle_action(observation, actor_slot=actor, target_slot=target, **report_args) for target in targets]
+        matchups = [adapter.explain_battle_action(
+            observation, actor_slot=actor, target_slot=target, fresh_entry=fresh_entry, **report_args,
+        ) for target in targets]
         if matchups:
             report = dict(matchups[0])
             report["alternatives"] = [item for matchup in matchups for item in matchup.get("alternatives", [])]
@@ -581,6 +648,9 @@ def _battle_certificate(adapter: Any, observation: dict[str, Any]) -> dict[str, 
         "boundary": boundary,
         "decision": decision,
         "proof": report.get("proof"),
+        "fresh_entry": fresh_entry,
+        "move_data": serialized_moves,
+        "opponent_move_constraint": None if opponent_move_ids is None else sorted(opponent_move_ids),
     }
     certificate_id = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
@@ -591,6 +661,9 @@ def _battle_certificate(adapter: Any, observation: dict[str, Any]) -> dict[str, 
         "state_hash": compact["state_hash"],
         "legal_actions": legal,
         "boundary": boundary,
+        "fresh_entry": fresh_entry,
+        "move_data": serialized_moves,
+        "opponent_move_constraint": None if opponent_move_ids is None else sorted(opponent_move_ids),
         "recommended_action": recommended,
         "certificate_id": certificate_id,
     }
@@ -599,17 +672,34 @@ def _battle_certificate(adapter: Any, observation: dict[str, Any]) -> dict[str, 
 def _battle_evaluate(args: dict[str, Any]) -> dict[str, Any]:
     def evaluate(adapter: Any) -> dict[str, Any]:
         observation, _ = _stable_battle_observation(adapter)
-        certificate = _battle_certificate(adapter, observation)
+        history = None
+        if args.get("battle_id"):
+            from games.run_and_bun.battle_policy import BattleHistory
+
+            history = BattleHistory.from_jsonl(
+                _transaction_path(), battle_id=args["battle_id"], before_state_hash=args.get("history_state_hash") or _compact_state(observation)["state_hash"],
+            )
+        opponent = _battle_mon(observation, 1) or {}
+        constrained = history.enemy_move_constraint(
+            int(opponent.get("species", 0) or 0), opponent=opponent,
+        ) if history else None
+        certificate = _battle_certificate(
+            adapter, observation, fresh_entry=history.fresh_entry if history else False,
+            opponent_move_ids=constrained,
+        )
         profile_path = args.get("profile")
         if profile_path:
             from games.run_and_bun.battle_policy import BattleHistory, BattlePolicy, load_profile, load_strategies
 
-            history = BattleHistory.from_jsonl(
-                _transaction_path(),
-                battle_id=args["battle_id"],
-                before_state_hash=args.get("history_state_hash") or certificate["state_hash"],
-            ) if args.get("battle_id") else BattleHistory()
-            policy = BattlePolicy(load_profile(profile_path), strategies=load_strategies(), history=history)
+            history = history or BattleHistory()
+            loaded_profile = load_profile(profile_path)
+            activation_mode = args.get("activation_mode") or (
+                "clone_trial" if state else "blind_live"
+            )
+            policy = BattlePolicy(
+                loaded_profile, strategies=load_strategies(), history=history,
+                activation_mode=activation_mode if loaded_profile.get("schema_version") == 2 else "legacy",
+            )
             certificate["policy_decision"] = policy.decide(certificate)
             certificate["behavior_hash"] = policy.behavior_hash
         return certificate
@@ -637,6 +727,7 @@ def _battle_evaluate(args: dict[str, Any]) -> dict[str, Any]:
             "certificate_id": certificate["certificate_id"],
             "action": decision["action"],
             "policy_decision": decision,
+            "battle_id": args.get("battle_id"),
             "max_frames": 1800,
         }, adapter=adapter, persist=False)
         output_state = args.get("save_replay_state")
@@ -704,6 +795,13 @@ def _pp_deltas(
     for battler in slots:
         pre = _battle_mon(before, battler)
         post = _battle_mon(after, battler)
+        if pre and (not post or pre.get("personality") != post.get("personality")):
+            post = next((
+                mon.get("state")
+                for mon in after.get("party", {}).get("mons", [])
+                if mon.get("present")
+                and mon.get("state", {}).get("personality") == pre.get("personality")
+            ), None)
         if not pre or not post or pre.get("species") != post.get("species"):
             continue
         for move_slot, (old, new) in enumerate(zip(pre.get("pp") or (), post.get("pp") or ())):
@@ -733,7 +831,11 @@ def _audit_selected_move_pp(
         return []
     selected = [item for item in deltas if item["battler"] == battler and item["slot"] == slot]
     errors = []
-    if len(selected) != 1 or selected[0]["delta"] != 1:
+    valid_selected = len(selected) == 1 and (
+        selected[0]["delta"] == 1
+        or selected[0]["move_id"] == 741 and 1 <= selected[0]["delta"] <= 3
+    )
+    if not valid_selected:
         errors.append(f"selected move PP delta was {selected or 'missing'}, expected exactly one")
     if not allow_other_allied and any(item["battler"] != battler or item["slot"] != slot for item in deltas):
         errors.append(f"another allied move consumed PP: {deltas}")
@@ -744,12 +846,23 @@ def _move_announced(feedback: str, move_name: str) -> bool:
     return bool(move_name and re.search(rf"\bused\s+{re.escape(move_name)}\b", feedback, re.IGNORECASE))
 
 
-def _opponent_effect_observed(before: dict[str, Any], after: dict[str, Any]) -> bool:
+def _fainted_before_execution(
+    kind: str,
+    allied_pp: list[dict[str, int]],
+    pre_player: dict[str, Any],
+    post_player: dict[str, Any],
+    foe_pp: list[dict[str, int]],
+    feedback: str,
+    move_name: str,
+) -> bool:
     return bool(
-        before.get("species") != after.get("species")
-        or int(after.get("current_hp", 0)) < int(before.get("current_hp", 0))
-        or int(after.get("status", 0)) != int(before.get("status", 0))
-        or tuple(after.get("stat_stages") or ()) != tuple(before.get("stat_stages") or ())
+        kind == "move"
+        and not allied_pp
+        and post_player.get("species") == pre_player.get("species")
+        and int(post_player.get("current_hp", 0)) <= 0
+        and len(foe_pp) == 1
+        and foe_pp[0]["delta"] == 1
+        and not _move_announced(feedback, move_name)
     )
 
 
@@ -768,6 +881,39 @@ def _status_prevented_execution(
         and len(foe_pp) == 1
         and foe_pp[0]["delta"] == 1
     )
+
+
+def _flinch_prevented_execution(
+    kind: str,
+    allied_pp: list[dict[str, int]],
+    pre_player: dict[str, Any],
+    post_player: dict[str, Any],
+    foe_pp: list[dict[str, int]],
+) -> bool:
+    """Recognize the deterministic faster Fake Out flinch without battle text."""
+    return bool(
+        kind == "move"
+        and not allied_pp
+        and post_player.get("species") == pre_player.get("species")
+        and int(post_player.get("current_hp", 0)) > 0
+        and len(foe_pp) == 1
+        and foe_pp[0]["delta"] == 1
+        and foe_pp[0]["move_id"] == 252
+    )
+
+
+def _incoming_damage_discrepancies(
+    kind: str,
+    pre_player: dict[str, Any],
+    post_player: dict[str, Any],
+    certificate: dict[str, Any],
+) -> list[str]:
+    """Flag HP loss beyond the certificate's worst modeled incoming critical."""
+    if kind != "move" or pre_player.get("species") != post_player.get("species"):
+        return []
+    observed = int(pre_player.get("current_hp", 0)) - int(post_player.get("current_hp", 0))
+    modeled = float((certificate.get("incoming") or {}).get("critical_max_damage_est", 0) or 0)
+    return [f"allied HP loss {observed} exceeded modeled incoming critical bound {modeled:g}"] if observed > modeled else []
 
 
 def _battle_action_frame_budget(action: dict[str, Any], requested: int) -> int:
@@ -800,7 +946,24 @@ def _battle_step(
             )
         if not before.get("battle", {}).get("active"):
             raise CapabilityError("NOT_IN_BATTLE", "battle_step requires an active battle")
-        certificate = _battle_certificate(adapter, before)
+        fresh_entry = False
+        constrained_enemy_moves = None
+        if args.get("battle_id"):
+            from games.run_and_bun.battle_policy import BattleHistory
+
+            history = BattleHistory.from_jsonl(
+                _transaction_path(), battle_id=args["battle_id"], before_state_hash=expected_hash,
+            )
+            fresh_entry = history.fresh_entry
+            opponent = _battle_mon(before, 1) or {}
+            constrain = getattr(history, "enemy_move_constraint", None)
+            constrained_enemy_moves = constrain(
+                int(opponent.get("species", 0) or 0), opponent=opponent,
+            ) if constrain else None
+        certificate_kwargs = {"fresh_entry": fresh_entry}
+        if constrained_enemy_moves is not None:
+            certificate_kwargs["opponent_move_ids"] = constrained_enemy_moves
+        certificate = _battle_certificate(adapter, before, **certificate_kwargs)
         if certificate["certificate_id"] != expected_certificate:
             raise CapabilityError(
                 "STALE_CERTIFICATE",
@@ -917,27 +1080,22 @@ def _battle_step(
         after = _compact_state(after_full)
         final_player_pp = _pp_deltas(before, after_full, (0, 2))
         foe_pp = _pp_deltas(before, after_full, (1, 3))
-        opponent_slot = int(legal.get("target")) if legal.get("target") in (1, 3) else 1
         pre_player = _battle_mon(before, actor) or {}
         post_player = _battle_mon(after_full, actor) or {}
-        pre_opponent = _battle_mon(before, opponent_slot) or {}
-        post_opponent = _battle_mon(after_full, opponent_slot) or {}
         selected_move_name = adapter.rom_data().move_name(int(legal.get("move_id", 0) or 0))
         fainted_before_execution = bool(
-            not double
-            and
-            kind == "move"
-            and post_player.get("species") == pre_player.get("species")
-            and post_player.get("current_hp", 0) <= 0
-            and len(foe_pp) == 1
-            and foe_pp[0]["delta"] == 1
-            and not _move_announced(resolution.get("feedback", ""), selected_move_name)
-            and not _opponent_effect_observed(pre_opponent, post_opponent)
+            not double and _fainted_before_execution(
+                kind, final_player_pp, pre_player, post_player, foe_pp,
+                resolution.get("feedback", ""), selected_move_name,
+            )
         )
         status_prevented_execution = not double and _status_prevented_execution(
             kind, final_player_pp, pre_player, post_player, foe_pp
         )
-        prevented_before_execution = fainted_before_execution or status_prevented_execution
+        flinch_prevented_execution = not double and _flinch_prevented_execution(
+            kind, final_player_pp, pre_player, post_player, foe_pp
+        )
+        prevented_before_execution = fainted_before_execution or status_prevented_execution or flinch_prevented_execution
         # PP can update after the input acknowledgement. Audit only the stable
         # post-turn boundary; advance_battle_until_menu never selects another
         # move, so one final decrement proves one allied move was committed.
@@ -957,11 +1115,16 @@ def _battle_step(
             and final_player_pp[0]["delta"] == 1
             and 1 <= sum(item["delta"] for item in foe_pp) <= 5
         )
-        if (len(foe_pp) > (2 if double else 1) or any(item["delta"] != 1 for item in foe_pp)) and not locked_rollout:
+        valid_foe_pp = all(
+            item["delta"] == 1 or item["move_id"] == 741 and 1 <= item["delta"] <= 3
+            for item in foe_pp
+        )
+        if (len(foe_pp) > (2 if double else 1) or not valid_foe_pp) and not locked_rollout:
             discrepancies.append(f"opponent consumed unexpected PP: {foe_pp}")
+        discrepancies.extend(_incoming_damage_discrepancies(kind, pre_player, post_player, certificate))
 
-        actual_enemy_move = foe_pp[0]["move_id"] if len(foe_pp) == 1 and foe_pp[0]["delta"] == 1 else None
-        actual_enemy_moves = [item["move_id"] for item in foe_pp if item["delta"] == 1]
+        actual_enemy_move = foe_pp[0]["move_id"] if len(foe_pp) == 1 and valid_foe_pp else None
+        actual_enemy_moves = [item["move_id"] for item in foe_pp if item["delta"] == 1 or item["move_id"] == 741]
         if actual_enemy_move is None:
             feedback = resolution.get("feedback", "").casefold()
             foe = _battle_mon(before, 1) or {}
@@ -1001,13 +1164,19 @@ def _battle_step(
             "predicted": {
                 "decision": certificate.get("decision"),
                 "chosen": certificate.get("chosen"),
+                "incoming": certificate.get("incoming"),
                 "proof": certificate.get("proof"),
             },
             "policy_decision": args.get("policy_decision"),
             "battle_id": args.get("battle_id"),
             "actual": {
                 "allied_pp_deltas": final_player_pp,
-                "allied_action_outcome": "prevented_by_status" if status_prevented_execution else "interrupted_before_execution" if fainted_before_execution else "executed",
+                "allied_action_outcome": (
+                    "prevented_by_status" if status_prevented_execution
+                    else "prevented_by_flinch" if flinch_prevented_execution
+                    else "interrupted_before_execution" if fainted_before_execution
+                    else "executed"
+                ),
                 "opponent_pp_deltas": foe_pp,
                 "enemy_move_id": actual_enemy_move,
                 "enemy_move_ids": actual_enemy_moves,
@@ -1719,6 +1888,9 @@ def _travel_warp(args: dict[str, Any]) -> dict[str, Any]:
     destination = args.get("destination")
     if not isinstance(destination, list) or len(destination) != 2:
         raise CapabilityError("VALIDATION_ERROR", "travel warp requires destination [map_group, map_number]")
+    source_position = args.get("source")
+    if source_position is not None and (not isinstance(source_position, list) or len(source_position) != 2):
+        raise CapabilityError("VALIDATION_ERROR", "warp source must be [x, y]")
     expected_role = args.get("expected_role")
     if expected_role not in {None, "pokecenter", "pokemart", "gym"}:
         raise CapabilityError("VALIDATION_ERROR", "expected_role must be pokecenter, pokemart, or gym when provided")
@@ -1732,6 +1904,9 @@ def _travel_warp(args: dict[str, Any]) -> dict[str, Any]:
             warp for warp in adapter.live_map_transitions().get("warps", [])
             if tuple(warp["destination"]) == wanted
         ]
+        if source_position is not None:
+            source_xy = tuple(int(value) for value in source_position)
+            warps = [warp for warp in warps if (int(warp["x"]), int(warp["y"])) == source_xy]
         if not warps:
             raise CapabilityError(
                 "WARP_NOT_FOUND",
@@ -1792,6 +1967,14 @@ def _travel_warp(args: dict[str, Any]) -> dict[str, Any]:
                 retryable=True,
                 suggested_capability="game_map_transitions",
             )
+        state = _settle_warp_state(adapter, state)
+        if state.get("battle", {}).get("active") or state.get("mode") != "overworld":
+            raise CapabilityError(
+                "WARP_NOT_SETTLED",
+                f"warp reached {actual} but did not settle in overworld mode",
+                retryable=True,
+                suggested_capability="game_observe",
+            )
         if expected_role == "pokecenter":
             from games.run_and_bun.objects import read_live_objects
 
@@ -1833,12 +2016,35 @@ def _select_destination_warp(
 
 def _warp_activation_direction(live: Any, position: tuple[int, int]) -> str | None:
     """Return the unique direction from a warp event into a blocked exit tile."""
-    candidates = []
+    outside = []
+    blocked = []
     for dx, dy, key in ((0, -1, "UP"), (1, 0, "RIGHT"), (0, 1, "DOWN"), (-1, 0, "LEFT")):
         neighbor = (position[0] + dx, position[1] + dy)
-        if not (0 <= neighbor[0] < live.active_width and 0 <= neighbor[1] < live.active_height) or not live.walkable(*neighbor):
-            candidates.append(key)
+        if not (0 <= neighbor[0] < live.active_width and 0 <= neighbor[1] < live.active_height):
+            outside.append(key)
+        elif not live.walkable(*neighbor):
+            blocked.append(key)
+    if len(outside) == 1:
+        return outside[0]
+    candidates = outside + blocked
     return candidates[0] if len(candidates) == 1 else None
+
+
+def _settle_warp_state(adapter: Any, state: dict[str, Any]) -> dict[str, Any]:
+    """Wait for a clean overworld position to remain stable across frames."""
+    last_clean = None
+    for _ in range(8):
+        ui = state.get("ui") or {}
+        if state.get("battle", {}).get("active"):
+            return state
+        clean = state.get("mode") == "overworld" and ui.get("field_message_box_mode", 0) == 0
+        current = tuple((state.get("map") or {}).get(key) for key in ("group", "number", "x", "y"))
+        if clean and current == last_clean:
+            return state
+        last_clean = current if clean else None
+        adapter.gba.wait_frames(8)
+        state = adapter.observe()
+    return state
 
 
 def _warp_entry_approach(
@@ -2268,6 +2474,11 @@ def _rank_team_builds(
     """Rank only owned Pokémon with a transparent ROM type/power heuristic."""
     roster = trainer.get("roster") or []
     chart = rom.type_chart()
+    preparation_level = int(
+        (trainer.get("preparation") or {}).get("level_cap")
+        or max((int(mon.get("level", 0)) for mon in roster), default=0)
+    )
+    from games.run_and_bun.rom_data import ABILITY_TYPE_IMMUNITIES
 
     def effectiveness(move_type: int, defender_types: list[int]) -> float:
         value = 1.0
@@ -2279,28 +2490,48 @@ def _rank_team_builds(
     for entry in selectable:
         species = rom.species(int(entry["species"]))
         candidate_types = list(species.type_ids)
+        ability_ids = tuple(getattr(species, "ability_ids", ()))
+        ability_slot = int(entry.get("ability_slot", 0) or 0)
+        candidate_ability_id = ability_ids[min(ability_slot, len(ability_ids) - 1)] if ability_ids else None
+        candidate_immune_type = ABILITY_TYPE_IMMUNITIES.get(candidate_ability_id)
+        current_moves = _move_ids(entry)
+        available_moves = list(current_moves)
+        learned_by_cap: dict[int, int] = {}
+        if preparation_level and hasattr(rom, "level_up_moves"):
+            for learned in rom.level_up_moves(int(entry["species"]), through_level=preparation_level):
+                if int(entry.get("level", 0) or 0) < learned.level <= preparation_level and learned.move_id not in available_moves:
+                    available_moves.append(learned.move_id)
+                    learned_by_cap[learned.move_id] = learned.level
         matchups = []
         for enemy in roster:
             enemy_types = [int(value) for value in enemy.get("types", [])]
             outgoing = []
-            for move_id in _move_ids(entry):
+            immune_type = ABILITY_TYPE_IMMUNITIES.get(enemy.get("ability_id"))
+            for move_id in available_moves:
                 move = rom.move(move_id)
                 if move.category == "status" or move.power <= 0:
                     continue
+                multiplier = 0.0 if move.type_id == immune_type else effectiveness(move.type_id, enemy_types)
+                if int(enemy.get("held_item_id", 0) or 0) == 553 and move.type_id == 12 and multiplier > 1:
+                    multiplier /= 2
                 outgoing.append({
                     "move_id": move_id,
-                    "multiplier": effectiveness(move.type_id, enemy_types),
-                    "power_score": int(move.power) * effectiveness(move.type_id, enemy_types),
+                    "source": "current" if move_id in current_moves else "level_up_by_cap",
+                    **({"learned_level": learned_by_cap[move_id]} if move_id in learned_by_cap else {}),
+                    "multiplier": multiplier,
+                    "power_score": int(move.power) * multiplier,
                 })
             incoming = []
             for move_id in enemy.get("moves", []):
                 move = rom.move(int(move_id))
                 if move.category == "status" or move.power <= 0:
                     continue
+                defended_types = [value for value in candidate_types if not (int(move_id) == 614 and value == 2)]
+                multiplier = 0.0 if move.type_id == candidate_immune_type else effectiveness(move.type_id, defended_types)
                 incoming.append({
                     "move_id": int(move_id),
-                    "multiplier": effectiveness(move.type_id, candidate_types),
-                    "power_score": int(move.power) * effectiveness(move.type_id, candidate_types),
+                    "multiplier": multiplier,
+                    "power_score": int(move.power) * multiplier,
                 })
             best_outgoing = max(outgoing, key=lambda item: (item["power_score"], -item["move_id"]), default=None)
             worst_incoming = max(incoming, key=lambda item: (item["power_score"], -item["move_id"]), default=None)
@@ -2314,10 +2545,11 @@ def _rank_team_builds(
             })
         answers = {item["enemy_species"] for item in matchups if item["offensive_answer"] or item["defensive_answer"]}
         score = [
-            len(answers),
-            sum(item["defensive_answer"] for item in matchups),
-            sum(item["offensive_answer"] for item in matchups),
             -sum(item["weak_to_enemy"] for item in matchups),
+            int(candidate_ability_id == 22),
+            sum(item["defensive_answer"] for item in matchups),
+            len(answers),
+            sum(item["offensive_answer"] for item in matchups),
             int(entry.get("level", 0) or 0),
         ]
         ranked.append({
@@ -2327,7 +2559,23 @@ def _rank_team_builds(
             "nickname": entry.get("nickname"),
             "level": int(entry.get("level", 0) or 0),
             "types": candidate_types,
-            "moves": _move_ids(entry),
+            "ability_id": candidate_ability_id,
+            "team_utility": ["intimidate"] if candidate_ability_id == 22 else [],
+            "moves": current_moves,
+            "available_moves_by_cap": available_moves,
+            "available_move_details_by_cap": [
+                {
+                    "id": move_id,
+                    "name": getattr(rom.move(move_id), "name", None),
+                    "level": learned_by_cap.get(move_id),
+                    "source": "level_up_by_cap" if move_id in learned_by_cap else "current",
+                    "type": getattr(rom.move(move_id), "type_name", None),
+                    "power": rom.move(move_id).power,
+                    "priority": getattr(rom.move(move_id), "priority", 0),
+                    "category": rom.move(move_id).category,
+                }
+                for move_id in available_moves
+            ],
             "score": score,
             "answers": sorted(answers),
             "matchups": matchups,
@@ -2337,12 +2585,32 @@ def _rank_team_builds(
     selected = []
     covered: set[int] = set()
     remaining = list(ranked)
+    for enemy in roster:
+        enemy_species = int(enemy["species_id"])
+        choice = max(
+            ranked,
+            key=lambda item: next(
+                (
+                    -float(match["worst_incoming"]["multiplier"] if match["worst_incoming"] else 0),
+                    float(match["best_outgoing"]["power_score"] if match["best_outgoing"] else 0),
+                    *item["score"],
+                )
+                for match in item["matchups"] if match["enemy_species"] == enemy_species
+            ),
+        )
+        if choice not in selected and len(selected) < 6:
+            selected.append(choice)
+            remaining.remove(choice)
+        covered.update(choice["answers"])
     while remaining and len(selected) < 6:
+        selected_utility = {value for item in selected for value in item.get("team_utility", [])}
         choice = max(
             remaining,
             key=lambda item: (
+                item["score"][0],
+                0 if selected_utility.intersection(item.get("team_utility", [])) else item["score"][1],
+                *item["score"][2:],
                 len(set(item["answers"]) - covered),
-                *item["score"],
                 -item["reference"]["personality"],
             ),
         )
@@ -2357,7 +2625,8 @@ def _rank_team_builds(
     trainer_key = str(trainer.get("key") or "unknown-trainer")
     return {
         "classification": "heuristic",
-        "objective": "maximize distinct roster answers, then resistance, offense, weakness avoidance, and level",
+        "objective": "avoid enemy coverage weaknesses first, then maximize resistance and distinct answers using current and level-cap moves",
+        "preparation_level": preparation_level,
         "ranked_candidates": ranked,
         "recommended_party": selected,
         "covered_enemy_species": sorted(covered),
@@ -2372,8 +2641,8 @@ def _rank_team_builds(
             "constraints": [],
         },
         "uncertainties": [
-            "ranking uses owned current moves and ROM type/power only",
-            "abilities, held items, speed, exact stats, status effects, doubles synergy, and move sequencing still require the battle oracle",
+            "ranking uses owned current moves plus verified level-up moves available by the trainer cap",
+            "uncertain enemy abilities, held items, speed, exact stats, status effects, doubles synergy, and move sequencing still require the battle oracle",
             *[str(item) for item in trainer.get("uncertainties", [])],
         ],
     }
@@ -2429,6 +2698,7 @@ def _pokemon_build_options(args: dict[str, Any]) -> dict[str, Any]:
                 for service in _POKECENTER_SERVICES
             ],
         }
+        preparation_level = None
         trainer_key = args.get("trainer_key")
         if trainer_key is not None:
             from games.run_and_bun.trainer_database import load_trainer_database
@@ -2438,6 +2708,10 @@ def _pokemon_build_options(args: dict[str, Any]) -> dict[str, Any]:
                 raise CapabilityError("TRAINER_NOT_FOUND", f"unknown trainer key: {trainer_key}", suggested_capability="game_trainer_lookup")
             if not (trainer.get("battle") or {}).get("roster_complete"):
                 raise CapabilityError("TRAINER_ROSTER_INCOMPLETE", f"trainer roster is incomplete: {trainer_key}", suggested_capability="game_trainer_lookup")
+            preparation_level = int(
+                (trainer.get("preparation") or {}).get("level_cap")
+                or max(int(mon.get("level", 0)) for mon in trainer.get("roster") or [])
+            )
             result["trainer_plan"] = _rank_team_builds(
                 [entry for entry, _raw in selectable], trainer, rom
             )
@@ -2461,6 +2735,14 @@ def _pokemon_build_options(args: dict[str, Any]) -> dict[str, Any]:
                 for move in (raw["moves"] if raw is not None else entry["moves"])
                 if move
             }
+            current_move_details = []
+            for move_id in sorted(current_moves):
+                move = rom.move(move_id)
+                current_move_details.append({
+                    "id": move.move_id, "name": move.name, "type": move.type_name,
+                    "power": move.power, "accuracy": move.accuracy,
+                    "priority": move.priority, "category": move.category,
+                })
             relearn = []
             for learned in rom.level_up_moves(
                 int(entry["species"]), through_level=int(entry["level"])
@@ -2474,13 +2756,81 @@ def _pokemon_build_options(args: dict[str, Any]) -> dict[str, Any]:
                     "accuracy": move.accuracy, "category": move.category,
                 })
             result["selected"] = entry | {
+                "current_move_details": current_move_details,
                 "relearn_candidates": relearn,
+                "level_up_candidates": [
+                    {
+                        "id": move.move_id, "name": move.name, "level": learned.level,
+                        "type": move.type_name, "power": move.power,
+                        "accuracy": move.accuracy, "priority": move.priority,
+                        "category": move.category,
+                    }
+                    for learned in (
+                        rom.level_up_moves(int(entry["species"]), through_level=preparation_level)
+                        if preparation_level else ()
+                    )
+                    if int(entry["level"]) < learned.level <= preparation_level
+                    for move in [rom.move(learned.move_id)]
+                ],
                 "relearn_source": "verified ROM level-up learnset through current level",
                 "remember_move_available_now": heart_scales >= 1,
             }
         return result
 
     return _with_adapter(read)
+
+
+def _battle_profile(args: dict[str, Any]) -> dict[str, Any]:
+    trainer_key = args.get("trainer_key")
+    if not isinstance(trainer_key, str) or not trainer_key:
+        raise CapabilityError("VALIDATION_ERROR", "battle profile requires trainer_key")
+
+    def build(adapter: Any) -> dict[str, Any]:
+        from games.run_and_bun.battle_policy import generate_battle_profile, load_strategies
+        from games.run_and_bun.trainer_database import load_trainer_database
+
+        full = adapter.observe()
+        compact = _compact_state(full)
+        expected = args.get("state_hash")
+        if expected is not None and expected != compact["state_hash"]:
+            raise CapabilityError("STALE_STATE", f"expected {expected}, got {compact['state_hash']}", retryable=True)
+        trainer = (load_trainer_database().get("trainers") or {}).get(trainer_key)
+        if trainer is None:
+            raise CapabilityError("TRAINER_NOT_FOUND", f"unknown trainer key: {trainer_key}", suggested_capability="game_trainer_lookup")
+        rom = adapter.rom_data()
+        raw_party = {
+            int(mon["state"]["personality"]): mon["state"]
+            for mon in full.get("party", {}).get("mons", []) if mon.get("present")
+        }
+        enriched_party = []
+        for mon in compact["party"]:
+            raw = raw_party[int(mon["personality"])]
+            species = rom.species(int(mon["species"]))
+            abilities = species.ability_ids
+            ability_slot = int(raw.get("ability_num", 0) or 0)
+            enriched_party.append(mon | {
+                "types": list(species.type_ids),
+                "ability": abilities[min(ability_slot, len(abilities) - 1)] if abilities else None,
+            })
+        try:
+            profile = generate_battle_profile(
+                enriched_party, trainer, load_strategies(), state_hash=compact["state_hash"], rom=rom,
+            )
+        except ValueError as error:
+            raise CapabilityError("PROFILE_BLOCKED", str(error), suggested_capability="game_pokemon_build_options") from error
+        return profile
+
+    state = args.get("state")
+    if not state:
+        return _with_adapter(build)
+    state_path = Path(state).expanduser().resolve()
+    if not state_path.is_file():
+        raise CapabilityError("VALIDATION_ERROR", f"profile checkpoint does not exist: {state_path}")
+    from client.mgba_clone import disposable_clone
+    from games.runbun import RunBunAdapter
+
+    with disposable_clone(state_path) as gba:
+        return build(RunBunAdapter(gba, enforce_live_trainer_gate=False))
 
 
 def _trainer_lookup(args: dict[str, Any]) -> dict[str, Any]:
@@ -2590,7 +2940,15 @@ def _use_field_item(args: dict[str, Any]) -> dict[str, Any]:
         raise CapabilityError("VALIDATION_ERROR", "use_field_item requires exactly one target selector")
 
     def use(adapter: Any) -> dict[str, Any]:
-        result = adapter.use_field_item(item, **targets)
+        uses = int(args.get("uses", 1))
+        if not 1 <= uses <= 20:
+            raise CapabilityError("VALIDATION_ERROR", "uses must be between 1 and 20")
+        results = []
+        for _ in range(uses):
+            result = adapter.use_field_item(item, **targets)
+            results.append(result)
+            if result.get("move_learning_pending"):
+                break
         # RunBun.use_field_item deliberately returns a small field-state
         # payload whose party is already a list. It is not the full adapter
         # observation shape consumed by _compact_state; passing it through
@@ -2602,6 +2960,8 @@ def _use_field_item(args: dict[str, Any]) -> dict[str, Any]:
             "target_species": result.get("target_species"),
             "cursor": result.get("cursor"),
             "text": result.get("text"),
+            "uses_completed": len(results),
+            "move_learning_pending": bool(result.get("move_learning_pending")),
             "observation": result.get("state", {}),
         }
 
@@ -2609,14 +2969,15 @@ def _use_field_item(args: dict[str, Any]) -> dict[str, Any]:
 
 
 def _resolve_move_learning(args: dict[str, Any]) -> dict[str, Any]:
-    if "target_species" not in args or "forget_slot" not in args:
-        raise CapabilityError("VALIDATION_ERROR", "resolve move learning requires target_species and forget_slot")
+    if "target_species" not in args or ("forget_slot" not in args and not args.get("decline")):
+        raise CapabilityError("VALIDATION_ERROR", "resolve move learning requires target_species and forget_slot or decline=true")
 
     def resolve(adapter: Any) -> dict[str, Any]:
         result = adapter.resolve_field_move_learning(
             target_species=int(args["target_species"]),
-            forget_slot=int(args["forget_slot"]),
+            forget_slot=int(args["forget_slot"]) if "forget_slot" in args else None,
             expected_move_id=int(args["expected_move_id"]) if "expected_move_id" in args else None,
+            decline=bool(args.get("decline")),
             max_frames=int(args.get("max_frames", 1800)),
         )
         return {
@@ -2625,6 +2986,7 @@ def _resolve_move_learning(args: dict[str, Any]) -> dict[str, Any]:
             "old_moves": result.get("old_moves"),
             "new_moves": result.get("new_moves"),
             "expected_move_id": result.get("expected_move_id"),
+            "declined": bool(result.get("declined")),
             "observation": _compact_state(result.get("state", {})),
         }
 
@@ -2655,6 +3017,20 @@ def _advance_dialogue(args: dict[str, Any]) -> dict[str, Any]:
             timeout=float(args.get("timeout", 10.0)),
         )
         return {"pages": pages, "observation": _compact_state(adapter.observe())}
+
+    return _with_adapter(advance)
+
+
+def _advance_script_frames(args: dict[str, Any]) -> dict[str, Any]:
+    def advance(adapter: Any) -> dict[str, Any]:
+        before = _compact_state(adapter.observe())
+        if before.get("battle", {}).get("active"):
+            raise CapabilityError("BATTLE_ACTIVE", "script-frame advancement is forbidden during battle")
+        frames = int(args.get("frames", 300))
+        if not 1 <= frames <= 3600:
+            raise CapabilityError("VALIDATION_ERROR", "frames must be between 1 and 3600")
+        adapter.gba.wait_frames(frames)
+        return {"frames": frames, "before": before, "observation": _compact_state(adapter.observe())}
 
     return _with_adapter(advance)
 
@@ -2718,6 +3094,9 @@ def _seek_npc(args: dict[str, Any]) -> dict[str, Any]:
             interact=bool(args.get("interact", False)),
             grass_penalty=int(args.get("grass_penalty", 100)),
             chunk_steps=int(args.get("chunk_steps", 6)),
+            verified_defeated_trainer_local_ids={
+                int(value) for value in args.get("defeated_trainer_local_ids", [])
+            },
         )
         return {
             "reason": result.get("reason"),
@@ -2793,7 +3172,7 @@ _CAPABILITIES = [
         "game_battle_evaluate", "Bounded battle evaluation",
         "Enumerate legal battle actions with bounded damage, turn-order evidence, proof level, and a deterministic decision certificate. Use when: choosing a move or switch before committing an important turn.",
         ("evaluate battle", "choose safest move", "calculate damage bounds", "compare legal actions"),
-        {"type": "object", "properties": {"profile": {"type": "string"}, "state": {"type": "string"}, "battle_id": {"type": "string"}, "history_state_hash": {"type": "string"}, "replay_selected": {"type": "boolean", "default": False}, "save_replay_state": {"type": "string"}}, "additionalProperties": False}, {"type": "object"}, "none", "safe", _battle_evaluate,
+        {"type": "object", "properties": {"profile": {"type": "string"}, "state": {"type": "string"}, "battle_id": {"type": "string"}, "history_state_hash": {"type": "string"}, "activation_mode": {"type": "string", "enum": ["clone_trial", "blind_live", "qualified_live"]}, "replay_selected": {"type": "boolean", "default": False}, "save_replay_state": {"type": "string"}}, "additionalProperties": False}, {"type": "object"}, "none", "safe", _battle_evaluate,
     ),
     Capability(
         "game_battle_step", "Certified battle step",
@@ -2883,7 +3262,7 @@ _CAPABILITIES = [
         "game_travel_warp", "Verified event warp",
         "Select the nearest loaded event warp for one destination, path to its RAM coordinate, and verify the destination map ID. Use when: entering a cave, building, or other warp listed by game_map_transitions.",
         ("enter cave", "take map warp", "enter building", "travel through door"),
-        {"type": "object", "properties": {"destination": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}, "expected_role": {"type": "string", "enum": ["pokecenter"]}, "grass_penalty": {"type": "integer", "minimum": 0, "default": 100}, "chunk_steps": {"type": "integer", "minimum": 1, "default": 6}, "max_replans": {"type": "integer", "minimum": 1, "default": 32}, "defeated_trainer_local_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}}}, "required": ["destination"], "additionalProperties": False},
+        {"type": "object", "properties": {"destination": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}, "source": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}, "expected_role": {"type": "string", "enum": ["pokecenter"]}, "grass_penalty": {"type": "integer", "minimum": 0, "default": 100}, "chunk_steps": {"type": "integer", "minimum": 1, "default": 6}, "max_replans": {"type": "integer", "minimum": 1, "default": 32}, "defeated_trainer_local_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}}}, "required": ["destination"], "additionalProperties": False},
         {"type": "object"}, "write", "retry only after fresh game_map_transitions", _travel_warp,
         ("Do not use unless game_map_transitions lists at least one matching warp.",),
     ),
@@ -2977,6 +3356,13 @@ _CAPABILITIES = [
         {"type": "object"}, "none", "safe", _pokemon_build_options,
     ),
     Capability(
+        "game_battle_profile", "Generated battle profile",
+        "Generate current party bindings, enemy answer assignments, and a reusable strategy manifest from RAM and the trainer database. Use before clone qualification; hand-author only verified matchup exceptions.",
+        ("generate trainer policy", "build reusable battle profile", "prepare clone policy"),
+        {"type": "object", "properties": {"trainer_key": {"type": "string", "minLength": 1}, "state_hash": {"type": "string"}, "state": {"type": "string"}}, "required": ["trainer_key"], "additionalProperties": False},
+        {"type": "object"}, "none", "safe", _battle_profile,
+    ),
+    Capability(
         "game_pokecenter_service_catalog", "Pokécenter tactical services",
         "Map the verified six-function utility NPC menu, exact costs/options, ROM pointers, and live stable NPC candidates. Use when: planning move relearning, move deletion, IV maximization, nature/nickname changes, or status setup.",
         ("list Pokecenter NPC functions", "check move relearn cost", "plan IV nature or status service"),
@@ -3010,7 +3396,7 @@ _CAPABILITIES = [
         "game_use_field_item", "RAM field-item use",
         "Use a verified field item through Bag pocket/item cursors and select the target by live party identity. Supports Endless Candy and Potion outside battle.",
         ("use endless candy", "use potion", "heal a Pokémon", "level a Pokémon", "use field item", "apply item to party"),
-        {"type": "object", "properties": {"item": {"type": "string", "enum": ["Endless Candy", "Potion"]}, "target_slot": {"type": "integer", "minimum": 0, "maximum": 5}, "target_species": {"type": "integer", "minimum": 1}, "target_nickname": {"type": "string"}}, "required": ["item"], "additionalProperties": False},
+        {"type": "object", "properties": {"item": {"type": "string", "enum": ["Endless Candy", "Potion"]}, "target_slot": {"type": "integer", "minimum": 0, "maximum": 5}, "target_species": {"type": "integer", "minimum": 1}, "target_nickname": {"type": "string"}, "uses": {"type": "integer", "minimum": 1, "maximum": 20, "default": 1}}, "required": ["item"], "additionalProperties": False},
         {"type": "object"}, "write", "safe", _use_field_item,
         ("Do not use in battle; use the battle menu and tactical report.",),
     ),
@@ -3018,7 +3404,7 @@ _CAPABILITIES = [
         "game_resolve_move_learning", "Verified field move learning",
         "Resolve a pending four-move learn screen by selecting an explicitly planned replacement slot, verify the new move in party RAM, and close the reusable field-item UI. Use when: Endless Candy pauses because a Pokémon wants to learn a move.",
         ("choose move to forget", "resolve move learning", "replace a field move", "finish candy level-up"),
-        {"type": "object", "properties": {"target_species": {"type": "integer", "minimum": 1}, "forget_slot": {"type": "integer", "minimum": 0, "maximum": 3}, "expected_move_id": {"type": "integer", "minimum": 1}, "max_frames": {"type": "integer", "minimum": 1, "default": 1800}}, "required": ["target_species", "forget_slot"], "additionalProperties": False},
+        {"type": "object", "properties": {"target_species": {"type": "integer", "minimum": 1}, "forget_slot": {"type": "integer", "minimum": 0, "maximum": 3}, "decline": {"type": "boolean", "default": False}, "expected_move_id": {"type": "integer", "minimum": 1}, "max_frames": {"type": "integer", "minimum": 1, "default": 1800}}, "required": ["target_species"], "additionalProperties": False},
         {"type": "object"}, "write", "retry only after fresh field move-learning observation", _resolve_move_learning,
         ("Do not choose a forget slot without a strategic move plan.",),
     ),
@@ -3039,6 +3425,14 @@ _CAPABILITIES = [
         ("Do not use on a battle command or move menu.",),
     ),
     Capability(
+        "game_advance_script_frames", "Bounded field-script advancement",
+        "Advance a bounded number of emulator frames for an active non-battle cutscene, then return fresh RAM state. Use when: field dialogue ended but scripted actors still own overworld control.",
+        ("advance cutscene movement", "wait for field script", "release scripted movement lock"),
+        {"type": "object", "properties": {"frames": {"type": "integer", "minimum": 1, "maximum": 3600, "default": 300}}, "additionalProperties": False},
+        {"type": "object"}, "write", "safe", _advance_script_frames,
+        ("Do not use during battle or for idle waiting.",),
+    ),
+    Capability(
         "game_navigate_live", "Adaptive RAM pathfinding",
         "Navigate to a map coordinate using the live collision grid, dynamic object occupancy, short input chunks, replanning, and a high grass penalty. Use when: walking to a coordinate or warp without image steering.",
         ("walk to coordinate", "navigate map", "avoid grass", "route around moving NPC"),
@@ -3050,7 +3444,7 @@ _CAPABILITIES = [
         "game_seek_npc", "Identity-based NPC seeker",
         "Find and approach an NPC by runtime identity or loaded-map ROM script address while rereading RAM positions and replanning around movement. Use when: targeting a trainer, nurse, utility service, shopkeeper, or other specific actor.",
         ("find trainer", "seek NPC", "approach nurse", "target object"),
-        {"type": "object", "properties": {"slot": {"type": "integer"}, "local_id": {"type": "integer"}, "graphics_id": {"type": "integer"}, "script_address": {"oneOf": [{"type": "integer"}, {"type": "string"}]}, "interact": {"type": "boolean", "default": False}, "grass_penalty": {"type": "integer", "minimum": 0, "default": 100}, "chunk_steps": {"type": "integer", "minimum": 1, "default": 6}}, "additionalProperties": False},
+        {"type": "object", "properties": {"slot": {"type": "integer"}, "local_id": {"type": "integer"}, "graphics_id": {"type": "integer"}, "script_address": {"oneOf": [{"type": "integer"}, {"type": "string"}]}, "interact": {"type": "boolean", "default": False}, "grass_penalty": {"type": "integer", "minimum": 0, "default": 100}, "chunk_steps": {"type": "integer", "minimum": 1, "default": 6}, "defeated_trainer_local_ids": {"type": "array", "items": {"type": "integer", "minimum": 0}}}, "additionalProperties": False},
         {"type": "object"}, "write", "safe", _seek_npc,
         ("Do not use without an identity selector; use game_map_snapshot to discover objects first.",),
     ),

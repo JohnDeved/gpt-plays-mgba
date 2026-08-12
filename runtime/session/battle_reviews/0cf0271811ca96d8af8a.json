@@ -1,0 +1,213 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-11T16:33:41.227105+00:00",
+  "review_id": "0cf0271811ca96d8af8a",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "efa0f15725c5ef719a6c668db0d6b8fba6d07a0b1c24164756c66ba106dc60ff",
+  "behavior_hash": "2cc5eb70bda9616cee85116128fc4da49eefaeee06327ae2cf75b6208c8b2532",
+  "policy_id": "generated-map-0-25-local-23",
+  "trainer_key": "map:0:25/local:23",
+  "matched_strategy_ids": [
+    "fresh-entry-fake-out-tempo"
+  ],
+  "certified_actions": 35,
+  "status": "needs_improvement",
+  "classification": "terminal_loss",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 35,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The v33 generated bundle whited out against Dustox after exhausting all six party members.",
+        "state": "runtime/session/battle_reviews/states/1786465962341103000/turn-035.state",
+        "state_hash": "6e7bae5147fcd6ed",
+        "action_id": "771fe85a16bd1ffca991",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "3f6ce10b08bc9939",
+          "observed": "The corrected current bundle won a full disposable regression from the identical opening in 32 verified actions."
+        },
+        "observed_fact": "The v33 generated bundle whited out against Dustox after exhausting all six party members.",
+        "strategic_judgment": "The v33 generated bundle whited out against Dustox after exhausting all six party members.",
+        "confidence": "verified",
+        "fix_layer": "battle_policy_review",
+        "turns": [
+          35
+        ],
+        "next_test": "Run clone 1 of the corrected generated bundle from the identical opening; require a reviewed win before clone 2.",
+        "knowledge_target": "review"
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "Generated forced replacements ignored ranked matchup backups and sent contact attacker Bugatti into low Ponyta instead of Croakatoa.",
+        "state": "runtime/session/battle_reviews/states/1786465962341103000/turn-008.state",
+        "state_hash": "f5c3a8f2b4cce726",
+        "action_id": "b104bc2b18a7df1ba5f7",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "e630f4d8842ac0817966",
+          "observed": "The exact forced-Ponyta prefix now ranks first matchup backup Croakatoa above unassigned Bugatti."
+        },
+        "observed_fact": "Generated forced replacements ignored ranked matchup backups and sent contact attacker Bugatti into low Ponyta instead of Croakatoa.",
+        "strategic_judgment": "Generated forced replacements ignored ranked matchup backups and sent contact attacker Bugatti into low Ponyta instead of Croakatoa.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          8
+        ],
+        "next_test": "Run clone 1 of the corrected generated bundle from the identical opening; require a reviewed win before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "The blanket major-status switch veto rejected a burned pivot with positive hit-plus-residual survival margin, forcing Croakatoa to faint.",
+        "state": "runtime/session/battle_reviews/states/1786465962341103000/turn-021.state",
+        "state_hash": "4ab886b276eac893",
+        "action_id": "39685a76b047d81ea11a",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "c14e63e266b422feed97",
+          "observed": "Residual-aware status scoring marks Bugatti safe with seven HP margin and selects the pivot."
+        },
+        "observed_fact": "The blanket major-status switch veto rejected a burned pivot with positive hit-plus-residual survival margin, forcing Croakatoa to faint.",
+        "strategic_judgment": "The blanket major-status switch veto rejected a burned pivot with positive hit-plus-residual survival margin, forcing Croakatoa to faint.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          21
+        ],
+        "next_test": "Run clone 1 of the corrected generated bundle from the identical opening; require a reviewed win before clone 2.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "The scorer preferred three zero-progress Protect attempts because unmodeled status priority outranked executable damage.",
+        "state": "runtime/session/battle_reviews/states/1786465962341103000/turn-031.state",
+        "state_hash": "7229cf61148348c0",
+        "action_id": "206652ac0047ec0bf8bb",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "3b63e004f9d197fadc6a",
+          "observed": "The exact prefix now vetoes unmodeled Protect without explicit strategy and selects Bug Bite."
+        },
+        "observed_fact": "The scorer preferred three zero-progress Protect attempts because unmodeled status priority outranked executable damage.",
+        "strategic_judgment": "The scorer preferred three zero-progress Protect attempts because unmodeled status priority outranked executable damage.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          31,
+          32,
+          33
+        ],
+        "next_test": "Run clone 1 of the corrected generated bundle from the identical opening; require a reviewed win before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "Saved-prefix history reconstruction silently reset clone activation mode and disabled candidate strategies during regression runs.",
+        "state": "runtime/session/battle_reviews/states/1786466422353527000/turn-011.state",
+        "state_hash": "ef2e9ad6f2c8e420018b61799cb116dc2aad33d937fa6b6978f635f2c115ed65",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "360b6184de3a08f763800872143cf576780b6abedd1ab70c88d06589f79c5400",
+          "observed": "Reconstructed clone policy retains clone_trial mode; Fake Out and one-control strategy rules execute and are audited."
+        },
+        "observed_fact": "Saved-prefix history reconstruction silently reset clone activation mode and disabled candidate strategies during regression runs.",
+        "strategic_judgment": "Saved-prefix history reconstruction silently reset clone activation mode and disabled candidate strategies during regression runs.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          11,
+          12
+        ],
+        "next_test": "Run clone 1 of the corrected generated bundle from the identical opening; require a reviewed win before clone 2.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Lildozer still fainted to create the Ponyta finish, but no critical-safe dominating alternative was available.",
+        "action_changing": false,
+        "observed_fact": "Lildozer still fainted to create the Ponyta finish, but no critical-safe dominating alternative was available.",
+        "strategic_judgment": "Lildozer still fainted to create the Ponyta finish, but no critical-safe dominating alternative was available.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run clone 1 of the corrected generated bundle from the identical opening; require a reviewed win before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "verified_variance",
+        "severity": "medium",
+        "summary": "Trainer send-out order changed between runs; generated forced-switch coverage handled both observed Sunflora-first and Dustox-first branches after the fix.",
+        "action_changing": false,
+        "observed_fact": "Trainer send-out order changed between runs; generated forced-switch coverage handled both observed Sunflora-first and Dustox-first branches after the fix.",
+        "strategic_judgment": "Trainer send-out order changed between runs; generated forced-switch coverage handled both observed Sunflora-first and Dustox-first branches after the fix.",
+        "confidence": "heuristic",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run clone 1 of the corrected generated bundle from the identical opening; require a reviewed win before clone 2.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "medium",
+        "summary": "Fresh Fake Out into Flame Body burned Croakatoa, but it was the only critical-safe action and the corrected bundle still completed the battle.",
+        "action_changing": false,
+        "observed_fact": "Fresh Fake Out into Flame Body burned Croakatoa, but it was the only critical-safe action and the corrected bundle still completed the battle.",
+        "strategic_judgment": "Fresh Fake Out into Flame Body burned Croakatoa, but it was the only critical-safe action and the corrected bundle still completed the battle.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run clone 1 of the corrected generated bundle from the identical opening; require a reviewed win before clone 2.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "info",
+        "summary": "The losing bundle took 35 actions, including three Protect stalls; the corrected full regression removed the stall and won in 32.",
+        "action_changing": false,
+        "observed_fact": "The losing bundle took 35 actions, including three Protect stalls; the corrected full regression removed the stall and won in 32.",
+        "strategic_judgment": "The losing bundle took 35 actions, including three Protect stalls; the corrected full regression removed the stall and won in 32.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Run clone 1 of the corrected generated bundle from the identical opening; require a reviewed win before clone 2.",
+        "knowledge_target": "scorer"
+      }
+    ],
+    "correct_choices": [
+      "Razor Leaf opening and the Lildozer Ponyta damage line remained valid.",
+      "Fresh-entry Fake Out created verified free turns.",
+      "Birdlaw remained the correct Dustox finisher when preserved."
+    ],
+    "next_test": "Run clone 1 of the corrected generated bundle from the identical opening; require a reviewed win before clone 2."
+  }
+}

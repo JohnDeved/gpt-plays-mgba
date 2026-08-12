@@ -1,0 +1,296 @@
+{
+  "schema_version": 3,
+  "created_at": "2026-08-12T15:40:36.944663+00:00",
+  "review_id": "8cf8baa8826c4d17dd03",
+  "terminal": "win",
+  "source": "live",
+  "opening_state_hash": "9309c25dc397df40",
+  "behavior_hash": null,
+  "policy_id": "generic-scorer-v23",
+  "trainer_key": "map:3:3/local:7",
+  "matched_strategy_ids": [],
+  "certified_actions": 9,
+  "status": "needs_improvement",
+  "classification": "prediction_gap",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 9,
+    "findings": [
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "The opening scorer initially ignored the speed tie-break between equal-priority Fake Out users and suggested Sludge into a preventable flinch.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "9309c25dc397df40",
+          "observed": "The shared priority comparator now uses effective speed for equal priority; the exact regression and all 235 tests pass."
+        },
+        "observed_fact": "Croakatoa was faster and its Fake Out safely flinched Makuhita before Makuhita could act.",
+        "strategic_judgment": "Winning equal-priority Fake Out is free damage and tempo; slower damage must not replace it.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "baa21ff2483386a142cc"
+        ],
+        "next_test": "Require the corrected shared scorer on the next Dewford trainer without profile code.",
+        "state_unavailable_reason": "The authoritative live state advanced; the exact RAM fixture and transaction hashes are preserved.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "Guts initially removed only the burn penalty instead of applying the 1.5x physical Attack boost for any major status.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "55e8c233570451d1",
+          "observed": "Shared damage mechanics now apply Guts to burn and poison; exact bounds contain the observed Bullet Punch and all tests pass."
+        },
+        "observed_fact": "Poisoned Makuhita dealt 16 damage with Bullet Punch, above the old estimate.",
+        "strategic_judgment": "Underestimating a status-activated attacker can convert a safe continuation into an avoidable faint.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "fb2d1e8d5619e1d24e1e"
+        ],
+        "next_test": "Verify status-activated abilities continue to affect every physical move estimate.",
+        "state_unavailable_reason": "The live state advanced; exact pre/post transaction hashes and regression stats are preserved.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "Opponent Fake Out remained falsely legal after its entry turn because enemy freshness was not reconstructed from persisted transactions.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "55e8c233570451d1",
+          "observed": "BattleHistory now reconstructs opponent freshness and constrains stale Fake Out; restart and scorer regressions pass."
+        },
+        "observed_fact": "Makuhita had already spent its entry turn, but the old candidate set continued to include Fake Out.",
+        "strategic_judgment": "A stale priority threat distorts KO, survival, and switch rankings.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          "fb2d1e8d5619e1d24e1e",
+          "de90007ee16e83e83843"
+        ],
+        "next_test": "Pass one stable battle_id through every evaluate and step call on the next trainer.",
+        "state_unavailable_reason": "The live state advanced; persisted battle transactions reproduce the history.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "Iron Fist and Muscle Band were omitted, understating Ledian punch damage.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "9a946fbdc9f6b255",
+          "observed": "Shared damage bounds now stack Iron Fist and Muscle Band; ThunderPunch is 16-20 and observed 18 fits."
+        },
+        "observed_fact": "ThunderPunch dealt 18 while the old bound was 13-16.",
+        "strategic_judgment": "Stacked attacker modifiers must be modeled before declaring a continuation or switch safe.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "f5b05d4f24229a334452"
+        ],
+        "next_test": "Retain modifier stacking in all bench and active damage evaluations.",
+        "state_unavailable_reason": "The live state advanced; the exact observed delta and regression fixture remain.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "Missing Sandile fallback typing made Snackodile appear falsely safe against Fighting coverage.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "9a946fbdc9f6b255",
+          "observed": "The shared species fallback now identifies Sandile as Ground/Dark and the switch regression rejects the false safety claim."
+        },
+        "observed_fact": "Bench scoring lacked Snackodile types even though the active battle evaluator needed them for incoming damage.",
+        "strategic_judgment": "Unknown bench typing must never be treated as neutral when ranking survival switches.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "3d719564d88a47a91a40"
+        ],
+        "next_test": "Prefer ROM-resolved bench types and fail conservative when neither RAM nor ROM resolves them.",
+        "state_unavailable_reason": "The live state advanced; exact team stats and regression are preserved.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "The finishing rule initially treated a slower lethal critical as preempting a faster guaranteed KO.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "612c96ea10a64716",
+          "observed": "Only equal-or-higher-priority replies that act first now block a finish; Spark correctly survived Mach Punch and KOed Ledian."
+        },
+        "observed_fact": "Ohmnomnom could act before Ledian except for Mach Punch, which could not KO.",
+        "strategic_judgment": "Threats that cannot occur before a guaranteed KO must not force an unnecessary switch.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "dfcfa110cec371551b71"
+        ],
+        "next_test": "Keep speed and priority ordering explicit in every finish certificate.",
+        "state_unavailable_reason": "The live state advanced; the exact certificate and result are in the transaction log.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "Reversal HP scaling and full-HP Focus Sash were absent, so raw Spark damage initially looked like a safe one-turn finish on Mankey.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "230c785a8db7b651",
+          "observed": "Shared mechanics now scale Reversal from current HP and add Focus Sash effective HP only at full health; exact regressions pass."
+        },
+        "observed_fact": "Mankey entered at 44/44 with Focus Sash and Reversal, making an immediate Spark create a lethal low-HP reply.",
+        "strategic_judgment": "Damage planning must account for survival items and moves whose power changes after our hit.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "fca62251d8da6b98c0dc"
+        ],
+        "next_test": "Evaluate threshold-sensitive retaliation before choosing every non-KO damaging move.",
+        "state_unavailable_reason": "The live state advanced; exact live stats and regression fixture are preserved.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "tactical_error",
+        "severity": "high",
+        "summary": "The Reversal safeguard returned Nuzzle before comparing critical-safe switches, exposing Ohmnomnom to a possible Power-Up Punch critical faint.",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "230c785a8db7b651",
+          "observed": "Scorer v23 retains the safe Reversal threshold but continues into survival ranking; the exact live-stat regression now selects full-HP Lildozer and all 235 tests pass."
+        },
+        "observed_fact": "Nuzzle succeeded, but Power-Up Punch reduced Ohmnomnom from 39 to 13 and a critical could have fainted it.",
+        "strategic_judgment": "Avoiding a Reversal threshold cannot bypass the higher-priority catastrophic-loss comparison.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          "fca62251d8da6b98c0dc"
+        ],
+        "next_test": "Require critical-safe switch comparison after every move-specific tactical guard.",
+        "state_unavailable_reason": "No pre-Nuzzle savestate was retained; the full live RAM values and exact transaction were converted into a deterministic regression.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "medium",
+        "summary": "ROM trainer identity reported Cristian and a double format while authoritative live state identified Battle Girl Lilith in a single battle.",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "map:3:3/local:7 did not match the live trainer name or battle format.",
+        "strategic_judgment": "Stable overworld identity must link to the live roster before hard-fight preparation can trust it.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          "whole_fight"
+        ],
+        "next_test": "Reconcile the trainer record from live identity and roster before Brawly preflight.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "medium",
+        "summary": "Held item 445 was externally labeled Flame Orb but inflicted poison in the live battle.",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "Makuhita became poisoned from its held item after the opening turn.",
+        "strategic_judgment": "Use authoritative live effects until the hack item-name table is decoded correctly.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          "baa21ff2483386a142cc"
+        ],
+        "next_test": "Decode item 445 from ROM behavior before using its name in preparation.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "tooling_mismatch",
+        "severity": "medium",
+        "summary": "Enemy Mach Punch PP was not attributed when Ledian fainted and the next opponent entered in the same transition.",
+        "action_changing": false,
+        "resolved": false,
+        "observed_fact": "HP and feedback showed a pre-Spark Mach Punch, but enemy_move_id was null.",
+        "strategic_judgment": "Transition turns should retain the outgoing opponent action for future move-history constraints.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          "dfcfa110cec371551b71"
+        ],
+        "next_test": "Add an outgoing-foe PP attribution regression without changing current live progress.",
+        "knowledge_target": "tooling"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "medium",
+        "summary": "The first final-step call omitted battle_id and was safely refused as a stale certificate.",
+        "action_changing": false,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "230c785a8db7b651",
+          "observed": "The corrected call passed the same battle_id and certificate and executed Spark; the battle skill now mandates identical history context."
+        },
+        "observed_fact": "The state hash matched but execution rebuilt different enemy-move evidence without battle_id.",
+        "strategic_judgment": "Evaluation and execution must share one history identity to avoid repeat calls and stale evidence.",
+        "confidence": "verified",
+        "fix_layer": "battle_policy_review",
+        "turns": [
+          "8a486a94f07b8438b4eb"
+        ],
+        "next_test": "Use --brief with the same battle_id on both calls for the next trainer.",
+        "knowledge_target": "review"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "low",
+        "summary": "Iron Barbs recoil remains visible only after execution rather than in projected outgoing damage.",
+        "action_changing": true,
+        "resolved": false,
+        "observed_fact": "Iron Barbs repeatedly chipped contact attackers and changed later KO thresholds.",
+        "strategic_judgment": "Projected contact recoil could improve threshold selection, but no Lilith action is proven dominated by its omission.",
+        "confidence": "heuristic",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          "3d719564d88a47a91a40",
+          "dfcfa110cec371551b71",
+          "fca62251d8da6b98c0dc"
+        ],
+        "next_test": "Model contact recoil only when a bounded regression shows it changes a candidate ranking.",
+        "knowledge_target": "mechanics"
+      }
+    ],
+    "correct_choices": [
+      "Faster Fake Out converted the opening into free damage and poison tempo.",
+      "Guts-aware Sludge followed by priority Vacuum Wave finished Makuhita safely.",
+      "The corrected modifier and typing model selected a critical-safe Ohmnomnom pivot into Ledian.",
+      "Fresh-entry Fake Out and speed-aware Spark finished Ledian without switch churn.",
+      "Nuzzle broke Focus Sash and controlled speed; scorer v23 now improves its critical-risk ordering.",
+      "Final Spark was a verified first-hit KO before any reply."
+    ],
+    "next_test": "Use scorer v23 and --brief on the next Dewford trainer; fix any bad recommendation in the shared classifier before input."
+  }
+}

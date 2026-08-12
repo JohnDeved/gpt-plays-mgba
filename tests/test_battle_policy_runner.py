@@ -119,6 +119,13 @@ class BattlePolicyRunnerTests(unittest.TestCase):
         self.assertEqual(output.call_args.kwargs["flush"], True)
         self.assertIn('"turn":1', output.call_args.args[0])
 
+    def test_policy_certificate_uses_reconstructed_fresh_entry(self):
+        policy = MagicMock()
+        policy.history.fresh_entry = False
+        with patch.object(MODULE, "_battle_certificate", return_value={"certificate_id": "cert"}) as certificate:
+            self.assertEqual(MODULE._certificate_for_policy("adapter", {"battle": {}}, policy), {"certificate_id": "cert"})
+        certificate.assert_called_once_with("adapter", {"battle": {}}, fresh_entry=False)
+
     def test_terminal_progress_keeps_review_details_on_disk(self):
         summary = MODULE._review_progress({
             "review_id": "r1", "terminal": "win", "status": "clean",
