@@ -19,13 +19,14 @@ from .rom_data import ABILITY_TYPE_IMMUNITIES
 
 ROOT = Path(__file__).resolve().parents[2]
 STRATEGY_DB = ROOT / ".agents" / "skills" / "develop-runbun-strategies" / "references" / "strategies.json"
-POLICY_ENGINE_VERSION = "hybrid-policy-v38"
+POLICY_ENGINE_VERSION = "hybrid-policy-v39"
 # Verified Run & Bun ROM move: Infestation prevents voluntary switching while
 # its volatile effect is active. Keep this generic so unknown trainers benefit.
 VOLATILE_TRAP_MOVE_IDS = frozenset({611})
 LOCKED_MULTI_TURN_MOVE_IDS = frozenset({205})  # Rollout, verified five-turn lock.
 LOCKED_ENEMY_MOVE_IDS = frozenset({37, 200})  # Thrash and Outrage: next turn is forced after first use.
 FLINCH_IMMUNE_ABILITIES = frozenset({19, 39})  # Shield Dust, Inner Focus
+EJECT_BUTTON_ITEM_ID = 501
 FREEZE_STATUS = 0x20
 SUPPORTED_PREDICATES = frozenset({
     "battle_format",
@@ -1361,6 +1362,8 @@ class BattlePolicy:
             ]
             move = min(matching_moves, key=lambda item: item.get("damage_range", [0])[0]) if matching_moves else None
             continuation: dict[str, Any]
+            eject_button_risk = False
+            move_uncertainties: list[str] = []
             if move:
                 minimum, estimate = move.get("damage_range", [0, 0])[0], move.get("damage_est", 0)
                 guaranteed = bool(move.get("guaranteed_hit", True) and minimum >= opponent_hp > 0)
@@ -1387,6 +1390,20 @@ class BattlePolicy:
                     "active_survives_next_critical": active_survives_next_critical,
                     "safe_return_targets": [_action_key(item) for item in safe_return_targets] if fresh_fake_out else [],
                 }
+                opponent_item = int(opponent.get("held_item", opponent.get("held_item_id", 0)) or 0)
+                eject_button_risk = bool(
+                    opponent_item == EJECT_BUTTON_ITEM_ID
+                    and minimum > 0
+                    and not guaranteed
+                )
+                if eject_button_risk:
+                    safe = False
+                    proof = "eject_button_forced_replacement"
+                    continuation["next_action_reachable"] = False
+                    continuation["eject_button_forced_replacement"] = True
+                move_uncertainties = list(move.get("uncertainties", []))
+                if eject_button_risk:
+                    move_uncertainties.append("defender_held_item:eject_button_forced_replacement")
                 if incapacitated:
                     minimum = estimate = 0.0
                     guaranteed = safe = acts_before_threat = False
@@ -1415,6 +1432,8 @@ class BattlePolicy:
             forbidden_by = [] if action.get("kind") == "switch" and incapacitated else list(vetoes.get(key, []))
             if action.get("kind") == "move" and int(action.get("move_id", 0)) == 252 and not self.history.fresh_entry_for(certificate, action):
                 forbidden_by.append("mechanics:fake_out_requires_fresh_entry")
+            if eject_button_risk:
+                forbidden_by.append("mechanics:eject_button_forced_replacement")
             if (
                 action.get("kind") == "move"
                 and int(action.get("move_id", 0)) in LOCKED_MULTI_TURN_MOVE_IDS
@@ -1479,7 +1498,7 @@ class BattlePolicy:
                 "damage_min": minimum,
                 "damage_est": estimate,
                 "evidence": proof,
-                "uncertainties": list(move.get("uncertainties", [])) if move else [],
+                "uncertainties": move_uncertainties,
                 "continuation": continuation,
                 "forbidden_by": forbidden_by,
             })
@@ -1518,6 +1537,12 @@ class BattlePolicy:
         preferences, vetoes, reservations, applied = self._directive_effects(certificate)
         candidates = self._candidates(certificate, preferences, vetoes, reservations)
         allowed = [item for item in candidates if not item["forbidden_by"]]
+        if (
+            self.activation_mode in {"clone_trial", "qualified_live"}
+            and not bool((certificate.get("boundary") or {}).get("party_switch_required"))
+            and not any(item["safe"] for item in allowed)
+        ):
+            raise PolicyError("no safe legal action at voluntary battle boundary; hard-fight preparation required")
         selected = allowed[0]
         applied_strategy_ids = sorted({
             str(item).split("strategy:", 1)[1].split("/rule:", 1)[0]

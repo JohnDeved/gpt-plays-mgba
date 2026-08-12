@@ -74,6 +74,16 @@ class RunbunCallTest(unittest.TestCase):
             self.assertEqual(main(["game_observe", "--clone-state", "fixture.state"]), 0)
         self.assertEqual(run.call_args.kwargs["env"]["MGBA_RPC_PORT"], "54321")
         self.assertIn("MGBA_RUNTIME_DIR", run.call_args.kwargs["env"])
+        self.assertEqual(run.call_args.kwargs["env"]["RUNBUN_SESSION_KIND"], "clone")
+
+    def test_clone_can_save_state_after_successful_call(self):
+        response = '{"jsonrpc":"2.0","id":1,"result":{"structuredContent":{"ok":true}}}\n'
+        gba = SimpleNamespace(port=54321, save_state=unittest.mock.Mock())
+        with patch("client.mgba_clone.disposable_clone", return_value=contextlib.nullcontext(gba)), \
+             patch("tools.runbun_call.subprocess.run", return_value=subprocess.CompletedProcess([], 0, response, "")), \
+             contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(main(["game_observe", "--clone-state", "fixture.state", "--save-state-after", "/tmp/after.state"]), 0)
+        gba.save_state.assert_called_once()
 
 
 if __name__ == "__main__":

@@ -175,6 +175,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("name", help="capability name, for example game_observe")
     parser.add_argument("--args", default="{}", help="JSON object of capability arguments")
     parser.add_argument("--clone-state", type=Path, help="run against a disposable muted clone")
+    parser.add_argument("--save-state-after", type=Path, help="save a disposable clone state after a successful call")
     parser.add_argument("--output", type=Path, help="atomically persist structured output instead of printing it")
     parser.add_argument("--brief", action="store_true", help="print a compact decision-bearing view")
     args = parser.parse_args(argv)
@@ -203,6 +204,7 @@ def main(argv: list[str] | None = None) -> int:
             if gba is not None:
                 env["MGBA_RPC_PORT"] = str(gba.port)
                 env["MGBA_RUNTIME_DIR"] = clone_runtime
+                env["RUNBUN_SESSION_KIND"] = "clone"
             result = subprocess.run(
                 [sys.executable, str(ROOT / "tools" / "runbun_mcp.py")],
                 input=json.dumps(request) + "\n",
@@ -212,6 +214,16 @@ def main(argv: list[str] | None = None) -> int:
                 env=env,
                 check=False,
             )
+        if gba is not None and args.save_state_after and result.returncode == 0:
+            try:
+                candidate = json.loads(result.stdout)
+                body = candidate.get("result", {})
+                if "error" not in candidate and not body.get("isError"):
+                    saved = args.save_state_after.expanduser().resolve()
+                    saved.parent.mkdir(parents=True, exist_ok=True)
+                    gba.save_state(saved)
+            except json.JSONDecodeError:
+                pass
     if result.returncode:
         sys.stderr.write(result.stderr)
         return result.returncode

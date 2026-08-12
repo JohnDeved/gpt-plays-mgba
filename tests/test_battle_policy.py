@@ -1063,6 +1063,31 @@ class BattlePolicyTests(unittest.TestCase):
         self.assertTrue(fake_out["continuation"]["next_action_reachable"])
         self.assertEqual(fake_out["evidence"], "fresh_entry_flinch")
 
+    def test_eject_button_blocks_unqualified_fresh_fake_out_safety(self):
+        profile = self.profile()
+        profile["constraints"] = []
+        profile["reserve_objectives"] = []
+        cert = certificate(player_species=1, opponent_species=2, move_ids=(252, 10))
+        cert["compact_state"]["battle"]["mons"][1]["held_item"] = 501
+        decision = BattlePolicy(profile).decide(cert)
+        fake_out = next(item for item in decision["candidates"] if item["action"].get("move_id") == 252)
+        self.assertIn("mechanics:eject_button_forced_replacement", fake_out["forbidden_by"])
+        self.assertEqual(fake_out["evidence"], "eject_button_forced_replacement")
+        self.assertFalse(fake_out["safe"])
+        self.assertNotEqual(decision["action"].get("move_id"), 252)
+
+    def test_clone_trial_stops_when_no_safe_action_exists(self):
+        profile = self.profile()
+        profile["constraints"] = []
+        profile["reserve_objectives"] = []
+        cert = certificate(player_species=1, opponent_species=2, move_ids=(10, 11))
+        cert["legal_actions"] = cert["legal_actions"][:2]
+        cert["state"]["player"]["hp"] = 10
+        cert["compact_state"]["battle"]["mons"][0]["hp"] = 10
+        cert["incoming"]["critical_max_damage_est"] = 100
+        with self.assertRaisesRegex(PolicyError, "no safe legal action"):
+            BattlePolicy(profile, activation_mode="clone_trial").decide(cert)
+
     def test_shield_dust_does_not_certify_fake_out_flinch_safety(self):
         profile = load_profile(Path("games/run_and_bun/policy_profiles/gavi_coppertop.json"))
         cert = certificate(player_species=453, opponent_species=269, move_ids=(252, 410))

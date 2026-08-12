@@ -14,5 +14,178 @@
   "influential_strategy_ids": [],
   "certified_actions": 23,
   "status": "needs_improvement",
-  "classification": "tactical_error"
+  "classification": "terminal_loss",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 23,
+    "findings": [
+      {
+        "kind": "terminal_loss",
+        "severity": "critical",
+        "summary": "The prepared clone ended in whiteout after 23 verified actions.",
+        "action_changing": true,
+        "observed_fact": "Snackodile was reduced from 2 HP to 0 by Lopunny Drain Punch; no usable Pokémon remained and the cartridge reported GPT whited out.",
+        "strategic_judgment": "The action bundle did not preserve a survivable line and must not qualify or retry unchanged.",
+        "confidence": "verified",
+        "fix_layer": "battle_policy_review",
+        "turns": [
+          23
+        ],
+        "next_test": "Correct preparation and no-safe-line handling, then run a fresh disposable clone from the protected opening.",
+        "state_unavailable_reason": "The terminal whiteout state is not a reversible pre-decision fixture; causal decision states are attached to the preparation and policy findings.",
+        "knowledge_target": "review"
+      },
+      {
+        "kind": "preparation_failure",
+        "severity": "high",
+        "summary": "The current six-Pokémon build had no verified safe continuation after the opening switch into Kubfu.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-brawly-precontact-20260812.state",
+        "action_changing": true,
+        "resolved": false,
+        "observed_fact": "The opening switch to Lildozer was safe, but the next selected Bulldoze and Ice Shard decisions were both unsafe; Lildozer then fainted before Kubfu was defeated.",
+        "strategic_judgment": "Readiness accepted a team whose first matchup could not sustain a verified follow-up. Preparation must prove survivability and reserve depth, not only full HP and legal moves.",
+        "confidence": "verified",
+        "fix_layer": "hard_fight_preparation",
+        "turns": [
+          1,
+          2,
+          3
+        ],
+        "next_test": "Recompute owned-counter/build options and validate a replacement team or move/order plan against exact Brawly damage and reserve constraints.",
+        "knowledge_target": "preparation"
+      },
+      {
+        "kind": "policy_gap",
+        "severity": "high",
+        "summary": "The policy selected unsafe actions instead of stopping the clone for preparation.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/brawly-v34-clone-1r/turn-002.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "a5e4bd76e5820016",
+          "observed": "Exact disposable replay stopped before input with no safe legal action; corrected clone gate preserved state a5e4bd76e5820016."
+        },
+        "observed_fact": "At turn 2 the selected Bulldoze had safe=false and survival margin -10; at turn 3 the selected Ice Shard had safe=false and survival margin -35, with no safe continuation reported.",
+        "strategic_judgment": "When every legal line is unsafe, continuing damage-only actions spends a clone and hides a preparation failure. The hard-fight runner needs a deterministic no-safe-line gate.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          2,
+          3
+        ],
+        "next_test": "Replay turn 2 after adding the gate and require a verified preparation stop rather than an unsafe input.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "prediction_gap",
+        "severity": "high",
+        "summary": "Fresh-entry Fake Out was treated as safe without modeling Lopunny’s Eject Button replacement.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/brawly-v34-clone-1r/turn-009.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "8482689ea16c3897",
+          "observed": "Exact disposable replay at the attached Lopunny state forbade the nonlethal Eject Button-triggering Fake Out and stopped before input at 8482689ea16c3897."
+        },
+        "observed_fact": "The selected Fake Out certificate listed fresh_entry_flinch and safe=true while recording defender_held_item_effect_unmodeled:501; the cartridge then forced Lopunny out with Eject Button and sent Combusken.",
+        "strategic_judgment": "The fresh Fake Out rule is valid only when the forced replacement risk is modeled. Item-triggered replacement can invalidate the apparent free turn and must affect ranking or uncertainty.",
+        "confidence": "verified",
+        "fix_layer": "shared_battle_mechanics",
+        "turns": [
+          9
+        ],
+        "next_test": "Add deterministic Eject Button replacement handling and replay the attached turn-9 state; Fake Out must no longer receive an unqualified safe bonus.",
+        "knowledge_target": "mechanics"
+      },
+      {
+        "kind": "safety_risk",
+        "severity": "high",
+        "summary": "After the Eject Button replacement, the policy continued with two known-unsafe attacks and lost Croakatoa.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/brawly-v34-clone-1r/turn-010.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "171b57f9e70a3894",
+          "observed": "Exact disposable replay at the attached Combusken state stopped before input because no safe legal action existed; Mud Shot and Vacuum Wave were not executed."
+        },
+        "observed_fact": "Mud Shot and Vacuum Wave were selected with safe=false and survival margins -36 and -78; Croakatoa fainted while Combusken remained alive.",
+        "strategic_judgment": "The scorer exposed a second active to a known losing exchange instead of refusing the line or preserving the reserve for a prepared replay.",
+        "confidence": "verified",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          10,
+          11
+        ],
+        "next_test": "Replay turn 10 with the corrected no-safe-line and replacement-risk logic and verify that no unsafe attack is executed.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "reserve_misuse",
+        "severity": "medium",
+        "summary": "Ohmnomnom was kept in through a deteriorating Lopunny exchange without a verified preservation line.",
+        "action_changing": false,
+        "observed_fact": "Spark was used four times; Ohmnomnom fell from 59 HP to 31, then 3, then fainted while Lopunny survived at 12 HP.",
+        "strategic_judgment": "This is a reusable reserve-preservation candidate, but no switch or Fake Out alternative has yet been bounded-replayed as lexicographically dominant because the recorded switches were unsafe.",
+        "confidence": "heuristic",
+        "fix_layer": "generic_tactical_scorer",
+        "turns": [
+          13,
+          14,
+          15,
+          16
+        ],
+        "next_test": "Bound one fresh-entry Fake Out and one preservation switch from turn 13 before changing the ranking.",
+        "knowledge_target": "scorer"
+      },
+      {
+        "kind": "tempo_cost",
+        "severity": "medium",
+        "summary": "The tail of the fight spent six actions on damage-only exchanges after all active choices were unsafe.",
+        "action_changing": false,
+        "observed_fact": "Coppertop used Rock Smash twice and Snackodile used Bulldoze three times into Lopunny Drain Punch; the sequence ended in whiteout without a safe candidate.",
+        "strategic_judgment": "The repeated tail added frames, PP use, and exposure without improving the verified outcome; the new gate should stop at the earliest no-safe state.",
+        "confidence": "verified",
+        "fix_layer": "battle_policy_review",
+        "turns": [
+          18,
+          19,
+          21,
+          22,
+          23
+        ],
+        "next_test": "Confirm the corrected runner stops once the safe candidate set is empty and records the exact stop state.",
+        "knowledge_target": "review"
+      },
+      {
+        "kind": "resource_loss",
+        "severity": "low",
+        "summary": "The failed clone consumed Fake Out, Spark, Rock Smash, and Bulldoze PP without a win.",
+        "action_changing": false,
+        "observed_fact": "The clone spent one Fake Out, four Spark, two Rock Smash, and four Bulldoze uses before whiteout.",
+        "strategic_judgment": "This is secondary to survival, but a no-safe-line stop and better preparation will preserve resources for the next verified attempt.",
+        "confidence": "verified",
+        "fix_layer": "battle_policy_review",
+        "turns": [
+          9,
+          13,
+          18,
+          21
+        ],
+        "next_test": "Measure PP and action count on the corrected clone before qualification.",
+        "knowledge_target": "review"
+      }
+    ],
+    "correct_choices": [
+      "The clone began from the protected opening and every submitted action was verified against the cartridge.",
+      "The initial Croakatoa-to-Lildozer switch was safe against Kubfu and preserved Croakatoa.",
+      "Bushtank safely removed Kubfu after the forced replacement and all forced switches were obeyed.",
+      "The runner did not touch the authoritative live emulator during the disposable loss."
+    ],
+    "next_test": "Fix the shared Eject Button mechanics and clone no-safe-line gate, recompute the prepared team, resolve every attached high-severity finding by exact replay, then start clone 1 again."
+  }
 }
