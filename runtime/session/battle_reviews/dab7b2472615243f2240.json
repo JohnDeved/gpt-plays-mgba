@@ -1,0 +1,53 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-12T18:18:00.218746+00:00",
+  "review_id": "dab7b2472615243f2240",
+  "terminal": "step_mismatch",
+  "source": "cartridge_clone",
+  "opening_state_hash": "74b54ec61efdc2b6dfd3363dbd53d8dbcf7b046a43dfa31ec38071de6b101e10",
+  "behavior_hash": "2871f8768206fded8ddd232af80f3abaa56dd94dc40c1ba56e30887051ba277d",
+  "policy_id": "generated-map-3-3-local-1",
+  "trainer_key": "map:3:3/local:1",
+  "matched_strategy_ids": [
+    "fresh-entry-fake-out-tempo"
+  ],
+  "influential_strategy_ids": [],
+  "certified_actions": 2,
+  "status": "needs_improvement",
+  "classification": "tooling_mismatch",
+  "agent_review": {
+    "schema_version": 3,
+    "status": "complete",
+    "author": "agent",
+    "reviewed_actions": 2,
+    "findings": [
+      {
+        "kind": "tooling_mismatch",
+        "severity": "high",
+        "summary": "After the verified Croakatoa-to-Lildozer switch, the runner omitted the reconstructed opponent-move constraint from its next certificate; execution correctly rejected the stale certificate before input.",
+        "state": "/Users/johann/gpt-plays-mgba/runtime/session/battle_reviews/states/brawly-v34-clone-1/turn-002.state",
+        "action_changing": true,
+        "resolved": true,
+        "resolution": {
+          "verified": true,
+          "post_state_hash": "6e747b614229a151",
+          "observed": "Exact replay from attached turn-002 state used history-aware certificate 0f7ce9f08e1b1e563db4; Bulldoze executed with verified:true, post-state 6e747b614229a151, and no discrepancy."
+        },
+        "observed_fact": "Runner expected d16042ddbaa36efffcc5, while the shared history-aware evaluator/executor produced 0f7ce9f08e1b1e563db4 with opponent moves constrained to 5/280/389/428.",
+        "strategic_judgment": "The refusal protected the clone. Evaluation and execution must use identical fresh-entry and verified enemy-history context.",
+        "confidence": "verified",
+        "fix_layer": "shared_observation_execution_tooling",
+        "turns": [
+          2
+        ],
+        "next_test": "Run the corrected runner from the protected Brawly opening and require certificate equality through the next action.",
+        "knowledge_target": "tooling"
+      }
+    ],
+    "correct_choices": [
+      "The initial switch to Lildozer was verified and safety-preserving against Kubfu's threat.",
+      "The stale-certificate refusal sent no unintended battle input."
+    ],
+    "next_test": "Replay the attached turn-2 state with the history-aware certificate, then rerun clone 1 from the protected Brawly opening after the shared helper fix."
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-08-12T18:21:25.920460+00:00",
+  "review_id": "eea0f8b95e14e59b0af3",
+  "terminal": "loss",
+  "source": "cartridge_clone",
+  "opening_state_hash": "74b54ec61efdc2b6dfd3363dbd53d8dbcf7b046a43dfa31ec38071de6b101e10",
+  "behavior_hash": "2871f8768206fded8ddd232af80f3abaa56dd94dc40c1ba56e30887051ba277d",
+  "policy_id": "generated-map-3-3-local-1",
+  "trainer_key": "map:3:3/local:1",
+  "matched_strategy_ids": [
+    "fresh-entry-fake-out-tempo"
+  ],
+  "influential_strategy_ids": [],
+  "certified_actions": 23,
+  "status": "needs_improvement",
+  "classification": "tactical_error"
+}

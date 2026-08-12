@@ -957,6 +957,31 @@
         5
       ],
       "verified": true
+    },
+    {
+      "path": "/Users/johann/gpt-plays-mgba/runtime/session/dewford-brawly-precontact-20260812.state",
+      "sha256": "74b54ec61efdc2b6dfd3363dbd53d8dbcf7b046a43dfa31ec38071de6b101e10",
+      "recorded_at": "2026-08-12T18:17:36.836158+00:00",
+      "canonical_state_hash": "e24e32a0c8750538",
+      "map": [
+        3,
+        3,
+        4,
+        4
+      ],
+      "completed_milestones": [
+        "map:0:24/local:7",
+        "map:0:24/local:21",
+        "map:0:25/reached",
+        "map:0:25/local:23",
+        "map:9:8/team-aqua-event"
+      ],
+      "rank": [
+        4,
+        5,
+        5
+      ],
+      "verified": true
     }
   ],
   "furthest_checkpoint_sha256": "b5e593296e8b3da481a13347a459328ec0db087dc7cef67eb4512a2441301907",
@@ -988,13 +1013,13 @@
   ],
   "blockers": [],
   "last_reconciled": {
-    "at": "2026-08-12T17:56:32.149673+00:00",
-    "canonical_state_hash": "b01d9ab48f9749b4",
+    "at": "2026-08-12T18:17:36.799138+00:00",
+    "canonical_state_hash": "e24e32a0c8750538",
     "sources": [
       {
-        "kind": "trainer_flag",
-        "source": "runtime/session/battle_reviews/dewford-gym-jocelyn-live.json",
-        "value": "Dewford Gym local 3 Battle Girl Jocelyn defeated and reviewed; all six party members healed to full HP/status/PP."
+        "kind": "emulator_api",
+        "source": "tools/runbun_call game_observe --brief",
+        "value": "map 3:3 x4 y4; battle inactive; six party members full HP/status/PP; Brawly precontact"
       }
     ]
   }

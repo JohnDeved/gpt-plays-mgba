@@ -23,6 +23,7 @@ from games.run_and_bun.battle_review import REVIEW_STATE_DIR, QualificationLedge
 from games.run_and_bun.capabilities import (
     CapabilityError,
     _battle_certificate,
+    _battle_mon,
     _battle_step,
     _branch_terminal,
     _stable_battle_observation,
@@ -89,7 +90,15 @@ def _stable(adapter: RunBunAdapter, gba: MGBA) -> tuple[dict, dict] | None:
 
 
 def _certificate_for_policy(adapter: RunBunAdapter, observation: dict, policy: BattlePolicy) -> dict:
-    return _battle_certificate(adapter, observation, fresh_entry=policy.history.fresh_entry)
+    opponent = _battle_mon(observation, 1) or {}
+    constrained = policy.history.enemy_move_constraint(
+        int(opponent.get("species", 0) or 0), opponent=opponent,
+    )
+    return _battle_certificate(
+        adapter, observation,
+        fresh_entry=policy.history.fresh_entry,
+        opponent_move_ids=constrained,
+    )
 
 
 def _advance(adapter: RunBunAdapter, gba: MGBA) -> tuple[dict, dict] | None:

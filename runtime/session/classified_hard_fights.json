@@ -3,6 +3,9 @@
   "hard_fights": {
     "map:0:25/local:23": {
       "first_loss_review_id": "25d9b59cd8385d90e90d"
+    },
+    "map:3:3/local:1": {
+      "first_loss_review_id": "eea0f8b95e14e59b0af3"
     }
   }
 }
